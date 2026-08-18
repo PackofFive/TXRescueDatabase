@@ -14,6 +14,21 @@ export async function GET(req: NextRequest) {
   const region = searchParams.get("region");
   const species = searchParams.get("species");
 
+  // TEMPORARY diagnostic mode: hit /api/orgs?diag=1 to check whether the
+  // Worker can even see DATABASE_URL, before we try to use it. Never
+  // returns the full value — just enough to confirm it's present and
+  // roughly well-formed. Remove this block once things are working.
+  if (searchParams.get("diag") === "1") {
+    const raw = process.env.DATABASE_URL;
+    return NextResponse.json({
+      hasDatabaseUrl: !!raw,
+      length: raw?.length ?? 0,
+      startsWithPostgres: raw?.startsWith("postgres") ?? false,
+      firstChars: raw ? raw.slice(0, 15) : null,
+      hasSessionSecret: !!process.env.SESSION_SECRET,
+    });
+  }
+
   try {
     // Base query joins organizations to their capability row.
     // Using template-literal params throughout (never string-concatenated
@@ -37,6 +52,7 @@ export async function GET(req: NextRequest) {
     // this catch block (or stop returning `detail`) once things are
     // working — you don't want internal error detail exposed in production.
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: "Query failed", detail: message }, { status: 500 });
+    const stack = err instanceof Error ? err.stack : undefined;
+    return NextResponse.json({ error: "Query failed", detail: message, stack }, { status: 500 });
   }
 }
