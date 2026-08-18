@@ -5,11 +5,23 @@ import { sql } from "./db";
 
 // SESSION_SECRET is a long random string you generate once and set as an
 // environment variable — see README.md. Never commit a real value.
-const SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET) {
-  throw new Error("SESSION_SECRET is not set. See README.md for setup steps.");
+//
+// IMPORTANT: kept lazy (inside a function) rather than evaluated at
+// module top-level, for the same reason as lib/db.ts — Next.js imports
+// every route file during the build's page-data-collection step, in an
+// environment without your Cloudflare environment variables. A
+// top-level throw here would fail the build itself.
+let cachedSecretKey: Uint8Array | null = null;
+
+function getSecretKey(): Uint8Array {
+  if (cachedSecretKey) return cachedSecretKey;
+  const SESSION_SECRET = process.env.SESSION_SECRET;
+  if (!SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is not set. See README.md for setup steps.");
+  }
+  cachedSecretKey = new TextEncoder().encode(SESSION_SECRET);
+  return cachedSecretKey;
 }
-const secretKey = new TextEncoder().encode(SESSION_SECRET);
 
 const COOKIE_NAME = "txard_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 14; // 14 days
@@ -35,7 +47,7 @@ export async function createSession(user: SessionUser) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(secretKey);
+    .sign(getSecretKey());
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -59,7 +71,7 @@ export async function getSession(): Promise<SessionUser | null> {
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secretKey);
+    const { payload } = await jwtVerify(token, getSecretKey());
     return payload as unknown as SessionUser;
   } catch {
     return null; // expired or tampered token
