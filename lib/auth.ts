@@ -65,16 +65,20 @@ export async function destroySession() {
 }
 
 // Reads and verifies the session cookie. Returns null if there is no
-// session or it's invalid/expired — callers must treat null as "not logged in."
+// session or anything about reading/verifying it goes wrong — callers
+// must treat null as "not logged in." The whole function body is inside
+// one try/catch (not just the token verification) so a malformed cookie
+// or any other unexpected failure here always resolves to "not signed
+// in" instead of leaking a raw error message to the caller.
 export async function getSession(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+    if (!token) return null;
     const { payload } = await jwtVerify(token, getSecretKey());
     return payload as unknown as SessionUser;
   } catch {
-    return null; // expired or tampered token
+    return null; // missing, expired, tampered, or otherwise unreadable
   }
 }
 
