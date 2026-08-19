@@ -26,6 +26,8 @@ type Org = {
   resource_status: string | null;
   last_verified: string | null;
   notes: string | null;
+  is_claimed: boolean;
+  last_org_update: string | null;
   // capability columns accessed dynamically via CAPABILITY_FIELDS keys
   [key: string]: unknown;
 };
@@ -36,6 +38,12 @@ function statusBadgeClass(v: unknown): string {
   if (s === "no") return "txdir-b-no";
   if (!s || s === "unknown") return "txdir-b-unknown";
   return "txdir-b-limited"; // limited, case-by-case, etc.
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function withProtocol(url: string): string {
@@ -204,6 +212,8 @@ export default function DirectoryPage() {
         .txdir-card-name { font-size: 14.5px; font-weight: 600; }
         .txdir-card-meta { font-size: 12.5px; color: #6B6862; margin-top: 3px; }
         .txdir-statewide-tag { display: inline-block; color: #C05621; font-weight: 600; font-size: 11.5px; margin-left: 4px; }
+        .txdir-verified-tag { display: inline-block; color: #2B5C8A; font-weight: 600; font-size: 11.5px; margin-left: 4px; }
+        .txdir-update-note { font-size: 12px; color: #6B6862; }
 
         .txdir-resource-status {
           font-size: 11px; font-family: monospace; font-weight: 600;
@@ -424,6 +434,7 @@ export default function DirectoryPage() {
                       <div className="txdir-card-meta">
                         {[o.org_type, [o.city, o.county].filter(Boolean).join(", "), o.region].filter(Boolean).join(" · ") || "—"}
                         {(o.statewide ?? "").toLowerCase() === "yes" && <span className="txdir-statewide-tag">Statewide</span>}
+                        {o.is_claimed && <span className="txdir-verified-tag">✓ Org-Verified</span>}
                       </div>
                     </div>
                     <span className={`txdir-resource-status ${resourceStatusClass(o.resource_status)}`}>
@@ -446,15 +457,23 @@ export default function DirectoryPage() {
                     )}
                   </div>
 
-                  <div className="txdir-claim-row">
-                    <a
-                      href={`/claim?orgId=${o.id}&name=${encodeURIComponent(o.name)}`}
-                      className="txdir-claim-link"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Is this your organization? Claim it
-                    </a>
-                  </div>
+                  {o.is_claimed ? (
+                    o.last_org_update && (
+                      <div className="txdir-claim-row txdir-update-note">
+                        Last updated by this organization: {formatDate(o.last_org_update)}
+                      </div>
+                    )
+                  ) : (
+                    <div className="txdir-claim-row">
+                      <a
+                        href={`/claim?orgId=${o.id}&name=${encodeURIComponent(o.name)}`}
+                        className="txdir-claim-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Is this your organization? Claim it
+                      </a>
+                    </div>
+                  )}
 
                   {isOpen && (
                     <div className="txdir-card-detail" id={`org-detail-${o.id}`} role="region" aria-label={`Details for ${o.name}`}>
