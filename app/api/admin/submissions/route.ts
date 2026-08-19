@@ -19,6 +19,10 @@ export async function GET() {
     return NextResponse.json({ submissions: rows });
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
-    throw err;
+    // Any other failure (a bad query, a missing table, a transient DB
+    // issue) — log the real error server-side and return a clean
+    // message instead of letting a raw error reach the browser.
+    console.error("GET /api/admin/submissions failed:", err);
+    return NextResponse.json({ error: "Something went wrong loading submissions." }, { status: 500 });
   }
 }
