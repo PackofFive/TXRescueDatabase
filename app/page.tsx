@@ -97,11 +97,10 @@ export default function DirectoryPage() {
     return Array.from(new Set(orgs.map((o) => o.region).filter((r): r is string => !!r))).sort();
   }, [orgs]);
 
-  const speciesOptions = useMemo(() => {
-    if (!orgs) return [];
-    const all = orgs.flatMap((o) => o.species ?? []);
-    return Array.from(new Set(all)).sort();
-  }, [orgs]);
+  // Fixed set rather than derived from the data, per site owner's choice —
+  // keeps the filter simple and predictable regardless of what species
+  // values happen to be present on any given org.
+  const speciesOptions = ["Cat", "Dog", "Other"];
 
   const filtered = useMemo(() => {
     if (!orgs) return [];
