@@ -123,12 +123,25 @@ export async function requireOrgAccess(orgId: string): Promise<SessionUser> {
 // database rather than trusting the JWT alone, for the small number of
 // operations (e.g. admin approving a submission) where a just-revoked
 // admin shouldn't still be able to act until they log in again.
+//
+// The database call is wrapped separately from requireAdmin() above so
+// that any *unexpected* failure here (a bad session.id shape, a
+// transient DB hiccup, etc.) also resolves to a clean AuthError instead
+// of leaking a raw error message to the caller — same reasoning as
+// getSession(). The real error is still logged server-side (visible in
+// Cloudflare's Observability tab) so it's not silently swallowed.
 export async function requireAdminFresh(): Promise<SessionUser> {
   const session = await requireAdmin();
-  const rows = await sql`select role, status from users where id = ${session.id}`;
-  const row = rows[0] as { role: string; status: string } | undefined;
-  if (!row || row.role !== "admin" || row.status !== "approved") {
-    throw new AuthError("Admin access required.", 403);
+  try {
+    const rows = await sql`select role, status from users where id = ${session.id}`;
+    const row = rows[0] as { role: string; status: string } | undefined;
+    if (!row || row.role !== "admin" || row.status !== "approved") {
+      throw new AuthError("Admin access required.", 403);
+    }
+    return session;
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    console.error("requireAdminFresh: unexpected error verifying admin status:", err);
+    throw new AuthError("Couldn't verify admin access. Please try signing in again.", 500);
   }
-  return session;
 }
