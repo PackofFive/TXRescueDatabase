@@ -215,6 +215,10 @@ export default function DirectoryPage() {
         .txdir-rs-closed { background: #FAE7E3; color: #B23B2E; }
 
         .txdir-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+        .txdir-claim-row { margin-top: 8px; }
+        .txdir-claim-link { font-size: 12px; color: #C05621; text-decoration: none; font-weight: 600; }
+        .txdir-claim-link:hover { text-decoration: underline; }
+        .txdir-claim-link:focus-visible { outline: 3px solid #C05621; outline-offset: 2px; border-radius: 2px; }
         .txdir-badge { font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
         .txdir-b-yes { background: #E4ECF3; color: #2B5C8A; }
         .txdir-b-limited { background: #FBEFD9; color: #A66A11; }
@@ -440,6 +444,16 @@ export default function DirectoryPage() {
                     ) : (
                       <span style={{ fontSize: 12, color: "#6B6862" }}>No verified capabilities on file yet</span>
                     )}
+                  </div>
+
+                  <div className="txdir-claim-row">
+                    <a
+                      href={`/claim?orgId=${o.id}&name=${encodeURIComponent(o.name)}`}
+                      className="txdir-claim-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Is this your organization? Claim it
+                    </a>
                   </div>
 
                   {isOpen && (
