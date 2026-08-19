@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = "edge";
+
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { CAPABILITY_FIELDS, CAPABILITY_STATUSES, RESOURCE_STATUS_OPTIONS } from "@/lib/constants";
