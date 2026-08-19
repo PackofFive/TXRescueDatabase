@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // This is a functional login flow wired to the real API — it proves
 // auth works end to end. The full capability-editing form from the
@@ -12,6 +12,19 @@ export default function PortalPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // On every visit to this page, check the real session cookie rather
+  // than relying on local component state — state resets on navigation,
+  // but the actual session doesn't. Without this, coming back to this
+  // page after visiting another one always shows the login form again,
+  // even though you're still genuinely signed in.
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => setLoggedIn(!!data.user))
+      .finally(() => setCheckingSession(false));
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -29,11 +42,23 @@ export default function PortalPage() {
     setLoggedIn(true);
   }
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setLoggedIn(false);
+  }
+
+  if (checkingSession) {
+    return <p>Loading…</p>;
+  }
+
   if (loggedIn) {
     return (
       <div>
         <h1 style={{ fontSize: 20 }}>Org Portal</h1>
         <p>Signed in. Port the capability-editing form from the prototype artifact here, wired to POST /api/submissions.</p>
+        <button onClick={handleLogout} style={{ marginTop: 12, padding: "8px 16px", background: "#fff", color: "#1C1B19", border: "1px solid #E7E5E1", borderRadius: 6 }}>
+          Sign out
+        </button>
       </div>
     );
   }
