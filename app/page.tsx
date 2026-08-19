@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { CAPABILITY_FIELDS } from "@/lib/constants";
 
 type Org = {
@@ -38,6 +38,10 @@ function statusBadgeClass(v: unknown): string {
   return "txdir-b-limited"; // limited, case-by-case, etc.
 }
 
+function withProtocol(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 function resourceStatusClass(v: string | null): string {
   const s = (v ?? "").toLowerCase();
   if (s.includes("verified") && !s.includes("restricted")) return "txdir-rs-verified";
@@ -54,6 +58,29 @@ export default function DirectoryPage() {
   const [speciesFilter, setSpeciesFilter] = useState("");
   const [capabilityFilter, setCapabilityFilter] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  function prefersReducedMotion() {
+    return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  useEffect(() => {
+    function onScroll() {
+      setShowBackToTop(window.scrollY > 400);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    // Move keyboard/screen-reader focus to the page heading, not just the
+    // viewport — visually scrolling isn't enough for people navigating by
+    // keyboard or with assistive tech.
+    headingRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     fetch("/api/orgs")
@@ -93,6 +120,33 @@ export default function DirectoryPage() {
       return true;
     });
   }, [orgs, query, regionFilter, speciesFilter, capabilityFilter]);
+
+  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  // Maps each letter to the id of the first org (in current filtered/sorted
+  // order) whose name starts with it — used both to jump there and to know
+  // which letters have no matches right now (so we can disable them instead
+  // of just hiding them, which keeps the alphabet's shape stable and
+  // predictable for keyboard/screen-reader users).
+  const letterIndex = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of filtered) {
+      const first = o.name.trim().charAt(0).toUpperCase();
+      if (/[A-Z]/.test(first) && !map[first]) map[first] = o.id;
+    }
+    return map;
+  }, [filtered]);
+
+  const jumpToLetter = useCallback((letter: string) => {
+    const orgId = letterIndex[letter];
+    if (!orgId) return;
+    const el = cardRefs.current.get(orgId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+    // Same reasoning as scrollToTop — move actual focus, not just the
+    // viewport, so keyboard and screen-reader users land where they jumped.
+    el.focus();
+  }, [letterIndex]);
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
@@ -169,18 +223,118 @@ export default function DirectoryPage() {
         .txdir-b-no { background: #FAE7E3; color: #B23B2E; }
 
         .txdir-card-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #F0EFEC; font-size: 13px; }
-        .txdir-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; margin-bottom: 10px; }
+        .txdir-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 20px; margin-bottom: 10px; }
+        .txdir-detail-grid > div { min-width: 0; }
         .txdir-detail-grid .k { color: #6B6862; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-        .txdir-detail-grid .v { font-size: 13px; }
+        .txdir-detail-grid .v { font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
+        .txdir-detail-grid .v a { color: #C05621; text-decoration: none; }
+        .txdir-detail-grid .v a:hover { text-decoration: underline; }
         .txdir-notes { color: #6B6862; font-size: 12.5px; margin-top: 8px; }
         .txdir-section-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: #6B6862; font-weight: 600; margin-bottom: 10px; margin-top: 10px; }
 
         .txdir-empty { text-align: center; padding: 50px 20px; color: #6B6862; }
+
+        /* Focus visibility — every interactive/jump-target element gets a
+           clear, high-contrast outline. Not relying on browser defaults
+           alone, since some are suppressed by other global styles. */
+        .txdir-card:focus,
+        .txdir-card-top:focus-visible,
+        .txdir-back-to-top:focus-visible,
+        .txdir-alpha-btn:focus-visible {
+          outline: 3px solid #C05621;
+          outline-offset: 2px;
+        }
+        .txdir-card-top { border-radius: 4px; }
+
+        .txdir-back-to-top {
+          position: fixed;
+          right: 24px;
+          bottom: 24px;
+          background: #1C1B19;
+          color: #fff;
+          border: none;
+          border-radius: 999px;
+          padding: 10px 18px;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          box-shadow: 0 2px 8px rgba(28,27,25,0.25);
+          z-index: 40;
+        }
+        .txdir-back-to-top:hover { background: #35322D; }
+
+        .txdir-alpha-nav {
+          position: fixed;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          background: #fff;
+          border: 1px solid #E7E5E1;
+          border-radius: 8px;
+          padding: 6px 3px;
+          z-index: 30;
+        }
+        .txdir-alpha-btn {
+          background: none;
+          border: none;
+          font-family: monospace;
+          font-size: 11px;
+          font-weight: 600;
+          color: #1C1B19;
+          padding: 2px 5px;
+          border-radius: 3px;
+          cursor: pointer;
+          line-height: 1.4;
+        }
+        .txdir-alpha-btn:hover:not(:disabled) { background: #FBEAE0; color: #C05621; }
+        .txdir-alpha-btn:disabled {
+          color: #C7C4BE;
+          cursor: default;
+        }
+
+        /* The alphabet sidebar sits outside the main content column and
+           can crowd a narrow viewport, so it steps out of the way on
+           smaller screens rather than overlapping the directory itself. */
+        @media (max-width: 860px) {
+          .txdir-alpha-nav { display: none; }
+        }
       `}</style>
+
+      <nav className="txdir-alpha-nav" aria-label="Jump to organizations by first letter">
+        {ALPHABET.map((letter) => {
+          const hasMatch = !!letterIndex[letter];
+          return (
+            <button
+              key={letter}
+              type="button"
+              className="txdir-alpha-btn"
+              onClick={() => jumpToLetter(letter)}
+              disabled={!hasMatch}
+              aria-label={
+                hasMatch
+                  ? `Jump to organizations starting with ${letter}`
+                  : `No organizations starting with ${letter} in the current results`
+              }
+            >
+              {letter}
+            </button>
+          );
+        })}
+      </nav>
+
+      {showBackToTop && (
+        <button type="button" className="txdir-back-to-top" onClick={scrollToTop} aria-label="Back to top of page">
+          ↑ Top
+        </button>
+      )}
 
       <div className="txdir-toprow">
         <div className="txdir-header">
-          <h1>TX Animal Rescue &amp; Resource Database</h1>
+          <h1 ref={headingRef} tabIndex={-1}>TX Animal Rescue &amp; Resource Database</h1>
           <p>Directory, capability tracking, and self-service updates for Texas rescues, shelters, and resource partners.</p>
         </div>
         <div className="txdir-count">
@@ -238,8 +392,30 @@ export default function DirectoryPage() {
                 return v === "yes" || v.includes("case") || v.includes("limit");
               });
               return (
-                <div key={o.id} className="txdir-card">
-                  <div className="txdir-card-top" onClick={() => toggleExpanded(o.id)}>
+                <div
+                  key={o.id}
+                  id={`org-${o.id}`}
+                  className="txdir-card"
+                  tabIndex={-1}
+                  ref={(el) => {
+                    if (el) cardRefs.current.set(o.id, el);
+                    else cardRefs.current.delete(o.id);
+                  }}
+                >
+                  <div
+                    className="txdir-card-top"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isOpen}
+                    aria-controls={`org-detail-${o.id}`}
+                    onClick={() => toggleExpanded(o.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleExpanded(o.id);
+                      }
+                    }}
+                  >
                     <div>
                       <div className="txdir-card-name">{o.name}</div>
                       <div className="txdir-card-meta">
@@ -268,7 +444,7 @@ export default function DirectoryPage() {
                   </div>
 
                   {isOpen && (
-                    <div className="txdir-card-detail">
+                    <div className="txdir-card-detail" id={`org-detail-${o.id}`} role="region" aria-label={`Details for ${o.name}`}>
                       <div className="txdir-detail-grid">
                         <div><div className="k">Focus</div><div className="v">{o.focus || "—"}</div></div>
                         <div><div className="k">Specialty</div><div className="v">{o.specialty || "—"}</div></div>
@@ -276,9 +452,34 @@ export default function DirectoryPage() {
                         <div><div className="k">501(c)(3)</div><div className="v">{o.c3_status || "Unclear"}</div></div>
                         <div><div className="k">Service area</div><div className="v">{o.service_area || "—"}</div></div>
                         <div><div className="k">Current intake status</div><div className="v">{o.intake_status || "Unknown"}</div></div>
-                        <div><div className="k">Website</div><div className="v">{o.website || "—"}</div></div>
-                        <div><div className="k">Social media</div><div className="v">{o.social_media || "—"}</div></div>
-                        <div><div className="k">Contact</div><div className="v">{[o.public_email, o.public_phone].filter(Boolean).join(" · ") || "—"}</div></div>
+                        <div>
+                          <div className="k">Website</div>
+                          <div className="v">
+                            {o.website ? (
+                              <a href={withProtocol(o.website)} target="_blank" rel="noopener noreferrer">{o.website}</a>
+                            ) : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="k">Social media</div>
+                          <div className="v">
+                            {o.social_media ? (
+                              <a href={withProtocol(o.social_media)} target="_blank" rel="noopener noreferrer">{o.social_media}</a>
+                            ) : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="k">Contact</div>
+                          <div className="v">
+                            {o.public_email || o.public_phone ? (
+                              <>
+                                {o.public_email && <a href={`mailto:${o.public_email}`}>{o.public_email}</a>}
+                                {o.public_email && o.public_phone && " · "}
+                                {o.public_phone && <a href={`tel:${o.public_phone.replace(/[^\d+]/g, "")}`}>{o.public_phone}</a>}
+                              </>
+                            ) : "—"}
+                          </div>
+                        </div>
                         <div><div className="k">Last verified</div><div className="v" style={{ fontFamily: "monospace" }}>{o.last_verified || "—"}</div></div>
                       </div>
 
@@ -290,7 +491,7 @@ export default function DirectoryPage() {
                       ) : null}
                       {o.intake_form_url ? (
                         <div className="txdir-detail-grid" style={{ marginTop: 8 }}>
-                          <div><div className="k">Intake form</div><div className="v" style={{ fontFamily: "monospace" }}>{o.intake_form_url}</div></div>
+                          <div><div className="k">Intake form</div><div className="v"><a href={withProtocol(o.intake_form_url)} target="_blank" rel="noopener noreferrer">{o.intake_form_url}</a></div></div>
                         </div>
                       ) : null}
 
