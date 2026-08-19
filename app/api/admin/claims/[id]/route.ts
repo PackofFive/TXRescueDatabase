@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/lib/db";
+import { requireAdminFresh, AuthError } from "@/lib/auth";
+
+export const runtime = "edge";
+
+// PATCH { action: 'approve' | 'reject' }
+// Approving a manual-review claim is the admin vouching for the
+// affiliation by whatever means they used outside the app (a phone call,
+// a known contact, etc.) — this creates the account the same way an
+// auto-verified claim would.
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireAdminFresh();
+    const { id } = await params;
+    const body = await req.json().catch(() => null);
+    const action = body?.action;
+    if (action !== "approve" && action !== "reject") {
+      return NextResponse.json({ error: "action must be 'approve' or 'reject'." }, { status: 400 });
+    }
+
+    const rows = await sql`select * from claims where id = ${id} and status = 'manual_review'`;
+    const claim = rows[0] as
+      | { id: string; org_id: string; requester_email: string; password_hash: string }
+      | undefined;
+    if (!claim) {
+      return NextResponse.json({ error: "Claim not found or already reviewed." }, { status: 404 });
+    }
+
+    if (action === "reject") {
+      await sql`update claims set status = 'rejected' where id = ${id}`;
+      return NextResponse.json({ ok: true, action: "rejected" });
+    }
+
+    const existingApproved = await sql`
+      select id from users where org_id = ${claim.org_id} and status = 'approved' and role = 'org'
+    `;
+    if (existingApproved.length > 0) {
+      await sql`update claims set status = 'rejected' where id = ${id}`;
+      return NextResponse.json({ error: "This listing was already claimed by someone else." }, { status: 409 });
+    }
+
+    await sql`
+      insert into users (email, password_hash, role, org_id, status)
+      values (${claim.requester_email}, ${claim.password_hash}, 'org', ${claim.org_id}, 'approved')
+    `;
+    await sql`update claims set status = 'verified' where id = ${id}`;
+
+    return NextResponse.json({ ok: true, action: "approved" });
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
+    throw err;
+  }
+}
