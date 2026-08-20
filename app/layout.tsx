@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { getSession } from "../lib/auth";
 import AppShell from "./components/AppShell";
 
+export const runtime = "edge";
+
 export const metadata = {
   title: "Pack of Five Rescue Network",
   description:
