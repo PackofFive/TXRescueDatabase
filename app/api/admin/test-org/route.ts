@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { requireAdmin, AuthError, authCookieNames } from "@/lib/auth";
+import {
+  requireAdmin,
+  createSession,
+  AuthError,
+} from "@/lib/auth";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-const TEST_COOKIE_MAX_AGE = 60 * 60 * 8;
-
-export async function GET(req: NextRequest) {
+// GET — returns the organization currently selected in the admin's JWT session.
+export async function GET() {
   try {
-    await requireAdmin();
-    const orgId = req.cookies.get(authCookieNames.adminTestOrg)?.value ?? null;
+    const session = await requireAdmin();
 
-    if (!orgId) {
+    if (!session.orgId) {
       return NextResponse.json(
         { organization: null },
         { headers: { "Cache-Control": "no-store" } }
@@ -22,21 +24,12 @@ export async function GET(req: NextRequest) {
     const rows = await sql`
       select id, name, city, county
       from organizations
-      where id = ${orgId}
+      where id = ${session.orgId}
       limit 1
     `;
 
-    if (!rows[0]) {
-      const response = NextResponse.json(
-        { organization: null },
-        { headers: { "Cache-Control": "no-store" } }
-      );
-      response.cookies.delete(authCookieNames.adminTestOrg);
-      return response;
-    }
-
     return NextResponse.json(
-      { organization: rows[0] },
+      { organization: rows[0] ?? null },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
@@ -48,6 +41,7 @@ export async function GET(req: NextRequest) {
     }
 
     console.error("GET /api/admin/test-org failed:", err);
+
     return NextResponse.json(
       { error: "Couldn't load test organization." },
       { status: 500, headers: { "Cache-Control": "no-store" } }
@@ -55,14 +49,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST — select a test organization by re-issuing the EXISTING admin session
+// with a temporary orgId context. The user remains role=admin.
 export async function POST(req: NextRequest) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const body = await req.json().catch(() => null);
     const orgId = body?.orgId;
 
     if (!orgId || typeof orgId !== "string") {
-      return NextResponse.json({ error: "orgId is required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "orgId is required." },
+        { status: 400 }
+      );
     }
 
     const rows = await sql`
@@ -73,29 +72,31 @@ export async function POST(req: NextRequest) {
     `;
 
     if (!rows[0]) {
-      return NextResponse.json({ error: "Organization not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Organization not found." },
+        { status: 404 }
+      );
     }
 
-    const response = NextResponse.json(
+    await createSession({
+      ...session,
+      orgId,
+    });
+
+    return NextResponse.json(
       { organization: rows[0] },
       { headers: { "Cache-Control": "no-store" } }
     );
-
-    response.cookies.set(authCookieNames.adminTestOrg, orgId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: TEST_COOKIE_MAX_AGE,
-    });
-
-    return response;
   } catch (err) {
     if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message },
+        { status: err.status }
+      );
     }
 
     console.error("POST /api/admin/test-org failed:", err);
+
     return NextResponse.json(
       { error: "Couldn't start Rescue Manager test mode." },
       { status: 500 }
@@ -103,20 +104,31 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// DELETE — exit test mode by re-issuing the admin session with orgId=null.
+// This keeps the admin signed in.
 export async function DELETE() {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
 
-    const response = NextResponse.json(
+    await createSession({
+      ...session,
+      orgId: null,
+    });
+
+    return NextResponse.json(
       { ok: true },
       { headers: { "Cache-Control": "no-store" } }
     );
-    response.cookies.delete(authCookieNames.adminTestOrg);
-    return response;
   } catch (err) {
     if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message },
+        { status: err.status }
+      );
     }
+
+    console.error("DELETE /api/admin/test-org failed:", err);
+
     return NextResponse.json(
       { error: "Couldn't exit test mode." },
       { status: 500 }
