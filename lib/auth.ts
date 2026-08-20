@@ -3,14 +3,6 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { sql } from "./db";
 
-// SESSION_SECRET is a long random string you generate once and set as an
-// environment variable — see README.md. Never commit a real value.
-//
-// IMPORTANT: kept lazy (inside a function) rather than evaluated at
-// module top-level, for the same reason as lib/db.ts — Next.js imports
-// every route file during the build's page-data-collection step, in an
-// environment without your Cloudflare environment variables. A
-// top-level throw here would fail the build itself.
 let cachedSecretKey: Uint8Array | null = null;
 
 function getSecretKey(): Uint8Array {
@@ -24,7 +16,8 @@ function getSecretKey(): Uint8Array {
 }
 
 const COOKIE_NAME = "txard_session";
-const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 14; // 14 days
+const ADMIN_TEST_ORG_COOKIE = "txard_admin_test_org";
+const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 14;
 
 export type SessionUser = {
   id: string;
@@ -62,14 +55,9 @@ export async function createSession(user: SessionUser) {
 export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete(ADMIN_TEST_ORG_COOKIE);
 }
 
-// Reads and verifies the session cookie. Returns null if there is no
-// session or anything about reading/verifying it goes wrong — callers
-// must treat null as "not logged in." The whole function body is inside
-// one try/catch (not just the token verification) so a malformed cookie
-// or any other unexpected failure here always resolves to "not signed
-// in" instead of leaking a raw error message to the caller.
 export async function getSession(): Promise<SessionUser | null> {
   try {
     const cookieStore = await cookies();
@@ -78,13 +66,9 @@ export async function getSession(): Promise<SessionUser | null> {
     const { payload } = await jwtVerify(token, getSecretKey());
     return payload as unknown as SessionUser;
   } catch {
-    return null; // missing, expired, tampered, or otherwise unreadable
+    return null;
   }
 }
-
-// ── Permission helpers — call these at the top of every API route that
-// touches org or admin data. They are the actual enforcement layer;
-// nothing in the frontend can substitute for these checks.
 
 export class AuthError extends Error {
   status: number;
@@ -94,24 +78,23 @@ export class AuthError extends Error {
   }
 }
 
-// Throws unless there's a valid, approved session. Returns the session user.
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) throw new AuthError("Not signed in.", 401);
-  if (session.status !== "approved") throw new AuthError("Account pending admin approval.", 403);
+  if (session.status !== "approved") {
+    throw new AuthError("Account pending admin approval.", 403);
+  }
   return session;
 }
 
-// Throws unless the session belongs to an approved admin.
 export async function requireAdmin(): Promise<SessionUser> {
   const session = await requireUser();
-  if (session.role !== "admin") throw new AuthError("Admin access required.", 403);
+  if (session.role !== "admin") {
+    throw new AuthError("Admin access required.", 403);
+  }
   return session;
 }
 
-// Throws unless the session is an approved org user tied to exactly
-// this orgId, OR an admin (admins can act on behalf of any org, e.g.
-// while helping onboard one over the phone).
 export async function requireOrgAccess(orgId: string): Promise<SessionUser> {
   const session = await requireUser();
   if (session.role === "admin") return session;
@@ -119,17 +102,45 @@ export async function requireOrgAccess(orgId: string): Promise<SessionUser> {
   throw new AuthError("You don't have access to this organization's data.", 403);
 }
 
-// Convenience for API routes: re-fetches the live user status from the
-// database rather than trusting the JWT alone, for the small number of
-// operations (e.g. admin approving a submission) where a just-revoked
-// admin shouldn't still be able to act until they log in again.
-//
-// The database call is wrapped separately from requireAdmin() above so
-// that any *unexpected* failure here (a bad session.id shape, a
-// transient DB hiccup, etc.) also resolves to a clean AuthError instead
-// of leaking a raw error message to the caller — same reasoning as
-// getSession(). The real error is still logged server-side (visible in
-// Cloudflare's Observability tab) so it's not silently swallowed.
+// Returns the org the current session is allowed to operate as.
+// Normal org users always use their own orgId.
+// Admins may use an explicitly selected temporary test organization stored
+// in an httpOnly cookie. Admin test mode never changes the admin's real role.
+export async function requireEffectiveOrg(): Promise<{
+  session: SessionUser;
+  orgId: string;
+  adminTestMode: boolean;
+}> {
+  const session = await requireUser();
+
+  if (session.role === "org" && session.orgId) {
+    return { session, orgId: session.orgId, adminTestMode: false };
+  }
+
+  if (session.role === "admin") {
+    const cookieStore = await cookies();
+    const orgId = cookieStore.get(ADMIN_TEST_ORG_COOKIE)?.value;
+
+    if (!orgId) {
+      throw new AuthError(
+        "Choose an organization from Admin > Organizations before opening Rescue Manager test mode.",
+        403
+      );
+    }
+
+    // Verify that the selected org actually exists before using it.
+    const rows = await sql`select id from organizations where id = ${orgId} limit 1`;
+    if (!rows[0]) {
+      cookieStore.delete(ADMIN_TEST_ORG_COOKIE);
+      throw new AuthError("The selected test organization no longer exists.", 403);
+    }
+
+    return { session, orgId, adminTestMode: true };
+  }
+
+  throw new AuthError("Organization access required.", 403);
+}
+
 export async function requireAdminFresh(): Promise<SessionUser> {
   const session = await requireAdmin();
   try {
@@ -145,3 +156,7 @@ export async function requireAdminFresh(): Promise<SessionUser> {
     throw new AuthError("Couldn't verify admin access. Please try signing in again.", 500);
   }
 }
+
+export const authCookieNames = {
+  adminTestOrg: ADMIN_TEST_ORG_COOKIE,
+};
