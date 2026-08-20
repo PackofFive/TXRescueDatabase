@@ -10,7 +10,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <nav style={{ padding: "16px 28px", borderBottom: "1px solid #E7E5E1", display: "flex", gap: 20, justifyContent: "space-between" }}>
           <div style={{ display: "flex", gap: 20 }}>
             <a href="/" style={{ fontWeight: 600, textDecoration: "none", color: "inherit" }}>Directory</a>
+            <a href="/claim" style={{ textDecoration: "none", color: "inherit" }}>Claim a Listing</a>
             <a href="/portal" style={{ textDecoration: "none", color: "inherit" }}>Org Portal</a>
+            <a href="/animals" style={{ textDecoration: "none", color: "inherit" }}>Animals</a>
             <a href="/admin" style={{ textDecoration: "none", color: "inherit" }}>Admin Queue</a>
           </div>
           <a href="/support" style={{ textDecoration: "none", color: "#6B6862", fontSize: 13.5 }}>Support this project</a>
