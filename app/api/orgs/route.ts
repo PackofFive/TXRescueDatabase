@@ -1,28 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export const runtime = "edge";
 
-// Directory read is intentionally open (no requireUser()) — this is an
-// internal coordination tool, but the read-only directory view doesn't
-// need to gate on login the way editing does. Tighten this to
-// requireUser() later if you decide the directory itself should be
-// members-only.
+// Public directory read.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const region = searchParams.get("region");
   const species = searchParams.get("species");
 
-  // Base query joins organizations to their capability row, plus two
-  // computed fields the Directory uses to show claim/freshness signals:
-  //   - is_claimed: does this org have an approved org-role user account?
-  //   - last_org_update: most recent change made *by the org itself*
-  //     (source = 'org_submission' in update_log), not admin edits or the
-  //     original bulk import — this is what tells a visitor "this info
-  //     was confirmed by the organization on this date."
-  // Using template-literal params throughout (never string-concatenated
-  // SQL) so user input can never become part of the query structure.
   const rows = await sql`
     select o.*, c.*,
       exists(
@@ -43,4 +31,102 @@ export async function GET(req: NextRequest) {
   `;
 
   return NextResponse.json({ organizations: rows });
+}
+
+// Admin-only organization creation.
+// Intentionally uses a small set of fields already known to exist on the
+// organizations table from the current directory implementation.
+export async function POST(req: NextRequest) {
+  try {
+    const admin = await requireAdmin();
+    const body = await req.json().catch(() => null);
+
+    const {
+      name,
+      city,
+      county,
+      region,
+      species,
+      website,
+      email,
+      phone,
+      resourceStatus,
+    } = body ?? {};
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json(
+        { error: "Organization name is required." },
+        { status: 400 }
+      );
+    }
+
+    const duplicate = await sql`
+      select id, name
+      from organizations
+      where lower(name) = lower(${name.trim()})
+        and coalesce(lower(city), '') = coalesce(lower(${city || null}), '')
+      limit 1
+    `;
+
+    if (duplicate[0]) {
+      return NextResponse.json(
+        {
+          error: "A matching organization may already exist.",
+          existingOrganization: duplicate[0],
+        },
+        { status: 409 }
+      );
+    }
+
+    const speciesValue =
+      Array.isArray(species) && species.every((s) => typeof s === "string")
+        ? species
+        : [];
+
+    const rows = await sql`
+      insert into organizations
+        (name, city, county, region, species, website, email, phone, resource_status)
+      values
+        (
+          ${name.trim()},
+          ${city || null},
+          ${county || null},
+          ${region || null},
+          ${speciesValue},
+          ${website || null},
+          ${email || null},
+          ${phone || null},
+          ${resourceStatus || 'Verification Needed'}
+        )
+      returning id, name, city, county, region, species, website, email, phone, resource_status
+    `;
+
+    const org = rows[0];
+
+    try {
+      await sql`
+        insert into audit_log
+          (entity_type, entity_id, changed_by, field_name, new_value)
+        values
+          ('organization', ${org.id}, ${admin.id}, 'created', ${JSON.stringify({
+            source: "admin",
+            name: org.name,
+          })})
+      `;
+    } catch (auditErr) {
+      console.error("Organization created but audit log failed:", auditErr);
+    }
+
+    return NextResponse.json({ organization: org }, { status: 201 });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+
+    console.error("POST /api/orgs failed:", err);
+    return NextResponse.json(
+      { error: "Something went wrong creating the organization." },
+      { status: 500 }
+    );
+  }
 }
