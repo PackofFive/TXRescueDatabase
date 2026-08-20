@@ -17,7 +17,7 @@ export default function AdminOrgListPage() {
   const [startingOrgId, setStartingOrgId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/orgs")
+    fetch("/api/orgs?includeArchived=true")
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error ?? "Failed to load organizations.");
