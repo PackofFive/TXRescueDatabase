@@ -2,162 +2,75 @@
 
 import { useEffect, useState } from "react";
 
+export const runtime = "edge";
+
 export default function PortalPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [checking, setChecking] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((data) => setLoggedIn(!!data.user))
-      .finally(() => setCheckingSession(false));
+      .then((data) => {
+        const user = data.user;
+
+        if (!user) {
+          window.location.href = "/login";
+          return;
+        }
+
+        if (user.role === "admin") {
+          window.location.href = "/admin";
+          return;
+        }
+
+        if (user.role === "org" && user.status === "approved") {
+          setAuthorized(true);
+          return;
+        }
+
+        window.location.href = "/login";
+      })
+      .finally(() => setChecking(false));
   }, []);
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus(null);
-
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setStatus(data.error ?? "Login failed.");
-      return;
-    }
-
-    window.location.href = "/portal";
-  }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/";
   }
 
-  if (checkingSession) return <p>Loading…</p>;
-
-  if (loggedIn) {
-    return (
-      <section>
-        <p style={{ margin: 0, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6B6862" }}>
-          OVERVIEW
-        </p>
-        <h1 style={{ fontSize: 30, margin: "6px 0 8px", color: "#17233C" }}>
-          Rescue Manager
-        </h1>
-        <p style={{ margin: 0, color: "#6B6862", maxWidth: 720 }}>
-          Your private Pack of Five workspace for managing organization information and animal records.
-        </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 16,
-            margin: "28px 0",
-          }}
-        >
-          <DashboardCard title="Animals" text="View and manage animal records." href="/animals" />
-          <DashboardCard
-            title="Organization"
-            text="Organization management tools will continue to be added here."
-          />
-          <DashboardCard
-            title="Needs Attention"
-            text="Future home for overdue care, incomplete records, and priority items."
-          />
-        </div>
-
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: "9px 15px",
-            background: "#fff",
-            color: "#1C1B19",
-            border: "1px solid #D8D6D2",
-            borderRadius: 7,
-            cursor: "pointer",
-          }}
-        >
-          Sign out
-        </button>
-      </section>
-    );
-  }
+  if (checking || !authorized) return <p>Loading…</p>;
 
   return (
-    <section style={{ maxWidth: 420, margin: "44px auto" }}>
-      <p style={{ margin: 0, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "#6B6862" }}>
-        PACK OF FIVE
+    <section>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 800, letterSpacing: ".08em", color: "#6B6862" }}>
+        OVERVIEW
       </p>
-      <h1 style={{ fontSize: 28, margin: "6px 0 8px", color: "#17233C" }}>
-        Rescue Manager
-      </h1>
-      <p style={{ margin: "0 0 24px", color: "#6B6862" }}>
-        Sign in to your private rescue or shelter workspace.
+      <h1 style={{ fontSize: 30, margin: "6px 0 8px", color: "#17233C" }}>Rescue Manager</h1>
+      <p style={{ margin: 0, color: "#6B6862", maxWidth: 720 }}>
+        Your private Pack of Five workspace for rescue or shelter operations.
       </p>
 
-      <form
-        onSubmit={handleLogin}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, margin: "28px 0" }}>
+        <DashboardCard title="Animals" text="View and manage animal records." href="/animals" />
+        <DashboardCard title="Urgent Animals" text="Review urgent shelter animals available for rescue networking." href="/portal/urgent" />
+        <DashboardCard title="Organization" text="Organization management tools will continue to be added here." />
+        <DashboardCard title="Needs Attention" text="Future home for overdue care, incomplete records, and priority items." />
+      </div>
+
+      <button
+        onClick={handleLogout}
         style={{
+          padding: "9px 15px",
           background: "#fff",
-          border: "1px solid #E7E5E1",
-          borderRadius: 12,
-          padding: 22,
+          color: "#1C1B19",
+          border: "1px solid #D8D6D2",
+          borderRadius: 7,
+          cursor: "pointer",
         }}
       >
-        <label htmlFor="email" style={labelStyle}>Email</label>
-        <input
-          id="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          autoComplete="email"
-          required
-          style={inputStyle}
-        />
-
-        <label htmlFor="password" style={{ ...labelStyle, marginTop: 14 }}>Password</label>
-        <input
-          id="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          autoComplete="current-password"
-          required
-          style={inputStyle}
-        />
-
-        <button
-          type="submit"
-          style={{
-            width: "100%",
-            marginTop: 16,
-            padding: "10px 16px",
-            background: "#17233C",
-            color: "#fff",
-            border: "none",
-            borderRadius: 7,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          Sign in
-        </button>
-
-        {status && <p role="alert" style={{ color: "#B23B2E", fontSize: 13, marginTop: 12 }}>{status}</p>}
-      </form>
-
-      <p style={{ fontSize: 12, lineHeight: 1.5, color: "#6B6862", marginTop: 16 }}>
-        Forgot/reset password is a required next account feature. It is not linked yet because the reset endpoint has not been implemented.
-      </p>
+        Sign Out
+      </button>
     </section>
   );
 }
@@ -189,20 +102,3 @@ function DashboardCard({
 
   return href ? <a href={href} style={style}>{content}</a> : <div style={style}>{content}</div>;
 }
-
-const labelStyle = {
-  display: "block",
-  fontSize: 13,
-  fontWeight: 700,
-  marginBottom: 6,
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 11px",
-  border: "1px solid #D8D6D2",
-  borderRadius: 7,
-  fontSize: 14,
-  background: "#fff",
-} as const;
