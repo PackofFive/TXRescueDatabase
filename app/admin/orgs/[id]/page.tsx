@@ -62,31 +62,57 @@ export default function AdminOrgEditPage() {
   const params = useParams();
   const orgId = params?.id as string;
 
-  const [original, setOriginal] = useState<OrgRecord | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [original, setOriginal] =
+    useState<OrgRecord | null>(null);
+
+  const [form, setForm] =
+    useState<Record<string, string>>({});
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [message, setMessage] =
+    useState<string | null>(null);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [adminActionLoading, setAdminActionLoading] =
+    useState(false);
+
+  const [adminActionError, setAdminActionError] =
+    useState<string | null>(null);
+
+  /* =====================================================
+     LOAD ORGANIZATION
+  ===================================================== */
 
   useEffect(() => {
     if (!orgId) return;
 
-    fetch(`/api/admin/orgs/${encodeURIComponent(orgId)}`)
+    fetch(
+      `/api/admin/orgs/${encodeURIComponent(orgId)}`
+    )
       .then(async (r) => {
         const data = await r.json();
 
         if (!r.ok) {
           throw new Error(
-            data.error ?? "Failed to load organization."
+            data.error ??
+              "Failed to load organization."
           );
         }
 
-        const org = data.organization as OrgRecord;
+        const org =
+          data.organization as OrgRecord;
 
         setOriginal(org);
 
-        const initial: Record<string, string> = {};
+        const initial:
+          Record<string, string> = {};
 
         for (const f of ORG_TEXT_FIELDS) {
           const v = org[f.key];
@@ -102,15 +128,20 @@ export default function AdminOrgEditPage() {
         initial.resource_status =
           org.resource_status != null
             ? String(org.resource_status)
-            : RESOURCE_STATUS_OPTIONS[0] ?? "";
+            : RESOURCE_STATUS_OPTIONS[0] ??
+              "";
 
-        initial.species = Array.isArray(org.species)
-          ? (org.species as string[]).join(", ")
-          : "";
+        initial.species =
+          Array.isArray(org.species)
+            ? (
+                org.species as string[]
+              ).join(", ")
+            : "";
 
         for (const f of CAPABILITY_FIELDS) {
           initial[f.key] =
-            (org[f.key] as string) || "Unknown";
+            (org[f.key] as string) ||
+            "Unknown";
         }
 
         setForm(initial);
@@ -122,17 +153,28 @@ export default function AdminOrgEditPage() {
             : "Failed to load organization."
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+      });
   }, [orgId]);
 
-  function setField(key: string, value: string) {
+  function setField(
+    key: string,
+    value: string
+  ) {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  /* =====================================================
+     SAVE NORMAL EDITS
+  ===================================================== */
+
+  async function handleSubmit(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
 
     if (!original) return;
@@ -158,19 +200,26 @@ export default function AdminOrgEditPage() {
           ? originalValue.slice(0, 10)
           : originalValue;
 
-      if ((form[f.key] ?? "") !== compareOriginal) {
+      if (
+        (form[f.key] ?? "") !==
+        compareOriginal
+      ) {
         changes.push({
           table: "organizations",
           field: f.key,
-          newValue: form[f.key] ?? "",
+          newValue:
+            form[f.key] ?? "",
         });
       }
     }
 
     const originalResourceStatus =
       original.resource_status != null
-        ? String(original.resource_status)
-        : RESOURCE_STATUS_OPTIONS[0] ?? "";
+        ? String(
+            original.resource_status
+          )
+        : RESOURCE_STATUS_OPTIONS[0] ??
+          "";
 
     if (
       (form.resource_status ?? "") !==
@@ -179,52 +228,73 @@ export default function AdminOrgEditPage() {
       changes.push({
         table: "organizations",
         field: "resource_status",
-        newValue: form.resource_status ?? "",
+        newValue:
+          form.resource_status ?? "",
       });
     }
 
-    const originalSpecies = Array.isArray(original.species)
-      ? (original.species as string[]).join(", ")
-      : "";
+    const originalSpecies =
+      Array.isArray(original.species)
+        ? (
+            original.species as string[]
+          ).join(", ")
+        : "";
 
-    if ((form.species ?? "") !== originalSpecies) {
+    if (
+      (form.species ?? "") !==
+      originalSpecies
+    ) {
       changes.push({
         table: "organizations",
         field: "species",
-        newValue: form.species ?? "",
+        newValue:
+          form.species ?? "",
       });
     }
 
-    for (const f of CAPABILITY_FIELDS) {
+    for (
+      const f of CAPABILITY_FIELDS
+    ) {
       const originalValue =
-        (original[f.key] as string) || "Unknown";
+        (original[f.key] as string) ||
+        "Unknown";
 
       if (
-        (form[f.key] ?? "Unknown") !== originalValue
+        (form[f.key] ?? "Unknown") !==
+        originalValue
       ) {
         changes.push({
           table: "capabilities",
           field: f.key,
-          newValue: form[f.key] ?? "Unknown",
+          newValue:
+            form[f.key] ?? "Unknown",
         });
       }
     }
 
     if (changes.length === 0) {
-      setMessage("No changes to save.");
+      setMessage(
+        "No changes to save."
+      );
+
       setSaving(false);
       return;
     }
 
     try {
       const res = await fetch(
-        `/api/admin/orgs/${encodeURIComponent(orgId)}`,
+        `/api/admin/orgs/${encodeURIComponent(
+          orgId
+        )}`,
         {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify({ changes }),
+          body: JSON.stringify({
+            changes,
+          }),
         }
       );
 
@@ -232,7 +302,8 @@ export default function AdminOrgEditPage() {
 
       if (!res.ok) {
         throw new Error(
-          data.error ?? "Failed to save changes."
+          data.error ??
+            "Failed to save changes."
         );
       }
 
@@ -246,13 +317,19 @@ export default function AdminOrgEditPage() {
         const next = { ...prev };
 
         for (const c of changes) {
-          if (c.field === "species") {
-            next[c.field] = c.newValue
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean);
+          if (
+            c.field === "species"
+          ) {
+            next[c.field] =
+              c.newValue
+                .split(",")
+                .map((s) =>
+                  s.trim()
+                )
+                .filter(Boolean);
           } else {
-            next[c.field] = c.newValue;
+            next[c.field] =
+              c.newValue;
           }
         }
 
@@ -269,22 +346,209 @@ export default function AdminOrgEditPage() {
     }
   }
 
+  /* =====================================================
+     ARCHIVE / RESTORE
+  ===================================================== */
+
+  async function handleArchiveAction(
+    action: "archive" | "restore"
+  ) {
+    if (!original) return;
+
+    const orgName =
+      String(
+        original.name ??
+          "this organization"
+      );
+
+    if (action === "archive") {
+      const confirmed =
+        window.confirm(
+          `Archive ${orgName}?\n\nIt will be removed from the active public directory, but its records and history will be preserved.`
+        );
+
+      if (!confirmed) return;
+    }
+
+    setAdminActionLoading(true);
+    setAdminActionError(null);
+
+    try {
+      const res = await fetch(
+        `/api/admin/orgs/${encodeURIComponent(
+          orgId
+        )}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            action,
+          }),
+        }
+      );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            `Couldn't ${action} organization.`
+        );
+      }
+
+      window.location.reload();
+    } catch (err) {
+      setAdminActionError(
+        err instanceof Error
+          ? err.message
+          : `Couldn't ${action} organization.`
+      );
+
+      setAdminActionLoading(false);
+    }
+  }
+
+  /* =====================================================
+     PERMANENT DELETE
+  ===================================================== */
+
+  async function handleDelete() {
+    if (!original) return;
+
+    const orgName =
+      String(original.name);
+
+    const expected =
+      `DELETE ${orgName}`;
+
+    const typed =
+      window.prompt(
+        `PERMANENT DELETE\n\nThis should only be used for test or accidental organizations.\n\nThis cannot be undone.\n\nType exactly:\n${expected}`
+      );
+
+    if (typed === null) {
+      return;
+    }
+
+    if (typed !== expected) {
+      setAdminActionError(
+        "Organization was not deleted because the confirmation text did not match."
+      );
+
+      return;
+    }
+
+    setAdminActionLoading(true);
+    setAdminActionError(null);
+
+    try {
+      const res = await fetch(
+        `/api/admin/orgs/${encodeURIComponent(
+          orgId
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        let errorMessage =
+          data.error ??
+          "Couldn't delete organization.";
+
+        if (data.dependencies) {
+          const dependencies =
+            data.dependencies;
+
+          const details = [
+            dependencies.users
+              ? `${dependencies.users} user(s)`
+              : null,
+
+            dependencies.animals
+              ? `${dependencies.animals} animal(s)`
+              : null,
+
+            dependencies.organizationRequests
+              ? `${dependencies.organizationRequests} organization request(s)`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(", ");
+
+          if (details) {
+            errorMessage +=
+              ` Linked records: ${details}.`;
+          }
+        }
+
+        throw new Error(
+          errorMessage
+        );
+      }
+
+      window.location.href =
+        "/admin/orgs";
+    } catch (err) {
+      setAdminActionError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't delete organization."
+      );
+
+      setAdminActionLoading(false);
+    }
+  }
+
+  /* =====================================================
+     PAGE STATES
+  ===================================================== */
+
   if (loading) {
     return <p>Loading…</p>;
   }
 
-  if (error && !original) {
+  if (
+    error &&
+    !original
+  ) {
     return (
-      <p style={{ color: "#B23B2E" }}>
+      <p
+        style={{
+          color: "#B23B2E",
+        }}
+      >
         {error}
       </p>
     );
   }
 
-  if (!original) return null;
+  if (!original) {
+    return null;
+  }
+
+  const archived =
+    Boolean(
+      original.archived_at
+    );
+
+  /* =====================================================
+     PAGE
+  ===================================================== */
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div
+      style={{
+        maxWidth: 640,
+      }}
+    >
       <a
         href="/admin/orgs"
         style={{
@@ -302,8 +566,31 @@ export default function AdminOrgEditPage() {
           marginTop: 8,
         }}
       >
-        {String(original.name)}
+        {String(
+          original.name
+        )}
       </h1>
+
+      {archived && (
+        <div
+          style={{
+            background:
+              "#FFF4E8",
+            border:
+              "1px solid #E6C59D",
+            borderRadius: 6,
+            padding:
+              "9px 12px",
+            marginBottom: 16,
+            fontSize: 13,
+            color: "#744B20",
+            fontWeight: 600,
+          }}
+        >
+          This organization is
+          archived.
+        </div>
+      )}
 
       <p
         style={{
@@ -312,16 +599,28 @@ export default function AdminOrgEditPage() {
           marginBottom: 20,
         }}
       >
-        Editing directly as an admin — changes
-        publish immediately, no review queue.
+        Editing directly as an
+        admin — changes publish
+        immediately, no review
+        queue.
       </p>
 
-      <form onSubmit={handleSubmit}>
+      {/* ================================================
+          EDIT FORM
+      ================================================= */}
+
+      <form
+        onSubmit={
+          handleSubmit
+        }
+      >
         <div
           style={{
             fontSize: 11.5,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            textTransform:
+              "uppercase",
+            letterSpacing:
+              "0.06em",
             color: "#6B6862",
             fontWeight: 600,
             marginBottom: 10,
@@ -330,63 +629,113 @@ export default function AdminOrgEditPage() {
           Profile
         </div>
 
-        {ORG_TEXT_FIELDS.map((f) => (
-          <div
-            key={f.key}
-            style={{ marginBottom: 12 }}
+        {ORG_TEXT_FIELDS.map(
+          (f) => (
+            <div
+              key={f.key}
+              style={{
+                marginBottom: 12,
+              }}
+            >
+              <label
+                style={
+                  labelStyle
+                }
+              >
+                {f.label}
+              </label>
+
+              {f.key ===
+                "notes" ||
+              f.key ===
+                "intake_restrictions" ? (
+                <textarea
+                  rows={3}
+                  value={
+                    form[
+                      f.key
+                    ] ?? ""
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    setField(
+                      f.key,
+                      e.target
+                        .value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                />
+              ) : (
+                <input
+                  type={
+                    f.type ??
+                    "text"
+                  }
+                  value={
+                    form[
+                      f.key
+                    ] ?? ""
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    setField(
+                      f.key,
+                      e.target
+                        .value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                />
+              )}
+            </div>
+          )
+        )}
+
+        <div
+          style={{
+            marginBottom: 12,
+          }}
+        >
+          <label
+            style={labelStyle}
           >
-            <label style={labelStyle}>
-              {f.label}
-            </label>
-
-            {f.key === "notes" ||
-            f.key === "intake_restrictions" ? (
-              <textarea
-                rows={3}
-                value={form[f.key] ?? ""}
-                onChange={(e) =>
-                  setField(
-                    f.key,
-                    e.target.value
-                  )
-                }
-                style={inputStyle}
-              />
-            ) : (
-              <input
-                type={f.type ?? "text"}
-                value={form[f.key] ?? ""}
-                onChange={(e) =>
-                  setField(
-                    f.key,
-                    e.target.value
-                  )
-                }
-                style={inputStyle}
-              />
-            )}
-          </div>
-        ))}
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={labelStyle}>
-            Species (comma-separated, e.g. Dog, Cat)
+            Species
+            (comma-separated,
+            e.g. Dog, Cat)
           </label>
 
           <input
-            value={form.species ?? ""}
+            value={
+              form.species ??
+              ""
+            }
             onChange={(e) =>
               setField(
                 "species",
                 e.target.value
               )
             }
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
         </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={labelStyle}>
+        <div
+          style={{
+            marginBottom: 12,
+          }}
+        >
+          <label
+            style={labelStyle}
+          >
             Resource status
           </label>
 
@@ -402,80 +751,111 @@ export default function AdminOrgEditPage() {
                 e.target.value
               )
             }
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           >
-            {RESOURCE_STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            {RESOURCE_STATUS_OPTIONS.map(
+              (s) => (
+                <option
+                  key={s}
+                  value={s}
+                >
+                  {s}
+                </option>
+              )
+            )}
           </select>
         </div>
 
         <div
           style={{
             fontSize: 11.5,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            textTransform:
+              "uppercase",
+            letterSpacing:
+              "0.06em",
             color: "#6B6862",
             fontWeight: 600,
-            margin: "24px 0 10px",
+            margin:
+              "24px 0 10px",
           }}
         >
           Capabilities
         </div>
 
-        {CAPABILITY_FIELDS.map((f) => (
-          <div
-            key={f.key}
-            style={{
-              marginBottom: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <label
+        {CAPABILITY_FIELDS.map(
+          (f) => (
+            <div
+              key={f.key}
               style={{
-                fontSize: 13,
-                flex: 1,
+                marginBottom: 10,
+                display: "flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "space-between",
+                gap: 12,
               }}
             >
-              {f.label}
-            </label>
+              <label
+                style={{
+                  fontSize: 13,
+                  flex: 1,
+                }}
+              >
+                {f.label}
+              </label>
 
-            <select
-              value={
-                form[f.key] ?? "Unknown"
-              }
-              onChange={(e) =>
-                setField(
-                  f.key,
-                  e.target.value
-                )
-              }
-              style={{
-                ...inputStyle,
-                width: 160,
-              }}
-            >
-              {CAPABILITY_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+              <select
+                value={
+                  form[
+                    f.key
+                  ] ??
+                  "Unknown"
+                }
+                onChange={(
+                  e
+                ) =>
+                  setField(
+                    f.key,
+                    e.target
+                      .value
+                  )
+                }
+                style={{
+                  ...inputStyle,
+                  width: 160,
+                }}
+              >
+                {CAPABILITY_STATUSES.map(
+                  (s) => (
+                    <option
+                      key={s}
+                      value={s}
+                    >
+                      {s}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+          )
+        )}
 
-        <div style={{ marginTop: 20 }}>
+        <div
+          style={{
+            marginTop: 20,
+          }}
+        >
           <button
             type="submit"
             disabled={saving}
             style={{
-              padding: "9px 18px",
-              background: "#1C1B19",
+              padding:
+                "9px 18px",
+              background:
+                "#1C1B19",
               color: "#fff",
               border: "none",
               borderRadius: 6,
@@ -483,7 +863,10 @@ export default function AdminOrgEditPage() {
               cursor: saving
                 ? "default"
                 : "pointer",
-              opacity: saving ? 0.6 : 1,
+              opacity:
+                saving
+                  ? 0.6
+                  : 1,
             }}
           >
             {saving
@@ -496,7 +879,8 @@ export default function AdminOrgEditPage() {
               style={{
                 marginLeft: 12,
                 fontSize: 13,
-                color: "#2F6F4E",
+                color:
+                  "#2F6F4E",
               }}
             >
               {message}
@@ -508,7 +892,8 @@ export default function AdminOrgEditPage() {
               style={{
                 marginLeft: 12,
                 fontSize: 13,
-                color: "#B23B2E",
+                color:
+                  "#B23B2E",
               }}
             >
               {error}
@@ -516,6 +901,212 @@ export default function AdminOrgEditPage() {
           )}
         </div>
       </form>
+
+      {/* ================================================
+          ADMIN ACTIONS
+      ================================================= */}
+
+      <section
+        style={{
+          marginTop: 42,
+          paddingTop: 24,
+          borderTop:
+            "1px solid #E7E5E1",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11.5,
+            textTransform:
+              "uppercase",
+            letterSpacing:
+              "0.06em",
+            color: "#B23B2E",
+            fontWeight: 700,
+            marginBottom: 8,
+          }}
+        >
+          Admin Actions
+        </div>
+
+        <h2
+          style={{
+            fontSize: 17,
+            margin:
+              "0 0 8px",
+            color: "#17233C",
+          }}
+        >
+          Archive or delete
+          organization
+        </h2>
+
+        <p
+          style={{
+            color: "#6B6862",
+            fontSize: 13,
+            lineHeight: 1.5,
+            marginBottom: 16,
+          }}
+        >
+          Archive real
+          organizations when
+          they should no longer
+          appear in the active
+          directory. Permanent
+          deletion should only
+          be used for test,
+          duplicate, or
+          accidental records
+          that have no linked
+          operational history.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          {archived ? (
+            <button
+              type="button"
+              disabled={
+                adminActionLoading
+              }
+              onClick={() =>
+                handleArchiveAction(
+                  "restore"
+                )
+              }
+              style={{
+                padding:
+                  "9px 14px",
+                border:
+                  "1px solid #2F6F4E",
+                borderRadius: 6,
+                background:
+                  "#fff",
+                color:
+                  "#2F6F4E",
+                fontWeight: 600,
+                cursor:
+                  adminActionLoading
+                    ? "default"
+                    : "pointer",
+                opacity:
+                  adminActionLoading
+                    ? 0.6
+                    : 1,
+              }}
+            >
+              Restore
+              Organization
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={
+                adminActionLoading
+              }
+              onClick={() =>
+                handleArchiveAction(
+                  "archive"
+                )
+              }
+              style={{
+                padding:
+                  "9px 14px",
+                border:
+                  "1px solid #C58A42",
+                borderRadius: 6,
+                background:
+                  "#fff",
+                color:
+                  "#85571F",
+                fontWeight: 600,
+                cursor:
+                  adminActionLoading
+                    ? "default"
+                    : "pointer",
+                opacity:
+                  adminActionLoading
+                    ? 0.6
+                    : 1,
+              }}
+            >
+              Archive
+              Organization
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={
+              adminActionLoading
+            }
+            onClick={
+              handleDelete
+            }
+            style={{
+              padding:
+                "9px 14px",
+              border:
+                "1px solid #B23B2E",
+              borderRadius: 6,
+              background:
+                "#fff",
+              color:
+                "#B23B2E",
+              fontWeight: 600,
+              cursor:
+                adminActionLoading
+                  ? "default"
+                  : "pointer",
+              opacity:
+                adminActionLoading
+                  ? 0.6
+                  : 1,
+            }}
+          >
+            Permanently Delete
+          </button>
+        </div>
+
+        {adminActionLoading && (
+          <p
+            style={{
+              marginTop: 10,
+              fontSize: 13,
+              color:
+                "#6B6862",
+            }}
+          >
+            Processing…
+          </p>
+        )}
+
+        {adminActionError && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 10,
+              background:
+                "#FFF4F2",
+              border:
+                "1px solid #F3C7BF",
+              borderRadius: 6,
+              color:
+                "#B23B2E",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            {adminActionError}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
