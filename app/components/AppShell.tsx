@@ -30,7 +30,9 @@ const COLORS = {
 
 async function signOut() {
   try {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
   } finally {
     window.location.href = "/";
   }
@@ -44,61 +46,180 @@ export default function AppShell({
   user: ShellUser;
 }) {
   const pathname = usePathname();
-  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
+
+  const isAdminArea =
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
+
   const isManagerArea =
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
     pathname === "/animals" ||
     pathname.startsWith("/animals/");
 
-  if (isAdminArea) return <AdminShell>{children}</AdminShell>;
+  if (isAdminArea) {
+    return (
+      <AdminShell>
+        {children}
+      </AdminShell>
+    );
+  }
 
   if (
     isManagerArea &&
     user &&
     user.status === "approved" &&
-    (user.role === "org" || user.role === "admin")
+    (
+      user.role === "org" ||
+      user.role === "admin"
+    )
   ) {
-    return <ManagerShell user={user}>{children}</ManagerShell>;
+    return (
+      <ManagerShell user={user}>
+        {children}
+      </ManagerShell>
+    );
   }
 
   return (
     <>
       <PublicHeader user={user} />
-      <main style={{ padding: "28px 24px", maxWidth: 1180, margin: "0 auto" }}>
+
+      <main
+        style={{
+          padding: "28px 24px",
+          maxWidth: 1180,
+          margin: "0 auto",
+        }}
+      >
         {children}
       </main>
     </>
   );
 }
 
-function PublicHeader({ user }: { user: ShellUser }) {
+/* =========================================================
+   PUBLIC HEADER
+========================================================= */
+
+function PublicHeader({
+  user,
+}: {
+  user: ShellUser;
+}) {
   const accountHref =
     user?.role === "admin"
       ? "/admin"
-      : user?.role === "org" && user.status === "approved"
+      : user?.role === "org" &&
+        user.status === "approved"
       ? "/portal"
       : "/login";
 
   const accountLabel =
     user?.role === "admin"
       ? "Admin"
-      : user?.role === "org" && user.status === "approved"
+      : user?.role === "org" &&
+        user.status === "approved"
       ? "Rescue Manager"
       : "Sign In";
 
   return (
-    <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, position: "sticky", top: 0, zIndex: 50 }}>
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "12px 20px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <a href="/" style={{ color: COLORS.navy, fontWeight: 800, textDecoration: "none", fontSize: 19, marginRight: "auto" }}>PACK OF FIVE</a>
-        <nav aria-label="Public navigation" style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-          <a href="/" style={publicLinkStyle}>Organizations</a>
-          <a href="/adoptable" style={publicLinkStyle}>Adoptable Pets</a>
-          <a href="/resources" style={publicLinkStyle}>Resources</a>
-          <a href="/request-organization" style={publicLinkStyle}>Request Organization</a>
-          <a href="/support" style={{ ...publicLinkStyle, color: COLORS.coral, fontWeight: 700 }}>Support</a>
+    <header
+      style={{
+        background: COLORS.surface,
+        borderBottom:
+          `1px solid ${COLORS.border}`,
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 18,
+          flexWrap: "wrap",
+        }}
+      >
+        <a
+          href="/"
+          style={{
+            color: COLORS.navy,
+            fontWeight: 800,
+            textDecoration: "none",
+            fontSize: 19,
+            marginRight: "auto",
+          }}
+        >
+          PACK OF FIVE
+        </a>
+
+        <nav
+          aria-label="Public navigation"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            flexWrap: "wrap",
+          }}
+        >
+          <a
+            href="/"
+            style={publicLinkStyle}
+          >
+            Organizations
+          </a>
+
+          <a
+            href="/adoptable"
+            style={publicLinkStyle}
+          >
+            Adoptable Pets
+          </a>
+
+          <a
+            href="/resources"
+            style={publicLinkStyle}
+          >
+            Resources
+          </a>
+
+          <a
+            href="/request-organization"
+            style={publicLinkStyle}
+          >
+            Request Organization
+          </a>
+
+          <a
+            href="/support"
+            style={{
+              ...publicLinkStyle,
+              color: COLORS.coral,
+              fontWeight: 700,
+            }}
+          >
+            Support
+          </a>
         </nav>
-        <a href={accountHref} style={{ textDecoration: "none", background: COLORS.navy, color: "#fff", borderRadius: 8, padding: "9px 14px", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+
+        <a
+          href={accountHref}
+          style={{
+            textDecoration: "none",
+            background: COLORS.navy,
+            color: "#fff",
+            borderRadius: 8,
+            padding: "9px 14px",
+            fontSize: 14,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
           {accountLabel}
         </a>
       </div>
@@ -106,100 +227,594 @@ function PublicHeader({ user }: { user: ShellUser }) {
   );
 }
 
-function ManagerShell({ children, user }: { children: ReactNode; user: Exclude<ShellUser, null> }) {
-  const [testOrg, setTestOrg] = useState<TestOrg>(null);
-  const [testOrgChecked, setTestOrgChecked] = useState(user.role !== "admin");
+/* =========================================================
+   RESCUE MANAGER
+========================================================= */
+
+function ManagerShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user: Exclude<
+    ShellUser,
+    null
+  >;
+}) {
+  const [testOrg, setTestOrg] =
+    useState<TestOrg>(null);
+
+  const [
+    testOrgChecked,
+    setTestOrgChecked,
+  ] = useState(
+    user.role !== "admin"
+  );
 
   useEffect(() => {
-    if (user.role !== "admin") return;
-    fetch("/api/admin/test-org", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => setTestOrg(data.organization ?? null))
-      .finally(() => setTestOrgChecked(true));
+    if (
+      user.role !== "admin"
+    ) {
+      return;
+    }
+
+    fetch(
+      "/api/admin/test-org",
+      {
+        cache: "no-store",
+      }
+    )
+      .then((r) =>
+        r.json()
+      )
+      .then((data) => {
+        setTestOrg(
+          data.organization ??
+            null
+        );
+      })
+      .finally(() => {
+        setTestOrgChecked(
+          true
+        );
+      });
   }, [user.role]);
 
   async function exitTestMode() {
-    await fetch("/api/admin/test-org", { method: "DELETE" });
-    window.location.href = "/admin/orgs";
+    await fetch(
+      "/api/admin/test-org",
+      {
+        method: "DELETE",
+      }
+    );
+
+    window.location.href =
+      "/admin/orgs";
   }
 
-  if (user.role === "admin" && !testOrgChecked) {
-    return <main style={{ padding: 28 }}>Loading Rescue Manager test mode…</main>;
+  if (
+    user.role === "admin" &&
+    !testOrgChecked
+  ) {
+    return (
+      <main
+        style={{
+          padding: 28,
+        }}
+      >
+        Loading Rescue Manager
+        test mode…
+      </main>
+    );
   }
 
-  if (user.role === "admin" && !testOrg) {
-    return <main style={{ padding: 28, maxWidth: 700, margin: "0 auto" }}><h1>Choose a test organization</h1><a href="/admin/orgs">Choose Organization</a></main>;
+  if (
+    user.role === "admin" &&
+    !testOrg
+  ) {
+    return (
+      <main
+        style={{
+          padding: 28,
+          maxWidth: 700,
+          margin: "0 auto",
+        }}
+      >
+        <h1>
+          Choose a test
+          organization
+        </h1>
+
+        <a href="/admin/orgs">
+          Choose Organization
+        </a>
+      </main>
+    );
   }
+
+  const organizationName =
+    user.role === "admin" &&
+    testOrg
+      ? testOrg.name
+      : null;
+
+  const animalsLabel =
+    organizationName
+      ? `${organizationName} Animals`
+      : "Our Animals";
 
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.background }}>
-      {user.role === "admin" && testOrg && (
-        <div style={{ background: "#FFF3CD", borderBottom: "1px solid #E6CF82", padding: "9px 18px", fontSize: 13, display: "flex", justifyContent: "center", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <strong>Admin Test Mode</strong>
-          <span>Viewing Rescue Manager as {testOrg.name}</span>
-          <button onClick={exitTestMode} style={{ background: "transparent", border: "1px solid #9A8127", borderRadius: 6, padding: "5px 8px", cursor: "pointer", fontWeight: 700 }}>
-            Exit Test Mode
-          </button>
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "240px minmax(0, 1fr)", minHeight: user.role === "admin" ? "calc(100vh - 40px)" : "100vh" }}>
-        <aside style={{ background: COLORS.navy, color: "#fff", padding: "24px 18px" }}>
-          <a href="/" style={{ color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 18 }}>PACK OF FIVE</a>
-          <div style={{ fontSize: 12, opacity: .72, marginTop: 3, marginBottom: 28, letterSpacing: ".08em" }}>RESCUE MANAGER</div>
-          <nav>
-            <ManagerLink href="/portal">Overview</ManagerLink>
-            <ManagerLink href="/animals">Animals</ManagerLink>
-            <ManagerLink href="/portal/urgent">Urgent Animals</ManagerLink>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          COLORS.background,
+      }}
+    >
+      {user.role ===
+        "admin" &&
+        testOrg && (
+          <div
+            style={{
+              background:
+                "#FFF3CD",
+              borderBottom:
+                "1px solid #E6CF82",
+              padding:
+                "9px 18px",
+              fontSize: 13,
+              display: "flex",
+              justifyContent:
+                "center",
+              alignItems:
+                "center",
+              gap: 12,
+              flexWrap:
+                "wrap",
+            }}
+          >
+            <strong>
+              Admin Test Mode
+            </strong>
+
+            <span>
+              Viewing Rescue
+              Manager as{" "}
+              {testOrg.name}
+            </span>
+
+            <button
+              onClick={
+                exitTestMode
+              }
+              style={{
+                background:
+                  "transparent",
+                border:
+                  "1px solid #9A8127",
+                borderRadius: 6,
+                padding:
+                  "5px 8px",
+                cursor:
+                  "pointer",
+                fontWeight: 700,
+              }}
+            >
+              Exit Test Mode
+            </button>
+          </div>
+        )}
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "260px minmax(0, 1fr)",
+          minHeight:
+            user.role ===
+            "admin"
+              ? "calc(100vh - 40px)"
+              : "100vh",
+        }}
+      >
+        <aside
+          style={{
+            background:
+              COLORS.navy,
+            color: "#fff",
+            padding:
+              "24px 18px",
+          }}
+        >
+          <a
+            href="/"
+            style={{
+              color: "#fff",
+              textDecoration:
+                "none",
+              fontWeight: 800,
+              fontSize: 18,
+            }}
+          >
+            PACK OF FIVE
+          </a>
+
+          <div
+            style={{
+              fontSize: 12,
+              opacity: 0.72,
+              marginTop: 3,
+              marginBottom: 28,
+              letterSpacing:
+                ".08em",
+            }}
+          >
+            RESCUE MANAGER
+          </div>
+
+          {organizationName && (
+            <div
+              style={{
+                fontSize: 13,
+                lineHeight: 1.4,
+                fontWeight: 700,
+                marginBottom: 18,
+                paddingBottom: 14,
+                borderBottom:
+                  "1px solid rgba(255,255,255,.16)",
+              }}
+            >
+              {organizationName}
+            </div>
+          )}
+
+          <nav
+            aria-label="Rescue Manager navigation"
+          >
+            <ManagerLink href="/portal">
+              Overview
+            </ManagerLink>
+
+            <ManagerLink href="/animals">
+              {animalsLabel}
+            </ManagerLink>
+
+            <ManagerLink href="/portal/urgent">
+              Urgent Shelter Animals
+            </ManagerLink>
           </nav>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,.16)", marginTop: 28, paddingTop: 18 }}>
-            <a href="/" style={managerFooterLink}>← Rescue Network</a>
-            {user.role === "admin" && <a href="/admin" style={managerFooterLink}>← Admin Dashboard</a>}
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", marginBottom: 14 }}>{user.email}</div>
-            <button onClick={signOut} style={signOutDarkStyle}>Sign Out</button>
+
+          <div
+            style={{
+              borderTop:
+                "1px solid rgba(255,255,255,.16)",
+              marginTop: 28,
+              paddingTop: 18,
+            }}
+          >
+            <a
+              href="/"
+              style={
+                managerFooterLink
+              }
+            >
+              ← Rescue Network
+            </a>
+
+            {user.role ===
+              "admin" && (
+              <a
+                href="/admin"
+                style={
+                  managerFooterLink
+                }
+              >
+                ← Admin Dashboard
+              </a>
+            )}
+
+            <div
+              style={{
+                fontSize: 12,
+                color:
+                  "rgba(255,255,255,.72)",
+                marginBottom: 14,
+                overflowWrap:
+                  "anywhere",
+              }}
+            >
+              {user.email}
+            </div>
+
+            <button
+              onClick={signOut}
+              style={
+                signOutDarkStyle
+              }
+            >
+              Sign Out
+            </button>
           </div>
         </aside>
-        <div style={{ minWidth: 0 }}>
-          <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "16px 28px" }}>
-            <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-              <div style={{ fontWeight: 800, color: COLORS.navy }}>Rescue Manager</div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>Private rescue or shelter workspace</div>
+
+        <div
+          style={{
+            minWidth: 0,
+          }}
+        >
+          <header
+            style={{
+              background:
+                COLORS.surface,
+              borderBottom:
+                `1px solid ${COLORS.border}`,
+              padding:
+                "16px 28px",
+            }}
+          >
+            <div
+              style={{
+                maxWidth: 1120,
+                margin: "0 auto",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 800,
+                  color:
+                    COLORS.navy,
+                }}
+              >
+                {organizationName
+                  ? `${organizationName} Rescue Manager`
+                  : "Rescue Manager"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  color:
+                    COLORS.muted,
+                }}
+              >
+                Private rescue or
+                shelter workspace
+              </div>
             </div>
           </header>
-          <main style={{ padding: 28, maxWidth: 1120, margin: "0 auto" }}>{children}</main>
+
+          <main
+            style={{
+              padding: 28,
+              maxWidth: 1120,
+              margin: "0 auto",
+            }}
+          >
+            {children}
+          </main>
         </div>
       </div>
     </div>
   );
 }
 
-function AdminShell({ children }: { children: ReactNode }) {
+/* =========================================================
+   ADMIN SHELL
+========================================================= */
+
+function AdminShell({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
-    <div style={{ minHeight: "100vh", background: "#F7F7F8" }}>
-      <header style={{ background: "#111827", color: "#fff", padding: "16px 24px" }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 }}>
-          <div><div style={{ fontWeight: 800 }}>PACK OF FIVE</div><div style={{ fontSize: 12, opacity: .72 }}>PLATFORM ADMINISTRATION</div></div>
-          <nav style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-            <a href="/admin" style={darkLinkStyle}>Admin Dashboard</a>
-            <a href="/admin/orgs" style={darkLinkStyle}>Organizations</a>
-            <a href="/admin/orgs/new" style={darkLinkStyle}>Add Organization</a>
-            <a href="/admin/org-requests" style={darkLinkStyle}>Org Requests</a>
-            <a href="/" style={darkLinkStyle}>Rescue Network</a>
-            <button onClick={signOut} style={signOutDarkStyle}>Sign Out</button>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "#F7F7F8",
+      }}
+    >
+      <header
+        style={{
+          background:
+            "#111827",
+          color: "#fff",
+          padding:
+            "16px 24px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1180,
+            margin: "0 auto",
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems:
+              "center",
+            gap: 20,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontWeight: 800,
+              }}
+            >
+              PACK OF FIVE
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                opacity: 0.72,
+              }}
+            >
+              PLATFORM
+              ADMINISTRATION
+            </div>
+          </div>
+
+          <nav
+            style={{
+              display: "flex",
+              gap: 18,
+              alignItems:
+                "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <a
+              href="/admin"
+              style={
+                darkLinkStyle
+              }
+            >
+              Admin Dashboard
+            </a>
+
+            <a
+              href="/admin/orgs"
+              style={
+                darkLinkStyle
+              }
+            >
+              Organizations
+            </a>
+
+            <a
+              href="/admin/orgs/new"
+              style={
+                darkLinkStyle
+              }
+            >
+              Add Organization
+            </a>
+
+            <a
+              href="/admin/org-requests"
+              style={
+                darkLinkStyle
+              }
+            >
+              Org Requests
+            </a>
+
+            <a
+              href="/"
+              style={
+                darkLinkStyle
+              }
+            >
+              Rescue Network
+            </a>
+
+            <button
+              onClick={signOut}
+              style={
+                signOutDarkStyle
+              }
+            >
+              Sign Out
+            </button>
           </nav>
         </div>
       </header>
-      <main style={{ padding: 28, maxWidth: 1180, margin: "0 auto" }}>{children}</main>
+
+      <main
+        style={{
+          padding: 28,
+          maxWidth: 1180,
+          margin: "0 auto",
+        }}
+      >
+        {children}
+      </main>
     </div>
   );
 }
 
-function ManagerLink({ href, children }: { href: string; children: ReactNode }) {
-  const pathname = usePathname();
-  const active = pathname === href || pathname.startsWith(`${href}/`);
-  return <a href={href} style={{ display: "block", padding: "10px 12px", borderRadius: 7, color: "#fff", textDecoration: "none", marginBottom: 4, background: active ? "rgba(255,255,255,.13)" : "transparent", fontWeight: active ? 700 : 500, fontSize: 14 }}>{children}</a>;
+/* =========================================================
+   MANAGER LINK
+========================================================= */
+
+function ManagerLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  const pathname =
+    usePathname();
+
+  const active =
+    pathname === href ||
+    pathname.startsWith(
+      `${href}/`
+    );
+
+  return (
+    <a
+      href={href}
+      style={{
+        display: "block",
+        padding:
+          "10px 12px",
+        borderRadius: 7,
+        color: "#fff",
+        textDecoration:
+          "none",
+        marginBottom: 4,
+        background: active
+          ? "rgba(255,255,255,.13)"
+          : "transparent",
+        fontWeight: active
+          ? 700
+          : 500,
+        fontSize: 14,
+        lineHeight: 1.35,
+      }}
+    >
+      {children}
+    </a>
+  );
 }
 
-const publicLinkStyle = { textDecoration: "none", color: COLORS.text, fontSize: 14, whiteSpace: "nowrap" } as const;
-const darkLinkStyle = { textDecoration: "none", color: "#fff", fontSize: 14 } as const;
-const signOutDarkStyle = { background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,.45)", borderRadius: 7, padding: "7px 11px", fontSize: 13, fontWeight: 700, cursor: "pointer" } as const;
-const managerFooterLink = { display: "block", color: "#fff", textDecoration: "none", fontSize: 14, marginBottom: 12 } as const;
+/* =========================================================
+   SHARED STYLES
+========================================================= */
+
+const publicLinkStyle = {
+  textDecoration: "none",
+  color: COLORS.text,
+  fontSize: 14,
+  whiteSpace: "nowrap",
+} as const;
+
+const darkLinkStyle = {
+  textDecoration: "none",
+  color: "#fff",
+  fontSize: 14,
+} as const;
+
+const signOutDarkStyle = {
+  background: "transparent",
+  color: "#fff",
+  border:
+    "1px solid rgba(255,255,255,.45)",
+  borderRadius: 7,
+  padding: "7px 11px",
+  fontSize: 13,
+  fontWeight: 700,
+  cursor: "pointer",
+} as const;
+
+const managerFooterLink = {
+  display: "block",
+  color: "#fff",
+  textDecoration: "none",
+  fontSize: 14,
+  marginBottom: 12,
+} as const;
