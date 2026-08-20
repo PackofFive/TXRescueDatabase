@@ -4,10 +4,20 @@ import { useEffect, useState } from "react";
 
 export const runtime = "edge";
 
+type AuthUser = {
+  id: string;
+  email: string;
+  role: "org" | "admin";
+  orgId: string | null;
+  orgName: string | null;
+  status: "pending" | "approved" | "rejected";
+};
+
 export default function PortalPage() {
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     async function checkAccess() {
@@ -16,27 +26,40 @@ export default function PortalPage() {
           cache: "no-store",
           credentials: "same-origin",
         });
-        const authData = await authRes.json();
-        const user = authData.user;
 
-        if (!user) {
+        const authData = await authRes.json();
+        const currentUser = authData.user as AuthUser | null;
+
+        if (!currentUser) {
           window.location.replace("/login");
           return;
         }
 
-        if (user.role === "org" && user.status === "approved") {
+        setUser(currentUser);
+
+        if (
+          currentUser.role === "org" &&
+          currentUser.status === "approved"
+        ) {
           setAuthorized(true);
           return;
         }
 
-        if (user.role === "admin" && user.status === "approved") {
+        if (
+          currentUser.role === "admin" &&
+          currentUser.status === "approved"
+        ) {
           const testRes = await fetch("/api/admin/test-org", {
             cache: "no-store",
             credentials: "same-origin",
           });
+
           const testData = await testRes.json();
 
-          if (testRes.ok && testData.organization) {
+          if (
+            testRes.ok &&
+            testData.organization
+          ) {
             setAuthorized(true);
             return;
           }
@@ -45,13 +68,20 @@ export default function PortalPage() {
             testData.error ??
               "No Rescue Manager test organization is selected. Choose one from Admin > Organizations."
           );
+
           return;
         }
 
         window.location.replace("/login");
       } catch (err) {
-        console.error("Portal access check failed:", err);
-        setError("Couldn't verify Rescue Manager access. Please try again.");
+        console.error(
+          "Portal access check failed:",
+          err
+        );
+
+        setError(
+          "Couldn't verify Rescue Manager access. Please try again."
+        );
       } finally {
         setChecking(false);
       }
@@ -60,18 +90,50 @@ export default function PortalPage() {
     checkAccess();
   }, []);
 
-  if (checking) return <p>Loading…</p>;
+  if (checking) {
+    return <p>Loading…</p>;
+  }
 
-  if (error && !authorized) {
+  if (
+    error &&
+    !authorized
+  ) {
     return (
-      <section style={{ maxWidth: 700 }}>
-        <p style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", color: "#6B6862", margin: 0 }}>
+      <section
+        style={{
+          maxWidth: 700,
+        }}
+      >
+        <p
+          style={{
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: ".08em",
+            color: "#6B6862",
+            margin: 0,
+          }}
+        >
           RESCUE MANAGER
         </p>
-        <h1 style={{ color: "#17233C", margin: "7px 0 10px" }}>
+
+        <h1
+          style={{
+            color: "#17233C",
+            margin: "7px 0 10px",
+          }}
+        >
           Test organization not selected
         </h1>
-        <p style={{ color: "#6B6862", lineHeight: 1.6 }}>{error}</p>
+
+        <p
+          style={{
+            color: "#6B6862",
+            lineHeight: 1.6,
+          }}
+        >
+          {error}
+        </p>
+
         <a
           href="/admin/orgs"
           style={{
@@ -91,41 +153,82 @@ export default function PortalPage() {
     );
   }
 
-  if (!authorized) return <p>Access unavailable.</p>;
+  if (!authorized) {
+    return <p>Access unavailable.</p>;
+  }
+
+  const orgName =
+    user?.orgName ??
+    "Your Organization";
+
+  const animalsTitle =
+    `${orgName} Animals`;
 
   return (
     <section>
-      <p style={{ margin: 0, fontSize: 12, fontWeight: 800, letterSpacing: ".08em", color: "#6B6862" }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: ".08em",
+          color: "#6B6862",
+        }}
+      >
         OVERVIEW
       </p>
-      <h1 style={{ fontSize: 30, margin: "6px 0 8px", color: "#17233C" }}>
-        Rescue Manager
+
+      <h1
+        style={{
+          fontSize: 30,
+          margin: "6px 0 8px",
+          color: "#17233C",
+        }}
+      >
+        {orgName} Rescue Manager
       </h1>
-      <p style={{ margin: 0, color: "#6B6862", maxWidth: 720 }}>
-        Your private Pack of Five workspace for rescue or shelter operations.
+
+      <p
+        style={{
+          margin: 0,
+          color: "#6B6862",
+          maxWidth: 720,
+          lineHeight: 1.5,
+        }}
+      >
+        Private workspace for managing animals, rescue operations,
+        organization information, and priority items.
       </p>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(220px, 1fr))",
           gap: 16,
           margin: "28px 0",
         }}
       >
-        <DashboardCard title="Animals" text="View and manage animal records." href="/animals" />
         <DashboardCard
-          title="Urgent Animals"
-          text="Review urgent shelter animals available for rescue networking."
+          title={animalsTitle}
+          text="Animals currently under your organization’s care or active responsibility."
+          href="/animals"
+        />
+
+        <DashboardCard
+          title="Urgent Shelter Animals"
+          text="Review animals still in shelter custody that need rescue placement, foster support, medical help, transfer, or networking."
           href="/portal/urgent"
         />
+
         <DashboardCard
           title="Organization"
-          text="Organization management tools will continue to be added here."
+          text="Manage organization information, settings, capacity, and operational details."
         />
+
         <DashboardCard
           title="Needs Attention"
-          text="Future home for overdue care, incomplete records, and priority items."
+          text="Future home for overdue care, incomplete records, reminders, and priority items."
         />
       </div>
     </section>
@@ -152,14 +255,40 @@ function DashboardCard({
 
   const content = (
     <>
-      <h2 style={{ fontSize: 17, margin: "0 0 7px", color: "#17233C" }}>
+      <h2
+        style={{
+          fontSize: 17,
+          margin: "0 0 7px",
+          color: "#17233C",
+          lineHeight: 1.3,
+        }}
+      >
         {title}
       </h2>
-      <p style={{ margin: 0, color: "#6B6862", fontSize: 14, lineHeight: 1.5 }}>
+
+      <p
+        style={{
+          margin: 0,
+          color: "#6B6862",
+          fontSize: 14,
+          lineHeight: 1.5,
+        }}
+      >
         {text}
       </p>
     </>
   );
 
-  return href ? <a href={href} style={style}>{content}</a> : <div style={style}>{content}</div>;
+  return href ? (
+    <a
+      href={href}
+      style={style}
+    >
+      {content}
+    </a>
+  ) : (
+    <div style={style}>
+      {content}
+    </div>
+  );
 }
