@@ -18,13 +18,17 @@ type TimelineEvent = {
 
 type Animal = {
   id: string;
+
   name: string | null;
   temporary_name: string | null;
+
   species: string;
   breed_or_type: string | null;
+
   birth_date: string | null;
   sex: string | null;
   weight_lbs: string | number | null;
+
   source: string | null;
   custody: string;
   urgency: string | null;
@@ -35,6 +39,11 @@ type Animal = {
   public_summary: string | null;
   public_need: string | null;
   external_listing_url: string | null;
+
+  outcome_status: string | null;
+  outcome_date: string | null;
+  public_outcome_message: string | null;
+  show_on_success_wall: boolean;
 
   open_help_offers: number;
 
@@ -124,7 +133,7 @@ export default function AnimalRecordPage() {
   ] = useState("");
 
   /* =====================================================
-     LOAD
+     LOAD ANIMAL
   ===================================================== */
 
   useEffect(() => {
@@ -205,14 +214,16 @@ export default function AnimalRecordPage() {
   }, [animalId]);
 
   /* =====================================================
-     SAVE PROFILE DRAFT
+     SAVE PUBLIC PROFILE DRAFT
 
-     Saves public-facing information WITHOUT changing
-     whether the animal is published.
+     Saves data without changing whether the profile
+     is currently public or private.
   ===================================================== */
 
   async function saveProfileDraft() {
-    if (!animal) return;
+    if (!animal) {
+      return;
+    }
 
     await saveProfile(
       animal.public_share_enabled,
@@ -221,7 +232,7 @@ export default function AnimalRecordPage() {
   }
 
   /* =====================================================
-     PUBLISH
+     PUBLISH PUBLIC PROFILE
   ===================================================== */
 
   async function publishProfile() {
@@ -241,13 +252,13 @@ export default function AnimalRecordPage() {
   }
 
   /* =====================================================
-     UNPUBLISH
+     UNPUBLISH PUBLIC PROFILE
   ===================================================== */
 
   async function unpublishProfile() {
     const confirmed =
       window.confirm(
-        "Unpublish this animal?\n\nThe animal's private Rescue Manager file will remain unchanged, but the public profile will no longer be available."
+        "Unpublish this animal?\n\nThe private Rescue Manager file will remain unchanged, but the public profile will no longer be available."
       );
 
     if (!confirmed) {
@@ -292,10 +303,33 @@ export default function AnimalRecordPage() {
                 weightLbs,
 
                 publicShareEnabled,
-
                 publicSummary,
                 publicNeed,
                 externalListingUrl,
+
+                /*
+                  Preserve current outcome fields.
+
+                  We are not editing outcome here yet.
+                */
+                outcomeStatus:
+                  animal?.outcome_status ??
+                  null,
+
+                outcomeDate:
+                  animal?.outcome_date
+                    ? String(
+                        animal.outcome_date
+                      ).slice(0, 10)
+                    : null,
+
+                publicOutcomeMessage:
+                  animal?.public_outcome_message ??
+                  null,
+
+                showOnSuccessWall:
+                  animal?.show_on_success_wall ??
+                  false,
               }),
           }
         );
@@ -343,6 +377,22 @@ export default function AnimalRecordPage() {
                 external_listing_url:
                   data.animal
                     .external_listing_url,
+
+                outcome_status:
+                  data.animal
+                    .outcome_status,
+
+                outcome_date:
+                  data.animal
+                    .outcome_date,
+
+                public_outcome_message:
+                  data.animal
+                    .public_outcome_message,
+
+                show_on_success_wall:
+                  data.animal
+                    .show_on_success_wall,
               }
             : current
       );
@@ -362,7 +412,7 @@ export default function AnimalRecordPage() {
   }
 
   /* =====================================================
-     COPY LINK
+     COPY PUBLIC LINK
   ===================================================== */
 
   async function copyPublicLink() {
@@ -383,6 +433,10 @@ export default function AnimalRecordPage() {
       setPublicMessage(url);
     }
   }
+
+  /* =====================================================
+     STATES
+  ===================================================== */
 
   if (loading) {
     return <p>Loading…</p>;
@@ -430,6 +484,16 @@ export default function AnimalRecordPage() {
 
   const isPublic =
     animal.public_share_enabled;
+
+  const openHelpOffers =
+    Number(
+      animal.open_help_offers ??
+        0
+    );
+
+  /* =====================================================
+     PAGE
+  ===================================================== */
 
   return (
     <section>
@@ -571,6 +635,14 @@ export default function AnimalRecordPage() {
               />
             )}
 
+            {animal.urgency && (
+              <StatusBadge
+                label={`Urgency: ${formatValue(
+                  animal.urgency
+                )}`}
+              />
+            )}
+
             <span
               style={{
                 display:
@@ -606,7 +678,7 @@ export default function AnimalRecordPage() {
       </div>
 
       {/* ===============================================
-          PRIVATE STATUS MESSAGE
+          PRIVATE STATUS
       ================================================ */}
 
       {!isPublic && (
@@ -640,20 +712,66 @@ export default function AnimalRecordPage() {
               lineHeight: 1.55,
             }}
           >
-            The animal is only
+            This record is only
             visible inside your
             organization&apos;s
             Rescue Manager. You
             can complete medical
             care, surgery,
             behavior evaluation,
-            foster placement and
+            foster placement, and
             other work before
             deciding whether to
             publish a public
             profile.
           </p>
         </div>
+      )}
+
+      {/* ===============================================
+          HELP OFFER ALERT
+      ================================================ */}
+
+      {openHelpOffers > 0 && (
+        <a
+          href={`/animals/${encodeURIComponent(
+            animal.id
+          )}/offers`}
+          style={{
+            display: "block",
+            textDecoration:
+              "none",
+            background:
+              "#EEF4F0",
+            border:
+              "1px solid #C9DDD1",
+            borderRadius: 9,
+            padding: 14,
+            marginBottom: 18,
+            color: "#2F6F4E",
+          }}
+        >
+          <strong>
+            {openHelpOffers} active
+            foster/help offer
+            {openHelpOffers === 1
+              ? ""
+              : "s"}
+          </strong>
+
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: 13,
+              lineHeight: 1.45,
+            }}
+          >
+            Review private contact
+            information and respond
+            to people who have
+            offered to help. →
+          </div>
+        </a>
       )}
 
       {/* ===============================================
@@ -690,7 +808,7 @@ export default function AnimalRecordPage() {
           Important missing
           information, overdue
           care, medications,
-          foster tasks and other
+          foster tasks, and other
           priority items will
           appear here.
         </p>
@@ -724,8 +842,15 @@ export default function AnimalRecordPage() {
         />
 
         <RecordCard
-          title="Foster"
-          text="Current foster placement, assignments, checklists, availability, and foster history."
+          title={
+            openHelpOffers > 0
+              ? `Foster & Help Offers (${openHelpOffers})`
+              : "Foster & Help Offers"
+          }
+          text="Review public foster/help offers, private contact information, foster placement, and foster history."
+          href={`/animals/${encodeURIComponent(
+            animal.id
+          )}/offers`}
         />
 
         <RecordCard
@@ -749,7 +874,13 @@ export default function AnimalRecordPage() {
         />
 
         <RecordCard
-          title="Outcome"
+          title={
+            animal.outcome_status
+              ? `Outcome — ${formatValue(
+                  animal.outcome_status
+                )}`
+              : "Outcome"
+          }
           text="Adoption, transfer, return, release, or other final outcome information."
         />
       </div>
@@ -822,6 +953,17 @@ export default function AnimalRecordPage() {
             animal.urgency
               ? formatValue(
                   animal.urgency
+                )
+              : null
+          }
+        />
+
+        <InfoRow
+          label="Outcome"
+          value={
+            animal.outcome_status
+              ? formatValue(
+                  animal.outcome_status
                 )
               : null
           }
@@ -1074,8 +1216,7 @@ export default function AnimalRecordPage() {
 
         {/* HELP OFFERS */}
 
-        {animal.open_help_offers >
-          0 && (
+        {openHelpOffers > 0 && (
           <div
             style={{
               marginTop: 18,
@@ -1090,12 +1231,9 @@ export default function AnimalRecordPage() {
             }}
           >
             <strong>
-              {
-                animal.open_help_offers
-              }{" "}
+              {openHelpOffers} active
               foster/help offer
-              {animal.open_help_offers ===
-              1
+              {openHelpOffers === 1
                 ? ""
                 : "s"}{" "}
               available
@@ -1104,7 +1242,7 @@ export default function AnimalRecordPage() {
             <p
               style={{
                 margin:
-                  "4px 0 0",
+                  "4px 0 10px",
                 fontSize: 12.5,
               }}
             >
@@ -1115,6 +1253,21 @@ export default function AnimalRecordPage() {
               managing
               organization.
             </p>
+
+            <a
+              href={`/animals/${encodeURIComponent(
+                animal.id
+              )}/offers`}
+              style={{
+                color: "#2F6F4E",
+                fontSize: 12.5,
+                fontWeight: 700,
+                textDecoration:
+                  "none",
+              }}
+            >
+              Review Offers →
+            </a>
           </div>
         )}
 
@@ -1304,7 +1457,7 @@ export default function AnimalRecordPage() {
 }
 
 /* =========================================================
-   COMPONENTS
+   PANEL
 ========================================================= */
 
 function Panel({
@@ -1341,6 +1494,10 @@ function Panel({
     </div>
   );
 }
+
+/* =========================================================
+   RECORD CARD
+========================================================= */
 
 function RecordCard({
   title,
@@ -1412,6 +1569,10 @@ function RecordCard({
   );
 }
 
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
 function StatusBadge({
   label,
 }: {
@@ -1438,6 +1599,10 @@ function StatusBadge({
     </span>
   );
 }
+
+/* =========================================================
+   INFO ROW
+========================================================= */
 
 function InfoRow({
   label,
@@ -1483,6 +1648,10 @@ function InfoRow({
   );
 }
 
+/* =========================================================
+   FIELD HEADING
+========================================================= */
+
 function FieldHeading({
   children,
 }: {
@@ -1508,7 +1677,7 @@ function FieldHeading({
 }
 
 /* =========================================================
-   AGE / FORMATTING
+   AGE
 ========================================================= */
 
 function calculateAge(
@@ -1585,6 +1754,10 @@ function calculateAge(
     ? `${months} mo`
     : "Under 1 mo";
 }
+
+/* =========================================================
+   FORMATTING
+========================================================= */
 
 function formatValue(
   value: string
