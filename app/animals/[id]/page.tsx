@@ -623,31 +623,19 @@ function RecordCard({
   title,
   text,
   active = false,
+  href,
 }: {
   title: string;
   text: string;
   active?: boolean;
+  href?: string;
 }) {
-  return (
-    <div
-      style={{
-        background:
-          active
-            ? "#F6F7F8"
-            : "#fff",
-        border:
-          active
-            ? "1px solid #B9C1CF"
-            : "1px solid #E7E5E1",
-        borderRadius: 9,
-        padding: 15,
-      }}
-    >
+  const content = (
+    <>
       <strong
         style={{
           display: "block",
-          color:
-            "#17233C",
+          color: "#17233C",
           fontSize: 15,
           marginBottom: 6,
         }}
@@ -658,14 +646,36 @@ function RecordCard({
       <p
         style={{
           margin: 0,
-          color:
-            "#6B6862",
+          color: "#6B6862",
           fontSize: 12.5,
           lineHeight: 1.5,
         }}
       >
         {text}
       </p>
+    </>
+  );
+
+  const style = {
+    display: "block",
+    background: active
+      ? "#F6F7F8"
+      : "#fff",
+    border: active
+      ? "1px solid #B9C1CF"
+      : "1px solid #E7E5E1",
+    borderRadius: 9,
+    padding: 15,
+    textDecoration: "none",
+  } as const;
+
+  return href ? (
+    <a href={href} style={style}>
+      {content}
+    </a>
+  ) : (
+    <div style={style}>
+      {content}
     </div>
   );
 }
