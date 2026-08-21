@@ -10,45 +10,307 @@ export const runtime = "edge";
 /* =========================================================
    GET ANIMALS FOR CURRENT ORGANIZATION
 
-   These are animals already under the organization's
-   care or active responsibility.
+   Dashboard data only:
+   - compact animal identity
+   - photo
+   - age source fields
+   - reminders
+   - optional card-field data
+   - open help/foster offers
 
-   Urgent shelter animals are a separate system.
+   Full animal details stay in /animals/[id].
 ========================================================= */
 
-export async function GET() {
+export async function GET(
+  req: NextRequest
+) {
   try {
     const { orgId } =
       await requireEffectiveOrg();
 
+    const {
+      searchParams,
+    } = new URL(req.url);
+
+    const q =
+      searchParams
+        .get("q")
+        ?.trim() || null;
+
+    const species =
+      searchParams.get(
+        "species"
+      ) || null;
+
+    const placement =
+      searchParams.get(
+        "placement"
+      ) || null;
+
+    const attentionOnly =
+      searchParams.get(
+        "attention"
+      ) === "true";
+
+    const sort =
+      searchParams.get(
+        "sort"
+      ) || "newest";
+
     const rows = await sql`
       select
-        id,
-        name,
-        temporary_name,
-        species,
-        breed_or_type,
-        source,
-        custody,
-        urgency,
-        placement,
-        created_at
-      from animals
-      where current_org_id = ${orgId}
-      order by created_at desc
+        a.id,
+        a.name,
+        a.temporary_name,
+        a.species,
+        a.breed_or_type,
+        a.birth_date,
+        a.sex,
+        a.weight_lbs,
+        a.source,
+        a.custody,
+        a.urgency,
+        a.placement,
+        a.public_share_enabled,
+        a.external_listing_url,
+        a.created_at,
+
+        (
+          select m.url
+          from media m
+          where
+            m.owner_type = 'animal'
+            and m.owner_id = a.id
+          order by
+            m.created_at desc
+          limit 1
+        ) as photo_url,
+
+        (
+          select min(amr.due_at)
+          from animal_medical_records amr
+          where
+            amr.animal_id = a.id
+            and amr.due_at is not null
+            and amr.status <> 'completed'
+        ) as next_medical_due,
+
+        (
+          select min(amed.next_due_at)
+          from animal_medications amed
+          where
+            amed.animal_id = a.id
+            and amed.active = true
+            and amed.next_due_at is not null
+        ) as next_medication_due,
+
+        (
+          select count(*)::int
+          from animal_help_offers aho
+          where
+            aho.animal_id = a.id
+            and aho.status in (
+              'new',
+              'reviewing',
+              'contacted'
+            )
+        ) as open_help_offers
+
+      from animals a
+
+      where
+        a.current_org_id = ${orgId}
+
+        and (
+          ${q}::text is null
+          or a.name ilike '%' || ${q} || '%'
+          or a.temporary_name ilike '%' || ${q} || '%'
+          or a.breed_or_type ilike '%' || ${q} || '%'
+        )
+
+        and (
+          ${species}::text is null
+          or a.species = ${species}
+        )
+
+        and (
+          ${placement}::text is null
+          or a.placement = ${placement}
+        )
+
+      order by
+        case
+          when ${sort} = 'name'
+          then coalesce(
+            a.name,
+            a.temporary_name,
+            ''
+          )
+        end asc,
+
+        case
+          when ${sort} = 'oldest'
+          then a.created_at
+        end asc,
+
+        case
+          when ${sort} = 'newest'
+          then a.created_at
+        end desc,
+
+        a.created_at desc
     `;
 
+    const now =
+      Date.now();
+
+    const animals =
+      rows
+        .map((row: any) => {
+          const medicalDue =
+            row.next_medical_due
+              ? new Date(
+                  row.next_medical_due
+                ).getTime()
+              : null;
+
+          const medicationDue =
+            row.next_medication_due
+              ? new Date(
+                  row.next_medication_due
+                ).getTime()
+              : null;
+
+          const reminders = [];
+
+          if (
+            medicalDue !== null
+          ) {
+            reminders.push({
+              kind:
+                "medical",
+
+              label:
+                medicalDue <
+                now
+                  ? "Medical care overdue"
+                  : "Medical care due",
+
+              dueAt:
+                row.next_medical_due,
+
+              overdue:
+                medicalDue <
+                now,
+            });
+          }
+
+          if (
+            medicationDue !==
+            null
+          ) {
+            reminders.push({
+              kind:
+                "medication",
+
+              label:
+                medicationDue <
+                now
+                  ? "Medication overdue"
+                  : "Medication due",
+
+              dueAt:
+                row.next_medication_due,
+
+              overdue:
+                medicationDue <
+                now,
+            });
+          }
+
+          /*
+            Keep dashboard noise low.
+
+            Full medical detail stays
+            in the animal file.
+          */
+
+          reminders.sort(
+            (a, b) => {
+              if (
+                a.overdue &&
+                !b.overdue
+              ) {
+                return -1;
+              }
+
+              if (
+                !a.overdue &&
+                b.overdue
+              ) {
+                return 1;
+              }
+
+              return (
+                new Date(
+                  a.dueAt
+                ).getTime() -
+                new Date(
+                  b.dueAt
+                ).getTime()
+              );
+            }
+          );
+
+          return {
+            ...row,
+            reminders:
+              reminders.slice(
+                0,
+                2
+              ),
+          };
+        })
+        .filter(
+          (animal: any) =>
+            !attentionOnly ||
+            animal.reminders
+              .length > 0
+        );
+
+    const orgRows =
+      await sql`
+        select
+          animal_card_fields
+        from organizations
+        where id = ${orgId}
+        limit 1
+      `;
+
     return NextResponse.json({
-      animals: rows,
+      animals,
+
+      cardFields:
+        orgRows[0]
+          ?.animal_card_fields ??
+        [
+          "placement",
+          "foster_offers",
+        ],
     });
   } catch (err) {
-    if (err instanceof AuthError) {
+    if (
+      err instanceof
+      AuthError
+    ) {
       return NextResponse.json(
         {
-          error: err.message,
+          error:
+            err.message,
         },
         {
-          status: err.status,
+          status:
+            err.status,
         }
       );
     }
@@ -61,7 +323,9 @@ export async function GET() {
     return NextResponse.json(
       {
         error:
-          "Something went wrong loading animals.",
+          err instanceof Error
+            ? err.message
+            : "Something went wrong loading animals.",
       },
       {
         status: 500,
@@ -93,11 +357,15 @@ export async function POST(
     const {
       session,
       orgId,
-    } = await requireEffectiveOrg();
+    } =
+      await requireEffectiveOrg();
 
-    const body = await req
-      .json()
-      .catch(() => null);
+    const body =
+      await req
+        .json()
+        .catch(
+          () => null
+        );
 
     const {
       species,
@@ -116,7 +384,8 @@ export async function POST(
 
     if (
       !species ||
-      typeof species !== "string" ||
+      typeof species !==
+        "string" ||
       !species.trim()
     ) {
       return NextResponse.json(
@@ -133,11 +402,8 @@ export async function POST(
     /* -----------------------------------------------------
        CUSTODY / ACTIVE RESPONSIBILITY
 
-       "shelter" is deliberately excluded here.
-
-       Animals only being considered for rescue belong
-       under Urgent Shelter Animals, not this organization's
-       own animal records.
+       Shelter animals only being considered for rescue
+       remain under Urgent Shelter Animals.
     ----------------------------------------------------- */
 
     const validCustody = [
@@ -147,7 +413,9 @@ export async function POST(
     ];
 
     const custodyValue =
-      validCustody.includes(custody)
+      validCustody.includes(
+        custody
+      )
         ? custody
         : "rescue";
 
@@ -157,7 +425,9 @@ export async function POST(
 
     const startedAt =
       intakeDate
-        ? new Date(intakeDate)
+        ? new Date(
+            intakeDate
+          )
         : new Date();
 
     if (
@@ -181,7 +451,8 @@ export async function POST(
     ----------------------------------------------------- */
 
     const cleanName =
-      typeof name === "string" &&
+      typeof name ===
+        "string" &&
       name.trim()
         ? name.trim()
         : null;
@@ -194,13 +465,15 @@ export async function POST(
         : null;
 
     const cleanSource =
-      typeof source === "string" &&
+      typeof source ===
+        "string" &&
       source.trim()
         ? source.trim()
         : null;
 
     const cleanNotes =
-      typeof notes === "string" &&
+      typeof notes ===
+        "string" &&
       notes.trim()
         ? notes.trim()
         : null;
@@ -209,38 +482,39 @@ export async function POST(
        CREATE ANIMAL
     ----------------------------------------------------- */
 
-    const animalRows = await sql`
-      insert into animals (
-        name,
-        temporary_name,
-        species,
-        source,
-        current_org_id,
-        custody,
-        notes,
-        created_by
-      )
+    const animalRows =
+      await sql`
+        insert into animals (
+          name,
+          temporary_name,
+          species,
+          source,
+          current_org_id,
+          custody,
+          notes,
+          created_by
+        )
 
-      values (
-        ${cleanName},
-        ${cleanTemporaryName},
-        ${species.trim()},
-        ${cleanSource},
-        ${orgId},
-        ${custodyValue},
-        ${cleanNotes},
-        ${session.id}
-      )
+        values (
+          ${cleanName},
+          ${cleanTemporaryName},
+          ${species.trim()},
+          ${cleanSource},
+          ${orgId},
+          ${custodyValue},
+          ${cleanNotes},
+          ${session.id}
+        )
 
-      returning
-        id,
-        name,
-        temporary_name,
-        species,
-        source,
-        custody,
-        created_at
-    `;
+        returning
+          id,
+          name,
+          temporary_name,
+          species,
+          source,
+          custody,
+          created_at
+      `;
 
     const animal =
       animalRows[0];
@@ -346,14 +620,17 @@ export async function POST(
     );
   } catch (err) {
     if (
-      err instanceof AuthError
+      err instanceof
+      AuthError
     ) {
       return NextResponse.json(
         {
-          error: err.message,
+          error:
+            err.message,
         },
         {
-          status: err.status,
+          status:
+            err.status,
         }
       );
     }
@@ -366,7 +643,9 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Something went wrong recording intake.",
+          err instanceof Error
+            ? err.message
+            : "Something went wrong recording intake.",
       },
       {
         status: 500,
