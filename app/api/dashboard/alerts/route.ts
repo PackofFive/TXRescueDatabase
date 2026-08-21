@@ -12,6 +12,12 @@ import {
 
 export const runtime = "edge";
 
+type Priority =
+  | "critical"
+  | "high"
+  | "normal"
+  | "info";
+
 type AlertRow = {
   id: string;
   animal_id: string;
@@ -20,18 +26,81 @@ type AlertRow = {
   title: string;
   due_at: string | null;
   created_at: string;
-  priority: "critical" | "high" | "normal" | "info";
+  priority: Priority;
+};
+
+type Preference = {
+  priority: Priority;
+  enabled: boolean;
+};
+
+const DEFAULT_PREFERENCES: Record<
+  string,
+  Preference
+> = {
+  medical: {
+    priority: "high",
+    enabled: true,
+  },
+
+  medication: {
+    priority: "critical",
+    enabled: true,
+  },
+
+  foster_offer: {
+    priority: "high",
+    enabled: true,
+  },
+};
+
+const PRIORITY_RANK: Record<
+  Priority,
+  number
+> = {
+  critical: 1,
+  high: 2,
+  normal: 3,
+  info: 4,
 };
 
 /* =========================================================
+   PRIORITY HELPERS
+========================================================= */
+
+function moreUrgent(
+  a: Priority,
+  b: Priority
+): Priority {
+  return PRIORITY_RANK[a] <
+    PRIORITY_RANK[b]
+    ? a
+    : b;
+}
+
+function daysUntil(
+  value: string
+) {
+  const due =
+    new Date(value);
+
+  const now =
+    new Date();
+
+  return Math.ceil(
+    (
+      due.getTime() -
+      now.getTime()
+    ) /
+      (1000 *
+        60 *
+        60 *
+        24)
+  );
+}
+
+/* =========================================================
    DASHBOARD ALERTS
-
-   Current automatic alert sources:
-   - overdue / upcoming medical records
-   - overdue / upcoming medications
-   - new / active foster-help offers
-
-   This route is intentionally focused on actionable work.
 ========================================================= */
 
 export async function GET(
@@ -43,258 +112,385 @@ export async function GET(
     } =
       await requireEffectiveOrg();
 
-    const alerts: AlertRow[] = [];
+    /* -----------------------------------------------------
+       ORGANIZATION ALERT PREFERENCES
+    ----------------------------------------------------- */
+
+    const preferenceRows =
+      await sql`
+        select
+          alert_type,
+          priority,
+          enabled
+        from organization_alert_preferences
+        where
+          org_id = ${orgId}
+      `;
+
+    const preferences: Record<
+      string,
+      Preference
+    > = {
+      ...DEFAULT_PREFERENCES,
+    };
+
+    for (
+      const row of preferenceRows
+    ) {
+      const priority =
+        String(
+          row.priority
+        ) as Priority;
+
+      if (
+        [
+          "critical",
+          "high",
+          "normal",
+          "info",
+        ].includes(
+          priority
+        )
+      ) {
+        preferences[
+          row.alert_type
+        ] = {
+          priority,
+          enabled:
+            Boolean(
+              row.enabled
+            ),
+        };
+      }
+    }
+
+    const alerts: AlertRow[] =
+      [];
 
     /* -----------------------------------------------------
        MEDICAL RECORD REMINDERS
     ----------------------------------------------------- */
 
-    const medicalRows = await sql`
-      select
-        amr.id,
-        amr.animal_id,
-        coalesce(
-          a.name,
-          a.temporary_name,
-          'Unnamed Animal'
-        ) as animal_name,
-        amr.due_at,
-        amr.created_at
-      from animal_medical_records amr
-      join animals a
-        on a.id = amr.animal_id
-      where
-        a.current_org_id = ${orgId}
-        and amr.due_at is not null
-        and coalesce(amr.status, '') <> 'completed'
-      order by
-        amr.due_at asc
-    `;
+    const medicalPreference =
+      preferences.medical;
 
-    for (const row of medicalRows) {
-      const due =
-        new Date(
-          row.due_at
-        );
+    if (
+      medicalPreference
+        ?.enabled
+    ) {
+      const medicalRows =
+        await sql`
+          select
+            amr.id,
+            amr.animal_id,
 
-      const now =
-        new Date();
+            coalesce(
+              a.name,
+              a.temporary_name,
+              'Unnamed Animal'
+            ) as animal_name,
 
-      const diffMs =
-        due.getTime() -
-        now.getTime();
+            amr.due_at,
+            amr.created_at
 
-      const diffDays =
-        Math.ceil(
-          diffMs /
-            (1000 *
-              60 *
-              60 *
-              24)
-        );
+          from animal_medical_records amr
 
-      alerts.push({
-        id:
-          `medical-${row.id}`,
+          join animals a
+            on a.id = amr.animal_id
 
-        animal_id:
-          row.animal_id,
+          where
+            a.current_org_id = ${orgId}
 
-        animal_name:
-          row.animal_name,
+            and
+            amr.due_at is not null
 
-        alert_type:
-          "medical",
+            and
+            coalesce(
+              amr.status,
+              ''
+            ) <> 'completed'
 
-        title:
+          order by
+            amr.due_at asc
+        `;
+
+      for (
+        const row of medicalRows
+      ) {
+        const diffDays =
+          daysUntil(
+            row.due_at
+          );
+
+        let automaticPriority:
+          Priority =
+          "normal";
+
+        if (
           diffDays < 0
-            ? "Medical care overdue"
-            : diffDays === 0
-            ? "Medical care due today"
-            : "Medical care due soon",
+        ) {
+          automaticPriority =
+            "critical";
+        } else if (
+          diffDays <= 1
+        ) {
+          automaticPriority =
+            "high";
+        }
 
-        due_at:
-          row.due_at,
+        alerts.push({
+          id:
+            `medical-${row.id}`,
 
-        created_at:
-          row.created_at,
+          animal_id:
+            row.animal_id,
 
-        priority:
-          diffDays < 0
-            ? "critical"
-            : diffDays <= 1
-            ? "high"
-            : "normal",
-      });
+          animal_name:
+            row.animal_name,
+
+          alert_type:
+            "medical",
+
+          title:
+            diffDays < 0
+              ? "Medical care overdue"
+              : diffDays === 0
+              ? "Medical care due today"
+              : "Medical care due soon",
+
+          due_at:
+            row.due_at,
+
+          created_at:
+            row.created_at,
+
+          /*
+            Rescue preference establishes
+            the baseline.
+
+            Automatic urgency can escalate
+            it, but never reduce it.
+          */
+          priority:
+            moreUrgent(
+              medicalPreference.priority,
+              automaticPriority
+            ),
+        });
+      }
     }
 
     /* -----------------------------------------------------
        MEDICATION REMINDERS
     ----------------------------------------------------- */
 
-    const medicationRows =
-      await sql`
-        select
-          am.id,
-          am.animal_id,
-          coalesce(
-            a.name,
-            a.temporary_name,
-            'Unnamed Animal'
-          ) as animal_name,
-          am.next_due_at,
-          am.created_at
-        from animal_medications am
-        join animals a
-          on a.id = am.animal_id
-        where
-          a.current_org_id = ${orgId}
-          and am.active = true
-          and am.next_due_at is not null
-        order by
-          am.next_due_at asc
-      `;
+    const medicationPreference =
+      preferences.medication;
 
-    for (const row of medicationRows) {
-      const due =
-        new Date(
-          row.next_due_at
-        );
+    if (
+      medicationPreference
+        ?.enabled
+    ) {
+      const medicationRows =
+        await sql`
+          select
+            am.id,
+            am.animal_id,
 
-      const now =
-        new Date();
+            coalesce(
+              a.name,
+              a.temporary_name,
+              'Unnamed Animal'
+            ) as animal_name,
 
-      const diffMs =
-        due.getTime() -
-        now.getTime();
+            am.next_due_at,
+            am.created_at
 
-      const diffDays =
-        Math.ceil(
-          diffMs /
-            (1000 *
-              60 *
-              60 *
-              24)
-        );
+          from animal_medications am
 
-      alerts.push({
-        id:
-          `medication-${row.id}`,
+          join animals a
+            on a.id = am.animal_id
 
-        animal_id:
-          row.animal_id,
+          where
+            a.current_org_id = ${orgId}
 
-        animal_name:
-          row.animal_name,
+            and
+            am.active = true
 
-        alert_type:
-          "medication",
+            and
+            am.next_due_at is not null
 
-        title:
+          order by
+            am.next_due_at asc
+        `;
+
+      for (
+        const row of medicationRows
+      ) {
+        const diffDays =
+          daysUntil(
+            row.next_due_at
+          );
+
+        let automaticPriority:
+          Priority =
+          "normal";
+
+        if (
           diffDays < 0
-            ? "Medication overdue"
-            : diffDays === 0
-            ? "Medication due today"
-            : "Medication due soon",
+        ) {
+          automaticPriority =
+            "critical";
+        } else if (
+          diffDays <= 1
+        ) {
+          automaticPriority =
+            "high";
+        }
 
-        due_at:
-          row.next_due_at,
+        alerts.push({
+          id:
+            `medication-${row.id}`,
 
-        created_at:
-          row.created_at,
+          animal_id:
+            row.animal_id,
 
-        priority:
-          diffDays < 0
-            ? "critical"
-            : diffDays <= 1
-            ? "high"
-            : "normal",
-      });
+          animal_name:
+            row.animal_name,
+
+          alert_type:
+            "medication",
+
+          title:
+            diffDays < 0
+              ? "Medication overdue"
+              : diffDays === 0
+              ? "Medication due today"
+              : "Medication due soon",
+
+          due_at:
+            row.next_due_at,
+
+          created_at:
+            row.created_at,
+
+          priority:
+            moreUrgent(
+              medicationPreference.priority,
+              automaticPriority
+            ),
+        });
+      }
     }
 
     /* -----------------------------------------------------
        FOSTER / HELP OFFERS
     ----------------------------------------------------- */
 
-    const offerRows =
-      await sql`
-        select
-          aho.id,
-          aho.animal_id,
-          coalesce(
-            a.name,
-            a.temporary_name,
-            'Unnamed Animal'
-          ) as animal_name,
-          aho.status,
-          aho.created_at
-        from animal_help_offers aho
-        join animals a
-          on a.id = aho.animal_id
-        where
-          a.current_org_id = ${orgId}
-          and aho.status in (
-            'new',
-            'reviewing',
-            'contacted'
-          )
-        order by
-          aho.created_at desc
-      `;
+    const offerPreference =
+      preferences.foster_offer;
 
-    for (const row of offerRows) {
-      alerts.push({
-        id:
-          `offer-${row.id}`,
+    if (
+      offerPreference
+        ?.enabled
+    ) {
+      const offerRows =
+        await sql`
+          select
+            aho.id,
+            aho.animal_id,
 
-        animal_id:
-          row.animal_id,
+            coalesce(
+              a.name,
+              a.temporary_name,
+              'Unnamed Animal'
+            ) as animal_name,
 
-        animal_name:
-          row.animal_name,
+            aho.status,
+            aho.created_at
 
-        alert_type:
-          "foster_offer",
+          from animal_help_offers aho
 
-        title:
-          row.status === "new"
-            ? "New foster/help offer"
-            : row.status ===
-              "reviewing"
-            ? "Foster/help offer under review"
-            : "Foster/help offer contacted",
+          join animals a
+            on a.id = aho.animal_id
 
-        due_at:
-          null,
+          where
+            a.current_org_id = ${orgId}
 
-        created_at:
-          row.created_at,
+            and
+            aho.status in (
+              'new',
+              'reviewing',
+              'contacted'
+            )
 
-        priority:
+          order by
+            aho.created_at desc
+        `;
+
+      for (
+        const row of offerRows
+      ) {
+        /*
+          New foster/help offers can
+          automatically escalate to High.
+
+          Reviewing/contacted use the
+          organization's chosen priority.
+        */
+
+        const automaticPriority:
+          Priority =
           row.status === "new"
             ? "high"
-            : "normal",
-      });
+            : "info";
+
+        alerts.push({
+          id:
+            `offer-${row.id}`,
+
+          animal_id:
+            row.animal_id,
+
+          animal_name:
+            row.animal_name,
+
+          alert_type:
+            "foster_offer",
+
+          title:
+            row.status === "new"
+              ? "New foster/help offer"
+              : row.status ===
+                "reviewing"
+              ? "Foster/help offer under review"
+              : "Follow up on foster/help offer",
+
+          due_at: null,
+
+          created_at:
+            row.created_at,
+
+          priority:
+            moreUrgent(
+              offerPreference.priority,
+              automaticPriority
+            ),
+        });
+      }
     }
 
     /* -----------------------------------------------------
-       SORT
+       SORT ALERTS
     ----------------------------------------------------- */
-
-    const priorityRank = {
-      critical: 1,
-      high: 2,
-      normal: 3,
-      info: 4,
-    };
 
     alerts.sort(
       (a, b) => {
         const priorityDiff =
-          priorityRank[
+          PRIORITY_RANK[
             a.priority
           ] -
-          priorityRank[
+          PRIORITY_RANK[
             b.priority
           ];
 
@@ -304,50 +500,78 @@ export async function GET(
           return priorityDiff;
         }
 
-        const aDate =
-          a.due_at
-            ? new Date(
-                a.due_at
-              ).getTime()
-            : new Date(
-                a.created_at
-              ).getTime();
-
-        const bDate =
+        if (
+          a.due_at &&
           b.due_at
-            ? new Date(
-                b.due_at
-              ).getTime()
-            : new Date(
-                b.created_at
-              ).getTime();
+        ) {
+          return (
+            new Date(
+              a.due_at
+            ).getTime() -
+            new Date(
+              b.due_at
+            ).getTime()
+          );
+        }
 
-        return aDate - bDate;
+        if (
+          a.due_at &&
+          !b.due_at
+        ) {
+          return -1;
+        }
+
+        if (
+          !a.due_at &&
+          b.due_at
+        ) {
+          return 1;
+        }
+
+        return (
+          new Date(
+            b.created_at
+          ).getTime() -
+          new Date(
+            a.created_at
+          ).getTime()
+        );
       }
     );
 
     /* -----------------------------------------------------
-       STATS
+       DASHBOARD STATS
     ----------------------------------------------------- */
 
     const statsRows =
       await sql`
         select
+
           (
             select count(*)::int
             from animals a
             where
               a.current_org_id = ${orgId}
+
+              and
+              coalesce(
+                a.outcome_status,
+                ''
+              ) <> 'adopted'
           ) as animals_in_care,
 
           (
             select count(*)::int
             from animal_help_offers aho
+
             join animals a
               on a.id = aho.animal_id
+
             where
               a.current_org_id = ${orgId}
-              and aho.status in (
+
+              and
+              aho.status in (
                 'new',
                 'reviewing',
                 'contacted'
@@ -357,10 +581,15 @@ export async function GET(
           (
             select count(*)::int
             from animals a
+
             where
               a.current_org_id = ${orgId}
-              and a.public_share_enabled = true
-              and coalesce(
+
+              and
+              a.public_share_enabled = true
+
+              and
+              coalesce(
                 a.outcome_status,
                 ''
               ) <> 'adopted'
@@ -369,9 +598,13 @@ export async function GET(
           (
             select count(*)::int
             from animals a
+
             where
               a.current_org_id = ${orgId}
-              and a.outcome_status = 'adopted'
+
+              and
+              a.outcome_status =
+                'adopted'
           ) as adopted_animals
       `;
 
@@ -386,6 +619,7 @@ export async function GET(
     return NextResponse.json({
       alerts,
       stats,
+      preferences,
     });
   } catch (err) {
     if (
