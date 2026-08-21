@@ -215,9 +215,6 @@ export default function AnimalRecordPage() {
 
   /* =====================================================
      SAVE PUBLIC PROFILE DRAFT
-
-     Saves data without changing whether the profile
-     is currently public or private.
   ===================================================== */
 
   async function saveProfileDraft() {
@@ -307,11 +304,6 @@ export default function AnimalRecordPage() {
                 publicNeed,
                 externalListingUrl,
 
-                /*
-                  Preserve current outcome fields.
-
-                  We are not editing outcome here yet.
-                */
                 outcomeStatus:
                   animal?.outcome_status ??
                   null,
@@ -719,11 +711,11 @@ export default function AnimalRecordPage() {
             can complete medical
             care, surgery,
             behavior evaluation,
-            foster placement, and
-            other work before
-            deciding whether to
-            publish a public
-            profile.
+            foster placement,
+            reminders, and other
+            work before deciding
+            whether to publish a
+            public profile.
           </p>
         </div>
       )}
@@ -808,9 +800,9 @@ export default function AnimalRecordPage() {
           Important missing
           information, overdue
           care, medications,
-          foster tasks, and other
-          priority items will
-          appear here.
+          reminders, foster tasks,
+          and other priority items
+          will appear here.
         </p>
       </div>
 
@@ -839,6 +831,14 @@ export default function AnimalRecordPage() {
           href={`/animals/${encodeURIComponent(
             animal.id
           )}/medical`}
+        />
+
+        <RecordCard
+          title="Reminders & Tasks"
+          text="Create follow-ups, appointments, calls, care tasks, and other reminders for this animal."
+          href={`/animals/${encodeURIComponent(
+            animal.id
+          )}/reminders`}
         />
 
         <RecordCard
@@ -1050,8 +1050,6 @@ export default function AnimalRecordPage() {
           </p>
         </div>
 
-        {/* BASIC PUBLIC DETAILS */}
-
         <div
           style={{
             display: "grid",
@@ -1214,8 +1212,6 @@ export default function AnimalRecordPage() {
           </p>
         </div>
 
-        {/* HELP OFFERS */}
-
         {openHelpOffers > 0 && (
           <div
             style={{
@@ -1270,8 +1266,6 @@ export default function AnimalRecordPage() {
             </a>
           </div>
         )}
-
-        {/* ACTIONS */}
 
         <div
           style={{
