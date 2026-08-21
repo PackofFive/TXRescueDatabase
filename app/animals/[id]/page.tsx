@@ -12,77 +12,31 @@ import {
 type TimelineEvent = {
   id: string;
   event_type: string;
-  org_id:
-    | string
-    | null;
+  org_id: string | null;
   started_at: string;
 };
 
 type Animal = {
   id: string;
-
-  name:
-    | string
-    | null;
-
-  temporary_name:
-    | string
-    | null;
-
+  name: string | null;
+  temporary_name: string | null;
   species: string;
-
-  breed_or_type:
-    | string
-    | null;
-
-  birth_date:
-    | string
-    | null;
-
-  sex:
-    | string
-    | null;
-
-  weight_lbs:
-    | string
-    | number
-    | null;
-
-  source:
-    | string
-    | null;
-
+  breed_or_type: string | null;
+  birth_date: string | null;
+  sex: string | null;
+  weight_lbs: string | number | null;
+  source: string | null;
   custody: string;
+  urgency: string | null;
+  placement: string | null;
+  notes: string | null;
 
-  urgency:
-    | string
-    | null;
+  public_share_enabled: boolean;
+  public_summary: string | null;
+  public_need: string | null;
+  external_listing_url: string | null;
 
-  placement:
-    | string
-    | null;
-
-  notes:
-    | string
-    | null;
-
-  public_share_enabled:
-    boolean;
-
-  public_summary:
-    | string
-    | null;
-
-  public_need:
-    | string
-    | null;
-
-  external_listing_url:
-    | string
-    | null;
-
-  open_help_offers:
-    number;
+  open_help_offers: number;
 
   created_at: string;
 
@@ -90,22 +44,16 @@ type Animal = {
     | {
         id: string;
         url: string;
-        source:
-          | string
-          | null;
-        visibility:
-          | string
-          | null;
+        source: string | null;
+        visibility: string | null;
       }
     | null;
 
-  timeline:
-    TimelineEvent[];
+  timeline: TimelineEvent[];
 };
 
 export default function AnimalRecordPage() {
-  const params =
-    useParams();
+  const params = useParams();
 
   const animalId =
     params?.id as string;
@@ -113,87 +61,70 @@ export default function AnimalRecordPage() {
   const [
     animal,
     setAnimal,
-  ] =
-    useState<
-      Animal | null
-    >(null);
+  ] = useState<Animal | null>(
+    null
+  );
 
   const [
     loading,
     setLoading,
-  ] =
-    useState(true);
+  ] = useState(true);
 
   const [
     error,
     setError,
-  ] =
-    useState<
-      string | null
-    >(null);
+  ] = useState<
+    string | null
+  >(null);
 
   const [
     savingPublic,
     setSavingPublic,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     publicMessage,
     setPublicMessage,
-  ] =
-    useState<
-      string | null
-    >(null);
+  ] = useState<
+    string | null
+  >(null);
 
   /* =====================================================
-     PUBLIC PROFILE FORM STATE
+     PUBLIC PROFILE DRAFT
   ===================================================== */
 
   const [
     birthDate,
     setBirthDate,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     sex,
     setSex,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     weightLbs,
     setWeightLbs,
-  ] =
-    useState("");
-
-  const [
-    sharePublicly,
-    setSharePublicly,
-  ] =
-    useState(false);
+  ] = useState("");
 
   const [
     publicSummary,
     setPublicSummary,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     publicNeed,
     setPublicNeed,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     externalListingUrl,
     setExternalListingUrl,
-  ] =
-    useState("");
+  ] = useState("");
 
   /* =====================================================
-     LOAD ANIMAL
+     LOAD
   ===================================================== */
 
   useEffect(() => {
@@ -206,8 +137,7 @@ export default function AnimalRecordPage() {
         animalId
       )}`,
       {
-        cache:
-          "no-store",
+        cache: "no-store",
       }
     )
       .then(async (r) => {
@@ -224,24 +154,18 @@ export default function AnimalRecordPage() {
         const loaded =
           data.animal as Animal;
 
-        setAnimal(
-          loaded
-        );
+        setAnimal(loaded);
 
         setBirthDate(
           loaded.birth_date
             ? String(
                 loaded.birth_date
-              ).slice(
-                0,
-                10
-              )
+              ).slice(0, 10)
             : ""
         );
 
         setSex(
-          loaded.sex ??
-            ""
+          loaded.sex ?? ""
         );
 
         setWeightLbs(
@@ -251,12 +175,6 @@ export default function AnimalRecordPage() {
                 loaded.weight_lbs
               )
             : ""
-        );
-
-        setSharePublicly(
-          Boolean(
-            loaded.public_share_enabled
-          )
         );
 
         setPublicSummary(
@@ -287,17 +205,71 @@ export default function AnimalRecordPage() {
   }, [animalId]);
 
   /* =====================================================
-     SAVE PUBLIC PROFILE
+     SAVE PROFILE DRAFT
+
+     Saves public-facing information WITHOUT changing
+     whether the animal is published.
   ===================================================== */
 
-  async function savePublicProfile() {
-    setSavingPublic(
-      true
-    );
+  async function saveProfileDraft() {
+    if (!animal) return;
 
-    setPublicMessage(
-      null
+    await saveProfile(
+      animal.public_share_enabled,
+      "Public profile draft saved."
     );
+  }
+
+  /* =====================================================
+     PUBLISH
+  ===================================================== */
+
+  async function publishProfile() {
+    const confirmed =
+      window.confirm(
+        "Publish this animal's public profile?\n\nThe animal will become visible through its public Pack of Five link. Private notes, detailed medical records, foster contacts, expenses, and other internal information will remain private."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await saveProfile(
+      true,
+      "Public profile published."
+    );
+  }
+
+  /* =====================================================
+     UNPUBLISH
+  ===================================================== */
+
+  async function unpublishProfile() {
+    const confirmed =
+      window.confirm(
+        "Unpublish this animal?\n\nThe animal's private Rescue Manager file will remain unchanged, but the public profile will no longer be available."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await saveProfile(
+      false,
+      "Public profile unpublished. The animal is private again."
+    );
+  }
+
+  /* =====================================================
+     SHARED SAVE
+  ===================================================== */
+
+  async function saveProfile(
+    publicShareEnabled: boolean,
+    successMessage: string
+  ) {
+    setSavingPublic(true);
+    setPublicMessage(null);
 
     try {
       const res =
@@ -306,8 +278,7 @@ export default function AnimalRecordPage() {
             animalId
           )}`,
           {
-            method:
-              "PATCH",
+            method: "PATCH",
 
             headers: {
               "Content-Type":
@@ -315,24 +286,17 @@ export default function AnimalRecordPage() {
             },
 
             body:
-              JSON.stringify(
-                {
-                  birthDate,
+              JSON.stringify({
+                birthDate,
+                sex,
+                weightLbs,
 
-                  sex,
+                publicShareEnabled,
 
-                  weightLbs,
-
-                  publicShareEnabled:
-                    sharePublicly,
-
-                  publicSummary,
-
-                  publicNeed,
-
-                  externalListingUrl,
-                }
-              ),
+                publicSummary,
+                publicNeed,
+                externalListingUrl,
+              }),
           }
         );
 
@@ -342,7 +306,7 @@ export default function AnimalRecordPage() {
       if (!res.ok) {
         throw new Error(
           data.error ??
-            "Couldn't save public profile."
+            "Couldn't save animal profile."
         );
       }
 
@@ -384,23 +348,21 @@ export default function AnimalRecordPage() {
       );
 
       setPublicMessage(
-        "Animal profile settings saved."
+        successMessage
       );
     } catch (err) {
       setPublicMessage(
         err instanceof Error
           ? err.message
-          : "Couldn't save public profile."
+          : "Couldn't save animal profile."
       );
     } finally {
-      setSavingPublic(
-        false
-      );
+      setSavingPublic(false);
     }
   }
 
   /* =====================================================
-     COPY PUBLIC LINK
+     COPY LINK
   ===================================================== */
 
   async function copyPublicLink() {
@@ -418,9 +380,7 @@ export default function AnimalRecordPage() {
         "Public link copied."
       );
     } catch {
-      setPublicMessage(
-        url
-      );
+      setPublicMessage(url);
     }
   }
 
@@ -435,8 +395,7 @@ export default function AnimalRecordPage() {
           href="/animals"
           style={{
             fontSize: 13,
-            color:
-              "#C05621",
+            color: "#C05621",
             textDecoration:
               "none",
           }}
@@ -446,8 +405,7 @@ export default function AnimalRecordPage() {
 
         <p
           style={{
-            color:
-              "#B23B2E",
+            color: "#B23B2E",
           }}
         >
           {error}
@@ -470,14 +428,16 @@ export default function AnimalRecordPage() {
       animal.id
     )}`;
 
+  const isPublic =
+    animal.public_share_enabled;
+
   return (
     <section>
       <a
         href="/animals"
         style={{
           fontSize: 12.5,
-          color:
-            "#C05621",
+          color: "#C05621",
           textDecoration:
             "none",
         }}
@@ -486,7 +446,7 @@ export default function AnimalRecordPage() {
       </a>
 
       {/* ===============================================
-          ANIMAL HEADER
+          HEADER
       ================================================ */}
 
       <div
@@ -497,24 +457,18 @@ export default function AnimalRecordPage() {
             "flex-start",
           marginTop: 18,
           marginBottom: 28,
-          flexWrap:
-            "wrap",
+          flexWrap: "wrap",
         }}
       >
         {animal.photo?.url ? (
           <img
-            src={
-              animal.photo.url
-            }
-            alt={
-              displayName
-            }
+            src={animal.photo.url}
+            alt={displayName}
             style={{
               width: 150,
               height: 150,
               borderRadius: 10,
-              objectFit:
-                "cover",
+              objectFit: "cover",
               border:
                 "1px solid #E7E5E1",
             }}
@@ -534,8 +488,7 @@ export default function AnimalRecordPage() {
                 "center",
               justifyContent:
                 "center",
-              color:
-                "#8A8782",
+              color: "#8A8782",
               fontSize: 13,
               textAlign:
                 "center",
@@ -561,18 +514,16 @@ export default function AnimalRecordPage() {
               fontWeight: 800,
               letterSpacing:
                 ".08em",
-              color:
-                "#6B6862",
+              color: "#6B6862",
             }}
           >
-            ANIMAL RECORD
+            PRIVATE ANIMAL RECORD
           </p>
 
           <h1
             style={{
               fontSize: 30,
-              color:
-                "#17233C",
+              color: "#17233C",
               margin:
                 "5px 0 6px",
             }}
@@ -584,8 +535,7 @@ export default function AnimalRecordPage() {
             style={{
               margin:
                 "0 0 12px",
-              color:
-                "#6B6862",
+              color: "#6B6862",
               fontSize: 14,
             }}
           >
@@ -593,25 +543,18 @@ export default function AnimalRecordPage() {
               calculateAge(
                 animal.birth_date
               ),
-
               animal.species,
-
               animal.breed_or_type,
             ]
-              .filter(
-                Boolean
-              )
-              .join(
-                " · "
-              )}
+              .filter(Boolean)
+              .join(" · ")}
           </p>
 
           <div
             style={{
               display: "flex",
               gap: 8,
-              flexWrap:
-                "wrap",
+              flexWrap: "wrap",
             }}
           >
             <StatusBadge
@@ -628,24 +571,90 @@ export default function AnimalRecordPage() {
               />
             )}
 
-            {animal.urgency && (
-              <StatusBadge
-                label={`Urgency: ${formatValue(
-                  animal.urgency
-                )}`}
-              />
-            )}
+            <span
+              style={{
+                display:
+                  "inline-block",
+                borderRadius: 20,
+                padding:
+                  "5px 9px",
+                fontSize: 12,
+                fontWeight: 700,
 
-            <StatusBadge
-              label={
-                animal.public_share_enabled
-                  ? "Public Profile On"
-                  : "Private"
-              }
-            />
+                background:
+                  isPublic
+                    ? "#EEF4F0"
+                    : "#F1F3F5",
+
+                border:
+                  isPublic
+                    ? "1px solid #C9DDD1"
+                    : "1px solid #E0E3E7",
+
+                color:
+                  isPublic
+                    ? "#2F6F4E"
+                    : "#4F5661",
+              }}
+            >
+              {isPublic
+                ? "Public Profile Published"
+                : "Private — Not Published"}
+            </span>
           </div>
         </div>
       </div>
+
+      {/* ===============================================
+          PRIVATE STATUS MESSAGE
+      ================================================ */}
+
+      {!isPublic && (
+        <div
+          style={{
+            background:
+              "#F6F7F8",
+            border:
+              "1px solid #E0E3E7",
+            borderRadius: 9,
+            padding: 14,
+            marginBottom: 22,
+          }}
+        >
+          <strong
+            style={{
+              color:
+                "#17233C",
+            }}
+          >
+            This animal is private.
+          </strong>
+
+          <p
+            style={{
+              margin:
+                "5px 0 0",
+              color:
+                "#6B6862",
+              fontSize: 13.5,
+              lineHeight: 1.55,
+            }}
+          >
+            The animal is only
+            visible inside your
+            organization&apos;s
+            Rescue Manager. You
+            can complete medical
+            care, surgery,
+            behavior evaluation,
+            foster placement and
+            other work before
+            deciding whether to
+            publish a public
+            profile.
+          </p>
+        </div>
+      )}
 
       {/* ===============================================
           NEEDS ATTENTION
@@ -664,8 +673,7 @@ export default function AnimalRecordPage() {
       >
         <strong
           style={{
-            color:
-              "#17233C",
+            color: "#17233C",
           }}
         >
           Needs Attention
@@ -673,10 +681,8 @@ export default function AnimalRecordPage() {
 
         <p
           style={{
-            margin:
-              "5px 0 0",
-            color:
-              "#6B6862",
+            margin: "5px 0 0",
+            color: "#6B6862",
             fontSize: 13.5,
             lineHeight: 1.5,
           }}
@@ -691,7 +697,7 @@ export default function AnimalRecordPage() {
       </div>
 
       {/* ===============================================
-          RECORD SECTIONS
+          RECORD MODULES
       ================================================ */}
 
       <div
@@ -755,9 +761,7 @@ export default function AnimalRecordPage() {
       <Panel title="Overview">
         <InfoRow
           label="Species"
-          value={
-            animal.species
-          }
+          value={animal.species}
         />
 
         <InfoRow
@@ -769,18 +773,14 @@ export default function AnimalRecordPage() {
 
         <InfoRow
           label="Age"
-          value={
-            calculateAge(
-              animal.birth_date
-            )
-          }
+          value={calculateAge(
+            animal.birth_date
+          )}
         />
 
         <InfoRow
           label="Sex"
-          value={
-            animal.sex
-          }
+          value={animal.sex}
         />
 
         <InfoRow
@@ -795,18 +795,14 @@ export default function AnimalRecordPage() {
 
         <InfoRow
           label="Source"
-          value={
-            animal.source
-          }
+          value={animal.source}
         />
 
         <InfoRow
           label="Current custody"
-          value={
-            formatValue(
-              animal.custody
-            )
-          }
+          value={formatValue(
+            animal.custody
+          )}
         />
 
         <InfoRow
@@ -850,8 +846,7 @@ export default function AnimalRecordPage() {
           <div
             style={{
               fontSize: 14,
-              color:
-                "#3F3D39",
+              color: "#3F3D39",
               lineHeight: 1.6,
               whiteSpace:
                 "pre-wrap",
@@ -864,99 +859,56 @@ export default function AnimalRecordPage() {
       </Panel>
 
       {/* ===============================================
-          PUBLIC PROFILE CONTROLS
+          PUBLIC PROFILE & SHARING
       ================================================ */}
 
-      <Panel title="Public Profile">
+      <Panel title="Public Profile & Sharing">
         <div
           style={{
-            display: "flex",
-            justifyContent:
-              "space-between",
-            gap: 16,
-            alignItems:
-              "flex-start",
-            marginBottom: 18,
-            flexWrap:
-              "wrap",
+            background:
+              isPublic
+                ? "#EEF4F0"
+                : "#F6F7F8",
+
+            border:
+              isPublic
+                ? "1px solid #C9DDD1"
+                : "1px solid #E0E3E7",
+
+            borderRadius: 8,
+            padding: 14,
+            marginBottom: 20,
           }}
         >
-          <div
+          <strong
             style={{
-              flex: 1,
-              minWidth: 240,
-            }}
-          >
-            <strong
-              style={{
-                display:
-                  "block",
-                color:
-                  "#17233C",
-                marginBottom: 5,
-              }}
-            >
-              Share this animal
-              publicly
-            </strong>
-
-            <p
-              style={{
-                margin: 0,
-                color:
-                  "#6B6862",
-                fontSize: 13,
-                lineHeight: 1.5,
-                maxWidth: 600,
-              }}
-            >
-              The public profile
-              is a simplified,
-              shareable version
-              of this animal&apos;s
-              record. Private
-              medical details,
-              internal notes,
-              foster contact
-              information,
-              expenses and other
-              operational records
-              are not displayed.
-            </p>
-          </div>
-
-          <label
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems:
-                "center",
-              fontSize: 13,
-              fontWeight: 700,
               color:
-                sharePublicly
+                isPublic
                   ? "#2F6F4E"
-                  : "#6B6862",
+                  : "#17233C",
             }}
           >
-            <input
-              type="checkbox"
-              checked={
-                sharePublicly
-              }
-              onChange={(e) =>
-                setSharePublicly(
-                  e.target
-                    .checked
-                )
-              }
-            />
+            {isPublic
+              ? "Public profile is published"
+              : "Public profile is not published"}
+          </strong>
 
-            {sharePublicly
-              ? "Public"
-              : "Private"}
-          </label>
+          <p
+            style={{
+              margin:
+                "5px 0 0",
+              color: "#6B6862",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            {isPublic
+              ? "This animal currently has a shareable public Pack of Five profile. The full Rescue Manager file remains private."
+              : "You can prepare this information now without making the animal public. Nothing below becomes publicly visible until you choose Publish Public Profile."}
+          </p>
         </div>
+
+        {/* BASIC PUBLIC DETAILS */}
 
         <div
           style={{
@@ -973,18 +925,13 @@ export default function AnimalRecordPage() {
 
             <input
               type="date"
-              value={
-                birthDate
-              }
+              value={birthDate}
               onChange={(e) =>
                 setBirthDate(
-                  e.target
-                    .value
+                  e.target.value
                 )
               }
-              style={
-                inputStyle
-              }
+              style={inputStyle}
             />
           </div>
 
@@ -997,13 +944,10 @@ export default function AnimalRecordPage() {
               value={sex}
               onChange={(e) =>
                 setSex(
-                  e.target
-                    .value
+                  e.target.value
                 )
               }
-              style={
-                inputStyle
-              }
+              style={inputStyle}
             >
               <option value="">
                 Not recorded
@@ -1032,18 +976,13 @@ export default function AnimalRecordPage() {
               type="number"
               min="0"
               step="0.1"
-              value={
-                weightLbs
-              }
+              value={weightLbs}
               onChange={(e) =>
                 setWeightLbs(
-                  e.target
-                    .value
+                  e.target.value
                 )
               }
-              style={
-                inputStyle
-              }
+              style={inputStyle}
             />
           </div>
         </div>
@@ -1059,18 +998,14 @@ export default function AnimalRecordPage() {
 
           <textarea
             rows={5}
-            value={
-              publicSummary
-            }
+            value={publicSummary}
             onChange={(e) =>
               setPublicSummary(
                 e.target.value
               )
             }
-            placeholder="A public-friendly description of the animal, personality, home needs, and other information the organization wants to share."
-            style={
-              inputStyle
-            }
+            placeholder="Public-friendly description of the animal, personality, home needs, and other information you want people to see."
+            style={inputStyle}
           />
         </div>
 
@@ -1080,23 +1015,19 @@ export default function AnimalRecordPage() {
           }}
         >
           <FieldHeading>
-            Current need
+            Current public need
           </FieldHeading>
 
           <textarea
             rows={3}
-            value={
-              publicNeed
-            }
+            value={publicNeed}
             onChange={(e) =>
               setPublicNeed(
                 e.target.value
               )
             }
-            placeholder="Example: Foster needed, medical fundraiser, adoption placement, transport help."
-            style={
-              inputStyle
-            }
+            placeholder="Examples: Foster needed, adoption placement, medical fundraiser, transport assistance."
+            style={inputStyle}
           />
         </div>
 
@@ -1120,35 +1051,28 @@ export default function AnimalRecordPage() {
                 e.target.value
               )
             }
-            placeholder="https://petfinder.com/..."
-            style={
-              inputStyle
-            }
+            placeholder="https://..."
+            style={inputStyle}
           />
 
           <p
             style={{
               margin:
                 "5px 0 0",
-              color:
-                "#6B6862",
+              color: "#6B6862",
               fontSize: 12,
               lineHeight: 1.4,
             }}
           >
-            Use this when the
-            organization already
-            maintains adoption
-            information on
+            Optional. Link to
             Petfinder, Adopt a
-            Pet, its own website,
-            or another service.
+            Pet, your rescue
+            website, or another
+            adoption listing.
           </p>
         </div>
 
-        {/* ===============================================
-            HELP OFFER STATUS
-        ================================================ */}
+        {/* HELP OFFERS */}
 
         {animal.open_help_offers >
           0 && (
@@ -1184,97 +1108,132 @@ export default function AnimalRecordPage() {
                 fontSize: 12.5,
               }}
             >
-              Public contact
-              information remains
-              private and will be
-              available to your
-              organization when
-              reviewing these
-              offers.
+              Contact information
+              from public
+              responders remains
+              private to the
+              managing
+              organization.
             </p>
           </div>
         )}
 
-        {/* ===============================================
-            ACTIONS
-        ================================================ */}
+        {/* ACTIONS */}
 
         <div
           style={{
-            display: "flex",
-            gap: 10,
-            flexWrap:
-              "wrap",
-            alignItems:
-              "center",
-            marginTop: 20,
+            marginTop: 22,
+            paddingTop: 18,
+            borderTop:
+              "1px solid #E7E5E1",
           }}
         >
-          <button
-            type="button"
-            disabled={
-              savingPublic
-            }
-            onClick={
-              savePublicProfile
-            }
-            style={
-              primaryButton
-            }
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems:
+                "center",
+            }}
           >
-            {savingPublic
-              ? "Saving…"
-              : "Save Profile Settings"}
-          </button>
+            <button
+              type="button"
+              disabled={
+                savingPublic
+              }
+              onClick={
+                saveProfileDraft
+              }
+              style={
+                secondaryButton
+              }
+            >
+              {savingPublic
+                ? "Saving…"
+                : "Save Profile Draft"}
+            </button>
 
-          {sharePublicly && (
-            <>
-              <a
-                href={
-                  publicUrl
-                }
-                target="_blank"
-                rel="noreferrer"
-                style={
-                  secondaryLink
-                }
-              >
-                View Public Profile
-              </a>
-
+            {!isPublic && (
               <button
                 type="button"
+                disabled={
+                  savingPublic
+                }
                 onClick={
-                  copyPublicLink
+                  publishProfile
                 }
                 style={
-                  secondaryButton
+                  publishButton
                 }
               >
-                Copy Public Link
+                Publish Public
+                Profile
               </button>
-            </>
-          )}
+            )}
+
+            {isPublic && (
+              <>
+                <a
+                  href={publicUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={
+                    secondaryLink
+                  }
+                >
+                  View Public
+                  Profile
+                </a>
+
+                <button
+                  type="button"
+                  onClick={
+                    copyPublicLink
+                  }
+                  style={
+                    secondaryButton
+                  }
+                >
+                  Copy Public Link
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    savingPublic
+                  }
+                  onClick={
+                    unpublishProfile
+                  }
+                  style={
+                    unpublishButton
+                  }
+                >
+                  Unpublish
+                  Profile
+                </button>
+              </>
+            )}
+          </div>
 
           {publicMessage && (
-            <span
+            <p
               style={{
+                margin:
+                  "12px 0 0",
                 fontSize: 13,
+
                 color:
                   publicMessage.includes(
-                    "saved"
-                  ) ||
-                  publicMessage.includes(
-                    "copied"
+                    "Couldn't"
                   )
-                    ? "#2F6F4E"
-                    : "#B23B2E",
+                    ? "#B23B2E"
+                    : "#2F6F4E",
               }}
             >
-              {
-                publicMessage
-              }
-            </span>
+              {publicMessage}
+            </p>
           )}
         </div>
       </Panel>
@@ -1288,8 +1247,7 @@ export default function AnimalRecordPage() {
           0 && (
           <p
             style={{
-              color:
-                "#6B6862",
+              color: "#6B6862",
               fontSize: 13.5,
             }}
           >
@@ -1301,24 +1259,19 @@ export default function AnimalRecordPage() {
         {animal.timeline.map(
           (event) => (
             <div
-              key={
-                event.id
-              }
+              key={event.id}
               style={{
                 borderLeft:
                   "3px solid #D8D6D2",
-                paddingLeft:
-                  12,
-                marginBottom:
-                  14,
+                paddingLeft: 12,
+                marginBottom: 14,
               }}
             >
               <strong
                 style={{
                   display:
                     "block",
-                  fontSize:
-                    13.5,
+                  fontSize: 13.5,
                   color:
                     "#17233C",
                   textTransform:
@@ -1351,7 +1304,7 @@ export default function AnimalRecordPage() {
 }
 
 /* =========================================================
-   PANEL
+   COMPONENTS
 ========================================================= */
 
 function Panel({
@@ -1359,15 +1312,13 @@ function Panel({
   children,
 }: {
   title: string;
-
   children:
     React.ReactNode;
 }) {
   return (
     <div
       style={{
-        background:
-          "#fff",
+        background: "#fff",
         border:
           "1px solid #E7E5E1",
         borderRadius: 10,
@@ -1378,8 +1329,7 @@ function Panel({
       <h2
         style={{
           fontSize: 18,
-          color:
-            "#17233C",
+          color: "#17233C",
           margin:
             "0 0 16px",
         }}
@@ -1391,10 +1341,6 @@ function Panel({
     </div>
   );
 }
-
-/* =========================================================
-   RECORD CARD
-========================================================= */
 
 function RecordCard({
   title,
@@ -1411,10 +1357,8 @@ function RecordCard({
     <>
       <strong
         style={{
-          display:
-            "block",
-          color:
-            "#17233C",
+          display: "block",
+          color: "#17233C",
           fontSize: 15,
           marginBottom: 6,
         }}
@@ -1425,8 +1369,7 @@ function RecordCard({
       <p
         style={{
           margin: 0,
-          color:
-            "#6B6862",
+          color: "#6B6862",
           fontSize: 12.5,
           lineHeight: 1.5,
         }}
@@ -1450,9 +1393,7 @@ function RecordCard({
         : "1px solid #E7E5E1",
 
     borderRadius: 9,
-
     padding: 15,
-
     textDecoration:
       "none",
   } as const;
@@ -1465,17 +1406,11 @@ function RecordCard({
       {content}
     </a>
   ) : (
-    <div
-      style={style}
-    >
+    <div style={style}>
       {content}
     </div>
   );
 }
-
-/* =========================================================
-   STATUS BADGE
-========================================================= */
 
 function StatusBadge({
   label,
@@ -1494,8 +1429,7 @@ function StatusBadge({
         borderRadius: 20,
         padding:
           "5px 9px",
-        color:
-          "#4F5661",
+        color: "#4F5661",
         fontSize: 12,
         fontWeight: 600,
       }}
@@ -1505,16 +1439,11 @@ function StatusBadge({
   );
 }
 
-/* =========================================================
-   INFO ROW
-========================================================= */
-
 function InfoRow({
   label,
   value,
 }: {
   label: string;
-
   value:
     | string
     | null;
@@ -1535,8 +1464,7 @@ function InfoRow({
       <div
         style={{
           fontSize: 12,
-          color:
-            "#6B6862",
+          color: "#6B6862",
         }}
       >
         {label}
@@ -1545,8 +1473,7 @@ function InfoRow({
       <div
         style={{
           fontSize: 13.5,
-          color:
-            "#1C1B19",
+          color: "#1C1B19",
         }}
       >
         {value ||
@@ -1555,10 +1482,6 @@ function InfoRow({
     </div>
   );
 }
-
-/* =========================================================
-   FIELD HEADING
-========================================================= */
 
 function FieldHeading({
   children,
@@ -1574,8 +1497,7 @@ function FieldHeading({
           "uppercase",
         letterSpacing:
           ".05em",
-        color:
-          "#6B6862",
+        color: "#6B6862",
         marginBottom: 5,
         fontWeight: 700,
       }}
@@ -1586,7 +1508,7 @@ function FieldHeading({
 }
 
 /* =========================================================
-   AGE
+   AGE / FORMATTING
 ========================================================= */
 
 function calculateAge(
@@ -1599,9 +1521,7 @@ function calculateAge(
   }
 
   const birth =
-    new Date(
-      birthDate
-    );
+    new Date(birthDate);
 
   if (
     Number.isNaN(
@@ -1666,18 +1586,11 @@ function calculateAge(
     : "Under 1 mo";
 }
 
-/* =========================================================
-   FORMATTING
-========================================================= */
-
 function formatValue(
   value: string
 ) {
   return value
-    .replace(
-      /_/g,
-      " "
-    )
+    .replace(/_/g, " ")
     .replace(
       /\b\w/g,
       (letter) =>
@@ -1689,9 +1602,7 @@ function formatDate(
   value: string
 ) {
   const date =
-    new Date(
-      value
-    );
+    new Date(value);
 
   if (
     Number.isNaN(
@@ -1721,15 +1632,28 @@ const inputStyle:
   fontSize: 13.5,
   fontFamily:
     "inherit",
-  color:
-    "#1C1B19",
+  color: "#1C1B19",
 };
 
-const primaryButton:
+const secondaryButton:
   React.CSSProperties =
 {
-  background:
-    "#17233C",
+  background: "#fff",
+  color: "#17233C",
+  border:
+    "1px solid #D8D6D2",
+  borderRadius: 7,
+  padding:
+    "9px 14px",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: "pointer",
+};
+
+const publishButton:
+  React.CSSProperties =
+{
+  background: "#17233C",
   color: "#fff",
   border: "none",
   borderRadius: 7,
@@ -1740,14 +1664,13 @@ const primaryButton:
   cursor: "pointer",
 };
 
-const secondaryButton:
+const unpublishButton:
   React.CSSProperties =
 {
   background: "#fff",
-  color:
-    "#17233C",
+  color: "#85571F",
   border:
-    "1px solid #D8D6D2",
+    "1px solid #C58A42",
   borderRadius: 7,
   padding:
     "9px 14px",
