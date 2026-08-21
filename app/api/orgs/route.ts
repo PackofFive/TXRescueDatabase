@@ -12,6 +12,7 @@ export const runtime = "edge";
 
    Public directory:
    - Archived organizations are hidden automatically.
+   - Each organization includes public_animal_count.
 
    Admin:
    - Can request archived organizations too with:
@@ -35,11 +36,8 @@ export async function GET(req: NextRequest) {
       searchParams.get("includeArchived") === "true";
 
     /*
-     Only an approved admin can request archived
-     organizations.
-
-     This prevents someone on the public site from simply
-     adding ?includeArchived=true and seeing archived records.
+      Only an approved admin can request archived
+      organizations.
     */
 
     if (includeArchived) {
@@ -66,7 +64,16 @@ export async function GET(req: NextRequest) {
           where
             ul.org_id = o.id
             and ul.source = 'org_submission'
-        ) as last_org_update
+        ) as last_org_update,
+
+        (
+          select count(*)::int
+          from animals a
+          where
+            a.current_org_id = o.id
+            and a.public_share_enabled = true
+            and coalesce(a.outcome_status, '') <> 'adopted'
+        ) as public_animal_count
 
       from organizations o
 
@@ -74,7 +81,6 @@ export async function GET(req: NextRequest) {
         on c.org_id = o.id
 
       where
-
         (
           ${includeArchived} = true
           or o.archived_at is null
@@ -194,9 +200,6 @@ export async function POST(
        DUPLICATE CHECK
 
        Archived organizations are included deliberately.
-
-       We do not want someone creating a second organization
-       simply because the first one was archived.
     ----------------------------------------------------- */
 
     const duplicate = await sql`
@@ -205,22 +208,11 @@ export async function POST(
         name,
         city,
         archived_at
-
       from organizations
-
       where
-        lower(name) =
-          lower(${name.trim()})
-
-        and coalesce(
-          lower(city),
-          ''
-        ) =
-        coalesce(
-          lower(${city || null}),
-          ''
-        )
-
+        lower(name) = lower(${name.trim()})
+        and coalesce(lower(city), '') =
+            coalesce(lower(${city || null}), '')
       limit 1
     `;
 
@@ -310,9 +302,6 @@ export async function POST(
 
     /* -----------------------------------------------------
        UPDATE LOG
-
-       Failure to write the log should not undo a
-       successfully-created organization.
     ----------------------------------------------------- */
 
     try {
