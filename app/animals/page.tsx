@@ -9,9 +9,18 @@ type Animal = {
   species: string;
   breed_or_type: string | null;
   custody: string;
-  urgency: string;
-  placement: string;
+  urgency: string | null;
+  placement: string | null;
   created_at: string;
+};
+
+type AuthUser = {
+  id: string;
+  email: string;
+  role: "org" | "admin";
+  orgId: string | null;
+  orgName: string | null;
+  status: "pending" | "approved" | "rejected";
 };
 
 type TestOrg = {
@@ -25,52 +34,67 @@ export default function AnimalsListPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/animals", { cache: "no-store" })
-      .then(async (r) => {
-        const data = await r.json();
+    async function loadPage() {
+      try {
+        const authRes = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
 
-        if (!r.ok) {
+        const authData = await authRes.json();
+        const user = authData.user as AuthUser | null;
+
+        if (user?.orgName) {
+          setOrgName(user.orgName);
+        }
+
+        /*
+          Admin Test Mode uses the selected test organization,
+          which is intentionally separate from the admin's own
+          session organization identity.
+        */
+        if (user?.role === "admin") {
+          try {
+            const testRes = await fetch("/api/admin/test-org", {
+              cache: "no-store",
+              credentials: "same-origin",
+            });
+
+            const testData = await testRes.json();
+            const testOrg = testData.organization as TestOrg;
+
+            if (testRes.ok && testOrg?.name) {
+              setOrgName(testOrg.name);
+            }
+          } catch {
+            // AppShell handles missing admin test-org selection.
+          }
+        }
+
+        const animalRes = await fetch("/api/animals", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+
+        const animalData = await animalRes.json();
+
+        if (!animalRes.ok) {
           throw new Error(
-            data.error ?? "Failed to load animals."
+            animalData.error ?? "Failed to load animals."
           );
         }
 
-        setAnimals(data.animals ?? []);
-      })
-      .catch((e) => {
+        setAnimals(animalData.animals ?? []);
+      } catch (err) {
         setError(
-          e instanceof Error
-            ? e.message
+          err instanceof Error
+            ? err.message
             : "Failed to load animals."
         );
-      });
+      }
+    }
 
-    /*
-      In Admin Test Mode this returns the organization
-      currently being viewed.
-
-      For a normal organization account this may return
-      no organization, so the page falls back to
-      "Our Animals".
-    */
-    fetch("/api/admin/test-org", {
-      cache: "no-store",
-    })
-      .then(async (r) => {
-        if (!r.ok) return null;
-
-        const data = await r.json();
-
-        return data.organization as TestOrg;
-      })
-      .then((organization) => {
-        if (organization?.name) {
-          setOrgName(organization.name);
-        }
-      })
-      .catch(() => {
-        // Normal org users do not need admin test-org access.
-      });
+    loadPage();
   }, []);
 
   const pageTitle = orgName
@@ -86,7 +110,7 @@ export default function AnimalsListPage() {
   }
 
   return (
-    <div>
+    <section>
       <div
         style={{
           display: "flex",
@@ -103,7 +127,7 @@ export default function AnimalsListPage() {
               margin: 0,
               fontSize: 11.5,
               fontWeight: 800,
-              letterSpacing: "0.08em",
+              letterSpacing: ".08em",
               color: "#6B6862",
               textTransform: "uppercase",
             }}
@@ -127,14 +151,14 @@ export default function AnimalsListPage() {
               color: "#6B6862",
               fontSize: 13.5,
               lineHeight: 1.5,
-              maxWidth: 680,
+              maxWidth: 700,
             }}
           >
             Animals currently under your organization&apos;s
-            care or active responsibility. This can include
-            animals in foster care, medical cases, temporary
-            placements, and animals your organization has
-            formally accepted.
+            care or active responsibility. Open an animal to
+            view its full file, medical history, foster
+            information, behavior notes, timeline, expenses,
+            documents, and outcome.
           </p>
         </div>
 
@@ -167,11 +191,13 @@ export default function AnimalsListPage() {
           lineHeight: 1.5,
         }}
       >
-        <strong>Not the same as Urgent Shelter Animals.</strong>{" "}
-        Animals listed here are already under your organization&apos;s
-        care or responsibility. Shelter animals still needing rescue
-        placement remain in the Urgent Shelter Animals section until
-        your organization formally accepts or transfers them.
+        <strong>
+          This list contains animals already under your
+          organization&apos;s care or responsibility.
+        </strong>{" "}
+        Shelter animals that still need rescue placement remain
+        under Urgent Shelter Animals until your organization
+        formally accepts responsibility for them.
       </div>
 
       {animals === null && (
@@ -212,50 +238,159 @@ export default function AnimalsListPage() {
         </div>
       )}
 
-      {animals?.map((a) => (
-        <div
-          key={a.id}
-          style={{
-            border: "1px solid #E7E5E1",
-            borderRadius: 8,
-            padding: 14,
-            marginBottom: 8,
-            background: "#fff",
-          }}
-        >
-          <strong
+      {animals?.map((animal) => {
+        const displayName =
+          animal.name ||
+          animal.temporary_name ||
+          "Unnamed Animal";
+
+        const details = [
+          animal.species,
+          animal.breed_or_type,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        return (
+          <a
+            key={animal.id}
+            href={`/animals/${encodeURIComponent(animal.id)}`}
             style={{
-              fontSize: 15,
-              color: "#17233C",
+              display: "block",
+              border: "1px solid #E7E5E1",
+              borderRadius: 9,
+              padding: 16,
+              marginBottom: 9,
+              background: "#fff",
+              textDecoration: "none",
+              color: "inherit",
+              cursor: "pointer",
             }}
           >
-            {a.name ||
-              a.temporary_name ||
-              "(unnamed)"}
-          </strong>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 16,
+                    color: "#17233C",
+                    marginBottom: 5,
+                  }}
+                >
+                  {displayName}
+                </strong>
 
-          <div
-            style={{
-              fontSize: 12.5,
-              color: "#6B6862",
-              marginTop: 5,
-              lineHeight: 1.5,
-            }}
-          >
-            {[a.species, a.breed_or_type]
-              .filter(Boolean)
-              .join(" · ")}
+                {details && (
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      color: "#6B6862",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {details}
+                  </div>
+                )}
 
-            {(a.species ||
-              a.breed_or_type) &&
-              " — "}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 7,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <AnimalBadge
+                    label={`Custody: ${formatValue(
+                      animal.custody
+                    )}`}
+                  />
 
-            custody: {a.custody} · urgency:{" "}
-            {a.urgency} · placement:{" "}
-            {a.placement}
-          </div>
-        </div>
-      ))}
-    </div>
+                  {animal.placement && (
+                    <AnimalBadge
+                      label={`Placement: ${formatValue(
+                        animal.placement
+                      )}`}
+                    />
+                  )}
+
+                  {animal.urgency && (
+                    <AnimalBadge
+                      label={`Urgency: ${formatValue(
+                        animal.urgency
+                      )}`}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  color: "#6B6862",
+                  fontSize: 12.5,
+                  flexShrink: 0,
+                }}
+              >
+                <span>Open record</span>
+
+                <span
+                  aria-hidden="true"
+                  style={{
+                    fontSize: 22,
+                    lineHeight: 1,
+                    color: "#17233C",
+                  }}
+                >
+                  ›
+                </span>
+              </div>
+            </div>
+          </a>
+        );
+      })}
+    </section>
   );
+}
+
+function AnimalBadge({
+  label,
+}: {
+  label: string;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        background: "#F1F3F5",
+        border: "1px solid #E0E3E7",
+        borderRadius: 20,
+        padding: "4px 8px",
+        color: "#4F5661",
+        fontSize: 11.5,
+        fontWeight: 600,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function formatValue(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
