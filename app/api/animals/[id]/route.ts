@@ -96,6 +96,11 @@ export async function GET(
           a.public_need,
           a.external_listing_url,
 
+          a.outcome_status,
+          a.outcome_date,
+          a.public_outcome_message,
+          a.show_on_success_wall,
+
           a.created_at,
           a.current_org_id
 
@@ -161,7 +166,7 @@ export async function GET(
       `;
 
     /* -----------------------------------------------------
-       HELP OFFER COUNT
+       HELP / FOSTER OFFER COUNT
     ----------------------------------------------------- */
 
     const offerRows =
@@ -235,13 +240,16 @@ export async function GET(
 }
 
 /* =========================================================
-   PATCH ANIMAL PROFILE
+   PATCH ANIMAL PROFILE / OUTCOME
 
-   Used for:
-   - age / sex / weight
+   Supports:
+   - basic identity
    - public profile draft
-   - publish
-   - unpublish
+   - publish/unpublish
+   - outcome status
+   - adopted date
+   - public outcome message
+   - success wall setting
 ========================================================= */
 
 export async function PATCH(
@@ -289,14 +297,20 @@ export async function PATCH(
       birthDate,
       sex,
       weightLbs,
+
       publicShareEnabled,
       publicSummary,
       publicNeed,
       externalListingUrl,
+
+      outcomeStatus,
+      outcomeDate,
+      publicOutcomeMessage,
+      showOnSuccessWall,
     } = body;
 
     /* -----------------------------------------------------
-       NORMALIZE DATE
+       BIRTH DATE
     ----------------------------------------------------- */
 
     let cleanBirthDate:
@@ -308,14 +322,14 @@ export async function PATCH(
         "string" &&
       birthDate.trim()
     ) {
-      const parsedDate =
+      const parsed =
         new Date(
           `${birthDate.trim()}T00:00:00`
         );
 
       if (
         Number.isNaN(
-          parsedDate.getTime()
+          parsed.getTime()
         )
       ) {
         return NextResponse.json(
@@ -334,7 +348,45 @@ export async function PATCH(
     }
 
     /* -----------------------------------------------------
-       NORMALIZE TEXT
+       OUTCOME DATE
+    ----------------------------------------------------- */
+
+    let cleanOutcomeDate:
+      | string
+      | null = null;
+
+    if (
+      typeof outcomeDate ===
+        "string" &&
+      outcomeDate.trim()
+    ) {
+      const parsed =
+        new Date(
+          `${outcomeDate.trim()}T00:00:00`
+        );
+
+      if (
+        Number.isNaN(
+          parsed.getTime()
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Outcome date is invalid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      cleanOutcomeDate =
+        outcomeDate.trim();
+    }
+
+    /* -----------------------------------------------------
+       TEXT VALUES
     ----------------------------------------------------- */
 
     const cleanSex =
@@ -365,6 +417,20 @@ export async function PATCH(
         ? externalListingUrl.trim()
         : null;
 
+    const cleanOutcomeStatus =
+      typeof outcomeStatus ===
+        "string" &&
+      outcomeStatus.trim()
+        ? outcomeStatus.trim()
+        : null;
+
+    const cleanOutcomeMessage =
+      typeof publicOutcomeMessage ===
+        "string" &&
+      publicOutcomeMessage.trim()
+        ? publicOutcomeMessage.trim()
+        : null;
+
     /* -----------------------------------------------------
        VALIDATE URL
     ----------------------------------------------------- */
@@ -388,7 +454,7 @@ export async function PATCH(
     }
 
     /* -----------------------------------------------------
-       NORMALIZE WEIGHT
+       WEIGHT
     ----------------------------------------------------- */
 
     let cleanWeight:
@@ -422,8 +488,16 @@ export async function PATCH(
       }
     }
 
+    /* -----------------------------------------------------
+       PUBLIC STATUS
+    ----------------------------------------------------- */
+
     const publishValue =
       publicShareEnabled ===
+        true;
+
+    const successWallValue =
+      showOnSuccessWall ===
         true;
 
     /* -----------------------------------------------------
@@ -456,6 +530,18 @@ export async function PATCH(
           external_listing_url =
             ${cleanExternalUrl},
 
+          outcome_status =
+            ${cleanOutcomeStatus},
+
+          outcome_date =
+            ${cleanOutcomeDate}::date,
+
+          public_outcome_message =
+            ${cleanOutcomeMessage},
+
+          show_on_success_wall =
+            ${successWallValue},
+
           updated_at =
             now()
 
@@ -470,7 +556,11 @@ export async function PATCH(
           public_share_enabled,
           public_summary,
           public_need,
-          external_listing_url
+          external_listing_url,
+          outcome_status,
+          outcome_date,
+          public_outcome_message,
+          show_on_success_wall
       `;
 
     if (!rows[0]) {
@@ -516,6 +606,15 @@ export async function PATCH(
 
             publicShareEnabled:
               publishValue,
+
+            outcomeStatus:
+              cleanOutcomeStatus,
+
+            outcomeDate:
+              cleanOutcomeDate,
+
+            showOnSuccessWall:
+              successWallValue,
           })}
         )
       `;
