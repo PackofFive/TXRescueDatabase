@@ -9,6 +9,7 @@ type ShellUser = {
   role: "org" | "admin";
   status: "pending" | "approved" | "rejected";
   orgId: string | null;
+  orgName?: string | null;
 } | null;
 
 type TestOrg = {
@@ -69,10 +70,7 @@ export default function AppShell({
     isManagerArea &&
     user &&
     user.status === "approved" &&
-    (
-      user.role === "org" ||
-      user.role === "admin"
-    )
+    (user.role === "org" || user.role === "admin")
   ) {
     return (
       <ManagerShell user={user}>
@@ -127,8 +125,7 @@ function PublicHeader({
     <header
       style={{
         background: COLORS.surface,
-        borderBottom:
-          `1px solid ${COLORS.border}`,
+        borderBottom: `1px solid ${COLORS.border}`,
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -168,7 +165,7 @@ function PublicHeader({
           }}
         >
           <a
-            href="/"
+            href="/organizations"
             style={publicLinkStyle}
           >
             Organizations
@@ -236,10 +233,7 @@ function ManagerShell({
   user,
 }: {
   children: ReactNode;
-  user: Exclude<
-    ShellUser,
-    null
-  >;
+  user: Exclude<ShellUser, null>;
 }) {
   const [testOrg, setTestOrg] =
     useState<TestOrg>(null);
@@ -252,41 +246,28 @@ function ManagerShell({
   );
 
   useEffect(() => {
-    if (
-      user.role !== "admin"
-    ) {
+    if (user.role !== "admin") {
       return;
     }
 
-    fetch(
-      "/api/admin/test-org",
-      {
-        cache: "no-store",
-      }
-    )
-      .then((r) =>
-        r.json()
-      )
+    fetch("/api/admin/test-org", {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
       .then((data) => {
         setTestOrg(
-          data.organization ??
-            null
+          data.organization ?? null
         );
       })
       .finally(() => {
-        setTestOrgChecked(
-          true
-        );
+        setTestOrgChecked(true);
       });
   }, [user.role]);
 
   async function exitTestMode() {
-    await fetch(
-      "/api/admin/test-org",
-      {
-        method: "DELETE",
-      }
-    );
+    await fetch("/api/admin/test-org", {
+      method: "DELETE",
+    });
 
     window.location.href =
       "/admin/orgs";
@@ -302,8 +283,7 @@ function ManagerShell({
           padding: 28,
         }}
       >
-        Loading Rescue Manager
-        test mode…
+        Loading Rescue Manager test mode…
       </main>
     );
   }
@@ -321,8 +301,7 @@ function ManagerShell({
         }}
       >
         <h1>
-          Choose a test
-          organization
+          Choose a test organization
         </h1>
 
         <a href="/admin/orgs">
@@ -336,7 +315,7 @@ function ManagerShell({
     user.role === "admin" &&
     testOrg
       ? testOrg.name
-      : null;
+      : user.orgName || null;
 
   const animalsLabel =
     organizationName
@@ -351,8 +330,7 @@ function ManagerShell({
           COLORS.background,
       }}
     >
-      {user.role ===
-        "admin" &&
+      {user.role === "admin" &&
         testOrg && (
           <div
             style={{
@@ -411,8 +389,7 @@ function ManagerShell({
           gridTemplateColumns:
             "260px minmax(0, 1fr)",
           minHeight:
-            user.role ===
-            "admin"
+            user.role === "admin"
               ? "calc(100vh - 40px)"
               : "100vh",
         }}
@@ -493,21 +470,16 @@ function ManagerShell({
             }}
           >
             <a
-              href="/"
-              style={
-                managerFooterLink
-              }
+              href="/organizations"
+              style={managerFooterLink}
             >
               ← Rescue Network
             </a>
 
-            {user.role ===
-              "admin" && (
+            {user.role === "admin" && (
               <a
                 href="/admin"
-                style={
-                  managerFooterLink
-                }
+                style={managerFooterLink}
               >
                 ← Admin Dashboard
               </a>
@@ -577,8 +549,7 @@ function ManagerShell({
                     COLORS.muted,
                 }}
               >
-                Private rescue or
-                shelter workspace
+                Private rescue or shelter workspace
               </div>
             </div>
           </header>
@@ -634,6 +605,7 @@ function AdminShell({
             alignItems:
               "center",
             gap: 20,
+            flexWrap: "wrap",
           }}
         >
           <div>
@@ -651,8 +623,7 @@ function AdminShell({
                 opacity: 0.72,
               }}
             >
-              PLATFORM
-              ADMINISTRATION
+              PLATFORM ADMINISTRATION
             </div>
           </div>
 
@@ -667,47 +638,44 @@ function AdminShell({
           >
             <a
               href="/admin"
-              style={
-                darkLinkStyle
-              }
+              style={darkLinkStyle}
             >
               Admin Dashboard
             </a>
 
             <a
               href="/admin/orgs"
-              style={
-                darkLinkStyle
-              }
+              style={darkLinkStyle}
             >
               Organizations
             </a>
 
             <a
               href="/admin/orgs/new"
-              style={
-                darkLinkStyle
-              }
+              style={darkLinkStyle}
             >
               Add Organization
             </a>
 
             <a
               href="/admin/org-requests"
-              style={
-                darkLinkStyle
-              }
+              style={darkLinkStyle}
             >
               Org Requests
             </a>
 
             <a
-              href="/"
-              style={
-                darkLinkStyle
-              }
+              href="/organizations"
+              style={darkLinkStyle}
             >
               Rescue Network
+            </a>
+
+            <a
+              href="/"
+              style={darkLinkStyle}
+            >
+              Home
             </a>
 
             <button
