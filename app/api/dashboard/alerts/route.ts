@@ -64,6 +64,13 @@ const PRIORITY_RANK: Record<
   info: 4,
 };
 
+const VALID_PRIORITIES: Priority[] = [
+  "critical",
+  "high",
+  "normal",
+  "info",
+];
+
 /* =========================================================
    PRIORITY HELPERS
 ========================================================= */
@@ -97,6 +104,20 @@ function daysUntil(
         60 *
         24)
   );
+}
+
+function validPriority(
+  value: unknown,
+  fallback: Priority = "normal"
+): Priority {
+  const candidate =
+    String(value) as Priority;
+
+  return VALID_PRIORITIES.includes(
+    candidate
+  )
+    ? candidate
+    : fallback;
 }
 
 /* =========================================================
@@ -138,38 +159,28 @@ export async function GET(
       const row of preferenceRows
     ) {
       const priority =
-        String(
+        validPriority(
           row.priority
-        ) as Priority;
+        );
 
-      if (
-        [
-          "critical",
-          "high",
-          "normal",
-          "info",
-        ].includes(
-          priority
-        )
-      ) {
-        preferences[
-          row.alert_type
-        ] = {
-          priority,
-          enabled:
-            Boolean(
-              row.enabled
-            ),
-        };
-      }
+      preferences[
+        row.alert_type
+      ] = {
+        priority,
+
+        enabled:
+          Boolean(
+            row.enabled
+          ),
+      };
     }
 
     const alerts: AlertRow[] =
       [];
 
-    /* -----------------------------------------------------
+    /* =====================================================
        MEDICAL RECORD REMINDERS
-    ----------------------------------------------------- */
+    ===================================================== */
 
     const medicalPreference =
       preferences.medical;
@@ -264,13 +275,6 @@ export async function GET(
           created_at:
             row.created_at,
 
-          /*
-            Rescue preference establishes
-            the baseline.
-
-            Automatic urgency can escalate
-            it, but never reduce it.
-          */
           priority:
             moreUrgent(
               medicalPreference.priority,
@@ -280,9 +284,9 @@ export async function GET(
       }
     }
 
-    /* -----------------------------------------------------
+    /* =====================================================
        MEDICATION REMINDERS
-    ----------------------------------------------------- */
+    ===================================================== */
 
     const medicationPreference =
       preferences.medication;
@@ -383,9 +387,9 @@ export async function GET(
       }
     }
 
-    /* -----------------------------------------------------
+    /* =====================================================
        FOSTER / HELP OFFERS
-    ----------------------------------------------------- */
+    ===================================================== */
 
     const offerPreference =
       preferences.foster_offer;
@@ -431,14 +435,6 @@ export async function GET(
       for (
         const row of offerRows
       ) {
-        /*
-          New foster/help offers can
-          automatically escalate to High.
-
-          Reviewing/contacted use the
-          organization's chosen priority.
-        */
-
         const automaticPriority:
           Priority =
           row.status === "new"
@@ -480,9 +476,139 @@ export async function GET(
       }
     }
 
-    /* -----------------------------------------------------
-       SORT ALERTS
-    ----------------------------------------------------- */
+    /* =====================================================
+       CUSTOM RESCUE REMINDERS
+
+       These are deliberately different from the automated
+       alert categories above.
+
+       The rescue chooses:
+       - title
+       - due date
+       - priority
+
+       Overdue reminders automatically escalate to Critical.
+       Reminders due today/tomorrow automatically escalate
+       to High.
+
+       Completed/cancelled reminders disappear from the
+       dashboard but remain in the animal's history.
+    ===================================================== */
+
+    const reminderRows =
+      await sql`
+        select
+          ar.id,
+          ar.animal_id,
+          ar.title,
+          ar.due_at,
+          ar.priority,
+          ar.created_at,
+
+          coalesce(
+            a.name,
+            a.temporary_name,
+            'Unnamed Animal'
+          ) as animal_name
+
+        from animal_reminders ar
+
+        join animals a
+          on a.id = ar.animal_id
+
+        where
+          ar.org_id = ${orgId}
+
+          and
+          a.current_org_id = ${orgId}
+
+          and
+          ar.status = 'open'
+
+        order by
+          ar.due_at asc nulls last,
+          ar.created_at desc
+      `;
+
+    for (
+      const row of reminderRows
+    ) {
+      const selectedPriority =
+        validPriority(
+          row.priority
+        );
+
+      let automaticPriority:
+        Priority =
+        "info";
+
+      if (
+        row.due_at
+      ) {
+        const diffDays =
+          daysUntil(
+            row.due_at
+          );
+
+        if (
+          diffDays < 0
+        ) {
+          automaticPriority =
+            "critical";
+        } else if (
+          diffDays <= 1
+        ) {
+          automaticPriority =
+            "high";
+        } else {
+          automaticPriority =
+            "info";
+        }
+      }
+
+      alerts.push({
+        id:
+          `reminder-${row.id}`,
+
+        animal_id:
+          row.animal_id,
+
+        animal_name:
+          row.animal_name,
+
+        alert_type:
+          "custom_reminder",
+
+        title:
+          row.title,
+
+        due_at:
+          row.due_at,
+
+        created_at:
+          row.created_at,
+
+        priority:
+          moreUrgent(
+            selectedPriority,
+            automaticPriority
+          ),
+      });
+    }
+
+    /* =====================================================
+       SORT ALL ALERTS
+
+       1. Critical
+       2. High
+       3. Normal
+       4. Informational
+
+       Within a priority:
+       - due dates first
+       - earliest due date first
+       - otherwise newest activity first
+    ===================================================== */
 
     alerts.sort(
       (a, b) => {
@@ -539,9 +665,9 @@ export async function GET(
       }
     );
 
-    /* -----------------------------------------------------
+    /* =====================================================
        DASHBOARD STATS
-    ----------------------------------------------------- */
+    ===================================================== */
 
     const statsRows =
       await sql`
@@ -605,7 +731,18 @@ export async function GET(
               and
               a.outcome_status =
                 'adopted'
-          ) as adopted_animals
+          ) as adopted_animals,
+
+          (
+            select count(*)::int
+            from animal_reminders ar
+
+            where
+              ar.org_id = ${orgId}
+
+              and
+              ar.status = 'open'
+          ) as open_reminders
       `;
 
     const stats =
@@ -614,6 +751,7 @@ export async function GET(
         active_help_offers: 0,
         published_profiles: 0,
         adopted_animals: 0,
+        open_reminders: 0,
       };
 
     return NextResponse.json({
