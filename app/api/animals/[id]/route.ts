@@ -76,6 +76,7 @@ export async function GET(
       await sql`
         select
           a.id,
+
           a.name,
           a.temporary_name,
           a.species,
@@ -90,6 +91,13 @@ export async function GET(
           a.urgency,
           a.placement,
           a.notes,
+
+          a.public_name,
+          a.public_species,
+          a.public_breed_or_type,
+          a.public_birth_date,
+          a.public_sex,
+          a.public_weight_lbs,
 
           a.public_share_enabled,
           a.public_summary,
@@ -183,6 +191,20 @@ export async function GET(
           )
       `;
 
+    /* -----------------------------------------------------
+       OPEN REMINDER COUNT
+    ----------------------------------------------------- */
+
+    const reminderRows =
+      await sql`
+        select
+          count(*)::int as count
+        from animal_reminders
+        where
+          animal_id = ${animalId}
+          and status = 'open'
+      `;
+
     return NextResponse.json({
       animal: {
         ...animal,
@@ -198,6 +220,13 @@ export async function GET(
         open_help_offers:
           Number(
             offerRows[0]
+              ?.count ??
+              0
+          ),
+
+        open_reminders:
+          Number(
+            reminderRows[0]
               ?.count ??
               0
           ),
@@ -240,16 +269,16 @@ export async function GET(
 }
 
 /* =========================================================
-   PATCH ANIMAL PROFILE / OUTCOME
+   PATCH ANIMAL
 
    Supports:
-   - basic identity
+   - editable private Overview
+   - selective synchronization to public profile
    - public profile draft
-   - publish/unpublish
-   - outcome status
-   - adopted date
-   - public outcome message
-   - success wall setting
+   - publish / unpublish
+   - outcome information
+
+   Public data is stored separately from private Overview.
 ========================================================= */
 
 export async function PATCH(
@@ -277,9 +306,7 @@ export async function PATCH(
     const body =
       await req
         .json()
-        .catch(
-          () => null
-        );
+        .catch(() => null);
 
     if (!body) {
       return NextResponse.json(
@@ -293,152 +320,256 @@ export async function PATCH(
       );
     }
 
-    const {
-      birthDate,
-      sex,
-      weightLbs,
+    /* =====================================================
+       CURRENT RECORD
 
-      publicShareEnabled,
-      publicSummary,
-      publicNeed,
-      externalListingUrl,
+       PATCH requests do not have to include every field.
 
-      outcomeStatus,
-      outcomeDate,
-      publicOutcomeMessage,
-      showOnSuccessWall,
-    } = body;
+       Missing values preserve the existing value.
+    ===================================================== */
 
-    /* -----------------------------------------------------
+    const currentRows =
+      await sql`
+        select *
+        from animals
+        where id = ${animalId}
+        limit 1
+      `;
+
+    const current =
+      currentRows[0];
+
+    if (!current) {
+      return NextResponse.json(
+        {
+          error:
+            "Animal not found.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    /* =====================================================
+       PRIVATE OVERVIEW
+    ===================================================== */
+
+    const cleanText = (
+      value: unknown,
+      fallback: unknown
+    ) => {
+      if (
+        value === undefined
+      ) {
+        return fallback ?? null;
+      }
+
+      if (
+        value === null
+      ) {
+        return null;
+      }
+
+      const text =
+        String(value).trim();
+
+      return text ||
+        null;
+    };
+
+    const cleanName =
+      cleanText(
+        body.name,
+        current.name
+      );
+
+    const cleanTemporaryName =
+      cleanText(
+        body.temporaryName,
+        current.temporary_name
+      );
+
+    const cleanSpecies =
+      cleanText(
+        body.species,
+        current.species
+      );
+
+    const cleanBreed =
+      cleanText(
+        body.breedOrType,
+        current.breed_or_type
+      );
+
+    const cleanSource =
+      cleanText(
+        body.source,
+        current.source
+      );
+
+    const cleanCustody =
+      cleanText(
+        body.custody,
+        current.custody
+      );
+
+    const cleanPlacement =
+      cleanText(
+        body.placement,
+        current.placement
+      );
+
+    const cleanUrgency =
+      cleanText(
+        body.urgency,
+        current.urgency
+      );
+
+    const cleanNotes =
+      cleanText(
+        body.notes,
+        current.notes
+      );
+
+    /* =====================================================
        BIRTH DATE
-    ----------------------------------------------------- */
+    ===================================================== */
 
-    let cleanBirthDate:
-      | string
-      | null = null;
+    let cleanBirthDate =
+      current.birth_date
+        ? String(
+            current.birth_date
+          ).slice(0, 10)
+        : null;
 
     if (
-      typeof birthDate ===
-        "string" &&
-      birthDate.trim()
+      body.birthDate !==
+      undefined
     ) {
-      const parsed =
-        new Date(
-          `${birthDate.trim()}T00:00:00`
-        );
-
-      if (
-        Number.isNaN(
-          parsed.getTime()
-        )
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Birth date is invalid.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
-
       cleanBirthDate =
-        birthDate.trim();
-    }
-
-    /* -----------------------------------------------------
-       OUTCOME DATE
-    ----------------------------------------------------- */
-
-    let cleanOutcomeDate:
-      | string
-      | null = null;
-
-    if (
-      typeof outcomeDate ===
-        "string" &&
-      outcomeDate.trim()
-    ) {
-      const parsed =
-        new Date(
-          `${outcomeDate.trim()}T00:00:00`
-        );
+        null;
 
       if (
-        Number.isNaN(
-          parsed.getTime()
-        )
+        typeof body.birthDate ===
+          "string" &&
+        body.birthDate.trim()
       ) {
-        return NextResponse.json(
-          {
-            error:
-              "Outcome date is invalid.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
+        const parsed =
+          new Date(
+            `${body.birthDate.trim()}T00:00:00`
+          );
 
-      cleanOutcomeDate =
-        outcomeDate.trim();
+        if (
+          Number.isNaN(
+            parsed.getTime()
+          )
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Birth date is invalid.",
+            },
+            {
+              status: 400,
+            }
+          );
+        }
+
+        cleanBirthDate =
+          body.birthDate.trim();
+      }
     }
 
-    /* -----------------------------------------------------
-       TEXT VALUES
-    ----------------------------------------------------- */
+    /* =====================================================
+       SEX
+    ===================================================== */
 
     const cleanSex =
-      typeof sex ===
-        "string" &&
-      sex.trim()
-        ? sex.trim()
+      cleanText(
+        body.sex,
+        current.sex
+      );
+
+    /* =====================================================
+       WEIGHT
+    ===================================================== */
+
+    let cleanWeight:
+      | number
+      | null =
+      current.weight_lbs != null
+        ? Number(
+            current.weight_lbs
+          )
         : null;
+
+    if (
+      body.weightLbs !==
+      undefined
+    ) {
+      if (
+        body.weightLbs === "" ||
+        body.weightLbs ===
+          null
+      ) {
+        cleanWeight =
+          null;
+      } else {
+        cleanWeight =
+          Number(
+            body.weightLbs
+          );
+
+        if (
+          Number.isNaN(
+            cleanWeight
+          ) ||
+          cleanWeight < 0
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Weight must be a valid positive number.",
+            },
+            {
+              status: 400,
+            }
+          );
+        }
+      }
+    }
+
+    /* =====================================================
+       PUBLIC PROFILE TEXT
+    ===================================================== */
 
     const cleanPublicSummary =
-      typeof publicSummary ===
-        "string" &&
-      publicSummary.trim()
-        ? publicSummary.trim()
-        : null;
+      cleanText(
+        body.publicSummary,
+        current.public_summary
+      );
 
     const cleanPublicNeed =
-      typeof publicNeed ===
-        "string" &&
-      publicNeed.trim()
-        ? publicNeed.trim()
-        : null;
+      cleanText(
+        body.publicNeed,
+        current.public_need
+      );
 
     const cleanExternalUrl =
-      typeof externalListingUrl ===
-        "string" &&
-      externalListingUrl.trim()
-        ? externalListingUrl.trim()
-        : null;
+      cleanText(
+        body.externalListingUrl,
+        current.external_listing_url
+      );
 
-    const cleanOutcomeStatus =
-      typeof outcomeStatus ===
-        "string" &&
-      outcomeStatus.trim()
-        ? outcomeStatus.trim()
-        : null;
-
-    const cleanOutcomeMessage =
-      typeof publicOutcomeMessage ===
-        "string" &&
-      publicOutcomeMessage.trim()
-        ? publicOutcomeMessage.trim()
-        : null;
-
-    /* -----------------------------------------------------
-       VALIDATE URL
-    ----------------------------------------------------- */
-
-    if (cleanExternalUrl) {
+    if (
+      cleanExternalUrl
+    ) {
       try {
         new URL(
-          cleanExternalUrl
+          String(
+            cleanExternalUrl
+          )
         );
       } catch {
         return NextResponse.json(
@@ -453,62 +584,229 @@ export async function PATCH(
       }
     }
 
-    /* -----------------------------------------------------
-       WEIGHT
-    ----------------------------------------------------- */
+    /* =====================================================
+       PUBLIC VISIBILITY
+    ===================================================== */
 
-    let cleanWeight:
-      | number
-      | null = null;
+    const publishValue =
+      body.publicShareEnabled ===
+      undefined
+        ? Boolean(
+            current.public_share_enabled
+          )
+        : body.publicShareEnabled ===
+          true;
+
+    /* =====================================================
+       SELECTIVE PUBLIC SYNCHRONIZATION
+
+       Example:
+
+       publicSyncFields: [
+         "name",
+         "breed_or_type",
+         "birth_date"
+       ]
+
+       Only approved fields are copied.
+    ===================================================== */
+
+    const publicSyncFields =
+      Array.isArray(
+        body.publicSyncFields
+      )
+        ? body.publicSyncFields.map(
+            String
+          )
+        : [];
+
+    let publicName =
+      current.public_name;
+
+    let publicSpecies =
+      current.public_species;
+
+    let publicBreed =
+      current.public_breed_or_type;
+
+    let publicBirthDate =
+      current.public_birth_date
+        ? String(
+            current.public_birth_date
+          ).slice(0, 10)
+        : null;
+
+    let publicSex =
+      current.public_sex;
+
+    let publicWeight =
+      current.public_weight_lbs !=
+      null
+        ? Number(
+            current.public_weight_lbs
+          )
+        : null;
 
     if (
-      weightLbs !== "" &&
-      weightLbs != null
+      publicSyncFields.includes(
+        "name"
+      )
     ) {
-      cleanWeight =
-        Number(
-          weightLbs
-        );
+      publicName =
+        cleanName;
+    }
+
+    if (
+      publicSyncFields.includes(
+        "species"
+      )
+    ) {
+      publicSpecies =
+        cleanSpecies;
+    }
+
+    if (
+      publicSyncFields.includes(
+        "breed_or_type"
+      )
+    ) {
+      publicBreed =
+        cleanBreed;
+    }
+
+    if (
+      publicSyncFields.includes(
+        "birth_date"
+      )
+    ) {
+      publicBirthDate =
+        cleanBirthDate;
+    }
+
+    if (
+      publicSyncFields.includes(
+        "sex"
+      )
+    ) {
+      publicSex =
+        cleanSex;
+    }
+
+    if (
+      publicSyncFields.includes(
+        "weight_lbs"
+      )
+    ) {
+      publicWeight =
+        cleanWeight;
+    }
+
+    /* =====================================================
+       OUTCOME
+    ===================================================== */
+
+    const cleanOutcomeStatus =
+      cleanText(
+        body.outcomeStatus,
+        current.outcome_status
+      );
+
+    let cleanOutcomeDate =
+      current.outcome_date
+        ? String(
+            current.outcome_date
+          ).slice(0, 10)
+        : null;
+
+    if (
+      body.outcomeDate !==
+      undefined
+    ) {
+      cleanOutcomeDate =
+        null;
 
       if (
-        Number.isNaN(
-          cleanWeight
-        ) ||
-        cleanWeight < 0
+        typeof body.outcomeDate ===
+          "string" &&
+        body.outcomeDate.trim()
       ) {
-        return NextResponse.json(
-          {
-            error:
-              "Weight must be a valid positive number.",
-          },
-          {
-            status: 400,
-          }
-        );
+        const parsed =
+          new Date(
+            `${body.outcomeDate.trim()}T00:00:00`
+          );
+
+        if (
+          Number.isNaN(
+            parsed.getTime()
+          )
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Outcome date is invalid.",
+            },
+            {
+              status: 400,
+            }
+          );
+        }
+
+        cleanOutcomeDate =
+          body.outcomeDate.trim();
       }
     }
 
-    /* -----------------------------------------------------
-       PUBLIC STATUS
-    ----------------------------------------------------- */
-
-    const publishValue =
-      publicShareEnabled ===
-        true;
+    const cleanOutcomeMessage =
+      cleanText(
+        body.publicOutcomeMessage,
+        current.public_outcome_message
+      );
 
     const successWallValue =
-      showOnSuccessWall ===
-        true;
+      body.showOnSuccessWall ===
+      undefined
+        ? Boolean(
+            current.show_on_success_wall
+          )
+        : body.showOnSuccessWall ===
+          true;
 
-    /* -----------------------------------------------------
+    /* =====================================================
        SAVE
-    ----------------------------------------------------- */
+    ===================================================== */
 
     const rows =
       await sql`
         update animals
 
         set
+          name =
+            ${cleanName},
+
+          temporary_name =
+            ${cleanTemporaryName},
+
+          species =
+            ${cleanSpecies},
+
+          breed_or_type =
+            ${cleanBreed},
+
+          source =
+            ${cleanSource},
+
+          custody =
+            ${cleanCustody},
+
+          placement =
+            ${cleanPlacement},
+
+          urgency =
+            ${cleanUrgency},
+
+          notes =
+            ${cleanNotes},
+
           birth_date =
             ${cleanBirthDate}::date,
 
@@ -517,6 +815,24 @@ export async function PATCH(
 
           weight_lbs =
             ${cleanWeight},
+
+          public_name =
+            ${publicName},
+
+          public_species =
+            ${publicSpecies},
+
+          public_breed_or_type =
+            ${publicBreed},
+
+          public_birth_date =
+            ${publicBirthDate}::date,
+
+          public_sex =
+            ${publicSex},
+
+          public_weight_lbs =
+            ${publicWeight},
 
           public_share_enabled =
             ${publishValue},
@@ -548,36 +864,12 @@ export async function PATCH(
         where
           id = ${animalId}
 
-        returning
-          id,
-          birth_date,
-          sex,
-          weight_lbs,
-          public_share_enabled,
-          public_summary,
-          public_need,
-          external_listing_url,
-          outcome_status,
-          outcome_date,
-          public_outcome_message,
-          show_on_success_wall
+        returning *
       `;
 
-    if (!rows[0]) {
-      return NextResponse.json(
-        {
-          error:
-            "Animal not found.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    /* -----------------------------------------------------
+    /* =====================================================
        AUDIT
-    ----------------------------------------------------- */
+    ===================================================== */
 
     try {
       await sql`
@@ -593,28 +885,11 @@ export async function PATCH(
           'animal',
           ${animalId},
           ${session.id},
-          'profile_settings',
+          'animal_updated',
           ${JSON.stringify({
-            birthDate:
-              cleanBirthDate,
-
-            sex:
-              cleanSex,
-
-            weightLbs:
-              cleanWeight,
-
+            publicSyncFields,
             publicShareEnabled:
               publishValue,
-
-            outcomeStatus:
-              cleanOutcomeStatus,
-
-            outcomeDate:
-              cleanOutcomeDate,
-
-            showOnSuccessWall:
-              successWallValue,
           })}
         )
       `;
@@ -622,7 +897,7 @@ export async function PATCH(
       auditError
     ) {
       console.error(
-        "Animal profile audit failed:",
+        "Animal update audit failed:",
         auditError
       );
     }
@@ -658,7 +933,7 @@ export async function PATCH(
         error:
           err instanceof Error
             ? err.message
-            : "Something went wrong saving the animal profile.",
+            : "Something went wrong saving the animal.",
       },
       {
         status: 500,
