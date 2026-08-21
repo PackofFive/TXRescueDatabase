@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -35,6 +36,13 @@ type Animal = {
   placement: string | null;
   notes: string | null;
 
+  public_name: string | null;
+  public_species: string | null;
+  public_breed_or_type: string | null;
+  public_birth_date: string | null;
+  public_sex: string | null;
+  public_weight_lbs: string | number | null;
+
   public_share_enabled: boolean;
   public_summary: string | null;
   public_need: string | null;
@@ -46,6 +54,7 @@ type Animal = {
   show_on_success_wall: boolean;
 
   open_help_offers: number;
+  open_reminders: number;
 
   created_at: string;
 
@@ -61,6 +70,37 @@ type Animal = {
   timeline: TimelineEvent[];
 };
 
+type OverviewDraft = {
+  name: string;
+  temporaryName: string;
+  species: string;
+  breedOrType: string;
+  source: string;
+  custody: string;
+  placement: string;
+  urgency: string;
+  birthDate: string;
+  sex: string;
+  weightLbs: string;
+  notes: string;
+};
+
+type PublicSyncField =
+  | "name"
+  | "species"
+  | "breed_or_type"
+  | "birth_date"
+  | "sex"
+  | "weight_lbs";
+
+type SyncOption = {
+  field: PublicSyncField;
+  label: string;
+  oldValue: string;
+  newValue: string;
+  selected: boolean;
+};
+
 export default function AnimalRecordPage() {
   const params = useParams();
 
@@ -70,70 +110,111 @@ export default function AnimalRecordPage() {
   const [
     animal,
     setAnimal,
-  ] = useState<Animal | null>(
-    null
-  );
+  ] =
+    useState<Animal | null>(
+      null
+    );
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     error,
     setError,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    editingOverview,
+    setEditingOverview,
+  ] =
+    useState(false);
+
+  const [
+    overviewDraft,
+    setOverviewDraft,
+  ] =
+    useState<OverviewDraft | null>(
+      null
+    );
+
+  const [
+    savingOverview,
+    setSavingOverview,
+  ] =
+    useState(false);
+
+  const [
+    overviewMessage,
+    setOverviewMessage,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    syncOptions,
+    setSyncOptions,
+  ] =
+    useState<SyncOption[]>([]);
+
+  const [
+    pendingOverviewSave,
+    setPendingOverviewSave,
+  ] =
+    useState<OverviewDraft | null>(
+      null
+    );
 
   const [
     savingPublic,
     setSavingPublic,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     publicMessage,
     setPublicMessage,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    fileMenuOpen,
+    setFileMenuOpen,
+  ] =
+    useState(false);
 
   /* =====================================================
      PUBLIC PROFILE DRAFT
   ===================================================== */
 
   const [
-    birthDate,
-    setBirthDate,
-  ] = useState("");
-
-  const [
-    sex,
-    setSex,
-  ] = useState("");
-
-  const [
-    weightLbs,
-    setWeightLbs,
-  ] = useState("");
-
-  const [
     publicSummary,
     setPublicSummary,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     publicNeed,
     setPublicNeed,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     externalListingUrl,
     setExternalListingUrl,
-  ] = useState("");
+  ] =
+    useState("");
 
   /* =====================================================
-     LOAD ANIMAL
+     LOAD
   ===================================================== */
 
   useEffect(() => {
@@ -141,80 +222,385 @@ export default function AnimalRecordPage() {
       return;
     }
 
-    fetch(
-      `/api/animals/${encodeURIComponent(
-        animalId
-      )}`,
-      {
-        cache: "no-store",
-      }
-    )
-      .then(async (r) => {
-        const data =
-          await r.json();
-
-        if (!r.ok) {
-          throw new Error(
-            data.error ??
-              "Failed to load animal."
-          );
-        }
-
-        const loaded =
-          data.animal as Animal;
-
-        setAnimal(loaded);
-
-        setBirthDate(
-          loaded.birth_date
-            ? String(
-                loaded.birth_date
-              ).slice(0, 10)
-            : ""
-        );
-
-        setSex(
-          loaded.sex ?? ""
-        );
-
-        setWeightLbs(
-          loaded.weight_lbs !=
-            null
-            ? String(
-                loaded.weight_lbs
-              )
-            : ""
-        );
-
-        setPublicSummary(
-          loaded.public_summary ??
-            ""
-        );
-
-        setPublicNeed(
-          loaded.public_need ??
-            ""
-        );
-
-        setExternalListingUrl(
-          loaded.external_listing_url ??
-            ""
-        );
-      })
-      .catch((err) => {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load animal."
-        );
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    loadAnimal();
   }, [animalId]);
 
+  async function loadAnimal() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res =
+        await fetch(
+          `/api/animals/${encodeURIComponent(
+            animalId
+          )}`,
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Failed to load animal."
+        );
+      }
+
+      const loaded =
+        data.animal as Animal;
+
+      setAnimal(loaded);
+
+      setOverviewDraft(
+        createOverviewDraft(
+          loaded
+        )
+      );
+
+      setPublicSummary(
+        loaded.public_summary ??
+          ""
+      );
+
+      setPublicNeed(
+        loaded.public_need ??
+          ""
+      );
+
+      setExternalListingUrl(
+        loaded.external_listing_url ??
+          ""
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load animal."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   /* =====================================================
-     SAVE PUBLIC PROFILE DRAFT
+     EDIT OVERVIEW
+  ===================================================== */
+
+  function startOverviewEdit() {
+    if (!animal) {
+      return;
+    }
+
+    setOverviewDraft(
+      createOverviewDraft(
+        animal
+      )
+    );
+
+    setOverviewMessage(
+      null
+    );
+
+    setEditingOverview(
+      true
+    );
+  }
+
+  function cancelOverviewEdit() {
+    if (animal) {
+      setOverviewDraft(
+        createOverviewDraft(
+          animal
+        )
+      );
+    }
+
+    setEditingOverview(
+      false
+    );
+
+    setSyncOptions([]);
+    setPendingOverviewSave(
+      null
+    );
+  }
+
+  function updateOverviewField(
+    key: keyof OverviewDraft,
+    value: string
+  ) {
+    setOverviewDraft(
+      (current) =>
+        current
+          ? {
+              ...current,
+              [key]: value,
+            }
+          : current
+    );
+  }
+
+  /* =====================================================
+     SAVE OVERVIEW
+
+     If public-eligible fields changed and the profile is
+     currently published, ask which should also update the
+     public profile.
+
+     Private-only fields never appear in the public-sync
+     confirmation.
+  ===================================================== */
+
+  async function requestOverviewSave() {
+    if (
+      !animal ||
+      !overviewDraft
+    ) {
+      return;
+    }
+
+    const syncCandidates =
+      getPublicSyncCandidates(
+        animal,
+        overviewDraft
+      );
+
+    /*
+      If the animal is published and one or more shareable
+      fields changed, ask the rescue which public copies
+      should update.
+
+      If private, save immediately. Nothing is exposed.
+    */
+
+    if (
+      animal.public_share_enabled &&
+      syncCandidates.length >
+        0
+    ) {
+      setPendingOverviewSave(
+        overviewDraft
+      );
+
+      setSyncOptions(
+        syncCandidates
+      );
+
+      return;
+    }
+
+    await performOverviewSave(
+      overviewDraft,
+      []
+    );
+  }
+
+  async function saveWithPublicSync() {
+    if (
+      !pendingOverviewSave
+    ) {
+      return;
+    }
+
+    const selectedFields =
+      syncOptions
+        .filter(
+          (option) =>
+            option.selected
+        )
+        .map(
+          (option) =>
+            option.field
+        );
+
+    await performOverviewSave(
+      pendingOverviewSave,
+      selectedFields
+    );
+
+    setSyncOptions([]);
+    setPendingOverviewSave(
+      null
+    );
+  }
+
+  async function saveWithoutPublicSync() {
+    if (
+      !pendingOverviewSave
+    ) {
+      return;
+    }
+
+    await performOverviewSave(
+      pendingOverviewSave,
+      []
+    );
+
+    setSyncOptions([]);
+    setPendingOverviewSave(
+      null
+    );
+  }
+
+  async function performOverviewSave(
+    draft: OverviewDraft,
+    publicSyncFields: PublicSyncField[]
+  ) {
+    setSavingOverview(
+      true
+    );
+
+    setOverviewMessage(
+      null
+    );
+
+    try {
+      const res =
+        await fetch(
+          `/api/animals/${encodeURIComponent(
+            animalId
+          )}`,
+          {
+            method:
+              "PATCH",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                name:
+                  draft.name,
+
+                temporaryName:
+                  draft.temporaryName,
+
+                species:
+                  draft.species,
+
+                breedOrType:
+                  draft.breedOrType,
+
+                source:
+                  draft.source,
+
+                custody:
+                  draft.custody,
+
+                placement:
+                  draft.placement,
+
+                urgency:
+                  draft.urgency,
+
+                birthDate:
+                  draft.birthDate,
+
+                sex:
+                  draft.sex,
+
+                weightLbs:
+                  draft.weightLbs,
+
+                notes:
+                  draft.notes,
+
+                publicSyncFields,
+              }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't save overview."
+        );
+      }
+
+      const updated =
+        data.animal as Animal;
+
+      setAnimal(
+        (current) =>
+          current
+            ? {
+                ...current,
+                ...updated,
+              }
+            : updated
+      );
+
+      setOverviewDraft(
+        createOverviewDraft(
+          updated
+        )
+      );
+
+      setEditingOverview(
+        false
+      );
+
+      if (
+        publicSyncFields.length >
+        0
+      ) {
+        setOverviewMessage(
+          `Overview saved. ${publicSyncFields.length} public profile field${
+            publicSyncFields.length ===
+            1
+              ? ""
+              : "s"
+          } updated.`
+        );
+      } else {
+        setOverviewMessage(
+          "Overview saved."
+        );
+      }
+    } catch (err) {
+      setOverviewMessage(
+        err instanceof Error
+          ? err.message
+          : "Couldn't save overview."
+      );
+    } finally {
+      setSavingOverview(
+        false
+      );
+    }
+  }
+
+  function toggleSyncOption(
+    field: PublicSyncField
+  ) {
+    setSyncOptions(
+      (current) =>
+        current.map(
+          (option) =>
+            option.field ===
+            field
+              ? {
+                  ...option,
+                  selected:
+                    !option.selected,
+                }
+              : option
+        )
+    );
+  }
+
+  /* =====================================================
+     PUBLIC PROFILE
   ===================================================== */
 
   async function saveProfileDraft() {
@@ -222,35 +608,27 @@ export default function AnimalRecordPage() {
       return;
     }
 
-    await saveProfile(
+    await savePublicProfile(
       animal.public_share_enabled,
       "Public profile draft saved."
     );
   }
 
-  /* =====================================================
-     PUBLISH PUBLIC PROFILE
-  ===================================================== */
-
   async function publishProfile() {
     const confirmed =
       window.confirm(
-        "Publish this animal's public profile?\n\nThe animal will become visible through its public Pack of Five link. Private notes, detailed medical records, foster contacts, expenses, and other internal information will remain private."
+        "Publish this animal's public profile?\n\nOnly the approved public profile information will be visible. Private notes, medical records, foster contacts, expenses, reminders, and other internal information remain private."
       );
 
     if (!confirmed) {
       return;
     }
 
-    await saveProfile(
+    await savePublicProfile(
       true,
       "Public profile published."
     );
   }
-
-  /* =====================================================
-     UNPUBLISH PUBLIC PROFILE
-  ===================================================== */
 
   async function unpublishProfile() {
     const confirmed =
@@ -262,20 +640,20 @@ export default function AnimalRecordPage() {
       return;
     }
 
-    await saveProfile(
+    await savePublicProfile(
       false,
-      "Public profile unpublished. The animal is private again."
+      "Public profile unpublished."
     );
   }
 
-  /* =====================================================
-     SHARED SAVE
-  ===================================================== */
-
-  async function saveProfile(
+  async function savePublicProfile(
     publicShareEnabled: boolean,
     successMessage: string
   ) {
+    if (!animal) {
+      return;
+    }
+
     setSavingPublic(true);
     setPublicMessage(null);
 
@@ -286,7 +664,8 @@ export default function AnimalRecordPage() {
             animalId
           )}`,
           {
-            method: "PATCH",
+            method:
+              "PATCH",
 
             headers: {
               "Content-Type":
@@ -295,33 +674,27 @@ export default function AnimalRecordPage() {
 
             body:
               JSON.stringify({
-                birthDate,
-                sex,
-                weightLbs,
-
                 publicShareEnabled,
+
                 publicSummary,
                 publicNeed,
                 externalListingUrl,
 
                 outcomeStatus:
-                  animal?.outcome_status ??
-                  null,
+                  animal.outcome_status,
 
                 outcomeDate:
-                  animal?.outcome_date
+                  animal.outcome_date
                     ? String(
                         animal.outcome_date
                       ).slice(0, 10)
                     : null,
 
                 publicOutcomeMessage:
-                  animal?.public_outcome_message ??
-                  null,
+                  animal.public_outcome_message,
 
                 showOnSuccessWall:
-                  animal?.show_on_success_wall ??
-                  false,
+                  animal.show_on_success_wall,
               }),
           }
         );
@@ -332,7 +705,7 @@ export default function AnimalRecordPage() {
       if (!res.ok) {
         throw new Error(
           data.error ??
-            "Couldn't save animal profile."
+            "Couldn't save public profile."
         );
       }
 
@@ -341,50 +714,7 @@ export default function AnimalRecordPage() {
           current
             ? {
                 ...current,
-
-                birth_date:
-                  data.animal
-                    .birth_date,
-
-                sex:
-                  data.animal
-                    .sex,
-
-                weight_lbs:
-                  data.animal
-                    .weight_lbs,
-
-                public_share_enabled:
-                  data.animal
-                    .public_share_enabled,
-
-                public_summary:
-                  data.animal
-                    .public_summary,
-
-                public_need:
-                  data.animal
-                    .public_need,
-
-                external_listing_url:
-                  data.animal
-                    .external_listing_url,
-
-                outcome_status:
-                  data.animal
-                    .outcome_status,
-
-                outcome_date:
-                  data.animal
-                    .outcome_date,
-
-                public_outcome_message:
-                  data.animal
-                    .public_outcome_message,
-
-                show_on_success_wall:
-                  data.animal
-                    .show_on_success_wall,
+                ...data.animal,
               }
             : current
       );
@@ -396,16 +726,12 @@ export default function AnimalRecordPage() {
       setPublicMessage(
         err instanceof Error
           ? err.message
-          : "Couldn't save animal profile."
+          : "Couldn't save public profile."
       );
     } finally {
       setSavingPublic(false);
     }
   }
-
-  /* =====================================================
-     COPY PUBLIC LINK
-  ===================================================== */
 
   async function copyPublicLink() {
     const url =
@@ -439,19 +765,15 @@ export default function AnimalRecordPage() {
       <div>
         <a
           href="/animals"
-          style={{
-            fontSize: 13,
-            color: "#C05621",
-            textDecoration:
-              "none",
-          }}
+          style={backLink}
         >
           ← Back to Animals
         </a>
 
         <p
           style={{
-            color: "#B23B2E",
+            color:
+              "#B23B2E",
           }}
         >
           {error}
@@ -469,11 +791,6 @@ export default function AnimalRecordPage() {
     animal.temporary_name ||
     "Unnamed Animal";
 
-  const publicUrl =
-    `/pet/${encodeURIComponent(
-      animal.id
-    )}`;
-
   const isPublic =
     animal.public_share_enabled;
 
@@ -483,6 +800,17 @@ export default function AnimalRecordPage() {
         0
     );
 
+  const openReminders =
+    Number(
+      animal.open_reminders ??
+        0
+    );
+
+  const publicUrl =
+    `/pet/${encodeURIComponent(
+      animal.id
+    )}`;
+
   /* =====================================================
      PAGE
   ===================================================== */
@@ -491,12 +819,7 @@ export default function AnimalRecordPage() {
     <section>
       <a
         href="/animals"
-        style={{
-          fontSize: 12.5,
-          color: "#C05621",
-          textDecoration:
-            "none",
-        }}
+        style={backLink}
       >
         ← Back to Animals
       </a>
@@ -512,7 +835,7 @@ export default function AnimalRecordPage() {
           alignItems:
             "flex-start",
           marginTop: 18,
-          marginBottom: 28,
+          marginBottom: 20,
           flexWrap: "wrap",
         }}
       >
@@ -521,10 +844,11 @@ export default function AnimalRecordPage() {
             src={animal.photo.url}
             alt={displayName}
             style={{
-              width: 150,
-              height: 150,
+              width: 145,
+              height: 145,
               borderRadius: 10,
-              objectFit: "cover",
+              objectFit:
+                "cover",
               border:
                 "1px solid #E7E5E1",
             }}
@@ -532,25 +856,21 @@ export default function AnimalRecordPage() {
         ) : (
           <div
             style={{
-              width: 150,
-              height: 150,
+              width: 145,
+              height: 145,
               borderRadius: 10,
               background:
                 "#F2F2F0",
               border:
                 "1px solid #E7E5E1",
-              display: "flex",
-              alignItems:
+              display: "grid",
+              placeItems:
                 "center",
-              justifyContent:
-                "center",
-              color: "#8A8782",
+              color:
+                "#8A8782",
               fontSize: 13,
               textAlign:
                 "center",
-              padding: 12,
-              boxSizing:
-                "border-box",
             }}
           >
             No photo yet
@@ -570,7 +890,8 @@ export default function AnimalRecordPage() {
               fontWeight: 800,
               letterSpacing:
                 ".08em",
-              color: "#6B6862",
+              color:
+                "#6B6862",
             }}
           >
             PRIVATE ANIMAL RECORD
@@ -579,7 +900,8 @@ export default function AnimalRecordPage() {
           <h1
             style={{
               fontSize: 30,
-              color: "#17233C",
+              color:
+                "#17233C",
               margin:
                 "5px 0 6px",
             }}
@@ -591,7 +913,8 @@ export default function AnimalRecordPage() {
             style={{
               margin:
                 "0 0 12px",
-              color: "#6B6862",
+              color:
+                "#6B6862",
               fontSize: 14,
             }}
           >
@@ -599,7 +922,9 @@ export default function AnimalRecordPage() {
               calculateAge(
                 animal.birth_date
               ),
+
               animal.species,
+
               animal.breed_or_type,
             ]
               .filter(Boolean)
@@ -610,7 +935,9 @@ export default function AnimalRecordPage() {
             style={{
               display: "flex",
               gap: 8,
-              flexWrap: "wrap",
+              flexWrap:
+                "wrap",
+              marginBottom: 14,
             }}
           >
             <StatusBadge
@@ -666,342 +993,883 @@ export default function AnimalRecordPage() {
                 : "Private — Not Published"}
             </span>
           </div>
-        </div>
-      </div>
 
-      {/* ===============================================
-          PRIVATE STATUS
-      ================================================ */}
-
-      {!isPublic && (
-        <div
-          style={{
-            background:
-              "#F6F7F8",
-            border:
-              "1px solid #E0E3E7",
-            borderRadius: 9,
-            padding: 14,
-            marginBottom: 22,
-          }}
-        >
-          <strong
-            style={{
-              color:
-                "#17233C",
-            }}
-          >
-            This animal is private.
-          </strong>
-
-          <p
-            style={{
-              margin:
-                "5px 0 0",
-              color:
-                "#6B6862",
-              fontSize: 13.5,
-              lineHeight: 1.55,
-            }}
-          >
-            This record is only
-            visible inside your
-            organization&apos;s
-            Rescue Manager. You
-            can complete medical
-            care, surgery,
-            behavior evaluation,
-            foster placement,
-            reminders, and other
-            work before deciding
-            whether to publish a
-            public profile.
-          </p>
-        </div>
-      )}
-
-      {/* ===============================================
-          HELP OFFER ALERT
-      ================================================ */}
-
-      {openHelpOffers > 0 && (
-        <a
-          href={`/animals/${encodeURIComponent(
-            animal.id
-          )}/offers`}
-          style={{
-            display: "block",
-            textDecoration:
-              "none",
-            background:
-              "#EEF4F0",
-            border:
-              "1px solid #C9DDD1",
-            borderRadius: 9,
-            padding: 14,
-            marginBottom: 18,
-            color: "#2F6F4E",
-          }}
-        >
-          <strong>
-            {openHelpOffers} active
-            foster/help offer
-            {openHelpOffers === 1
-              ? ""
-              : "s"}
-          </strong>
+          {/* ===========================================
+              COMPACT FILE NAVIGATION
+          ============================================ */}
 
           <div
             style={{
-              marginTop: 4,
-              fontSize: 13,
-              lineHeight: 1.45,
+              position:
+                "relative",
+              display:
+                "inline-block",
             }}
           >
-            Review private contact
-            information and respond
-            to people who have
-            offered to help. →
+            <button
+              type="button"
+              onClick={() =>
+                setFileMenuOpen(
+                  (value) =>
+                    !value
+                )
+              }
+              style={
+                fileMenuButton
+              }
+            >
+              Animal File ▾
+            </button>
+
+            {fileMenuOpen && (
+              <div
+                style={
+                  fileMenu
+                }
+              >
+                <FileMenuItem
+                  label="Overview"
+                  href={`/animals/${encodeURIComponent(
+                    animal.id
+                  )}`}
+                />
+
+                <FileMenuItem
+                  label="Medical"
+                  href={`/animals/${encodeURIComponent(
+                    animal.id
+                  )}/medical`}
+                />
+
+                <FileMenuItem
+                  label={
+                    openReminders >
+                    0
+                      ? `Reminders & Tasks (${openReminders})`
+                      : "Reminders & Tasks"
+                  }
+                  href={`/animals/${encodeURIComponent(
+                    animal.id
+                  )}/reminders`}
+                />
+
+                <FileMenuItem
+                  label={
+                    openHelpOffers >
+                    0
+                      ? `Foster & Help Offers (${openHelpOffers})`
+                      : "Foster & Help Offers"
+                  }
+                  href={`/animals/${encodeURIComponent(
+                    animal.id
+                  )}/offers`}
+                />
+
+                <FileMenuItem
+                  label="Behavior"
+                  disabled
+                />
+
+                <FileMenuItem
+                  label="Expenses"
+                  disabled
+                />
+
+                <FileMenuItem
+                  label="Documents & Photos"
+                  disabled
+                />
+
+                <FileMenuItem
+                  label="Timeline"
+                  href="#timeline"
+                />
+
+                <FileMenuItem
+                  label="Outcome"
+                  disabled
+                />
+              </div>
+            )}
           </div>
-        </a>
+        </div>
+      </div>
+
+      {/* ===============================================
+          ACTIVE ALERTS
+      ================================================ */}
+
+      {(openHelpOffers > 0 ||
+        openReminders >
+          0) && (
+        <div
+          style={{
+            display:
+              "grid",
+            gap: 8,
+            marginBottom: 18,
+          }}
+        >
+          {openHelpOffers >
+            0 && (
+            <a
+              href={`/animals/${encodeURIComponent(
+                animal.id
+              )}/offers`}
+              style={
+                alertLink
+              }
+            >
+              <strong>
+                {openHelpOffers} active
+                foster/help offer
+                {openHelpOffers ===
+                1
+                  ? ""
+                  : "s"}
+              </strong>
+
+              <span>
+                Review private
+                contact
+                information →
+              </span>
+            </a>
+          )}
+
+          {openReminders >
+            0 && (
+            <a
+              href={`/animals/${encodeURIComponent(
+                animal.id
+              )}/reminders`}
+              style={{
+                ...alertLink,
+                background:
+                  "#FFF8EA",
+                border:
+                  "1px solid #E7D2B4",
+                color:
+                  "#85571F",
+              }}
+            >
+              <strong>
+                {openReminders} open
+                reminder
+                {openReminders ===
+                1
+                  ? ""
+                  : "s"}
+              </strong>
+
+              <span>
+                Review tasks and
+                due dates →
+              </span>
+            </a>
+          )}
+        </div>
       )}
-
-      {/* ===============================================
-          NEEDS ATTENTION
-      ================================================ */}
-
-      <div
-        style={{
-          border:
-            "1px solid #E7E5E1",
-          background:
-            "#FAFAF9",
-          borderRadius: 9,
-          padding: 15,
-          marginBottom: 22,
-        }}
-      >
-        <strong
-          style={{
-            color: "#17233C",
-          }}
-        >
-          Needs Attention
-        </strong>
-
-        <p
-          style={{
-            margin: "5px 0 0",
-            color: "#6B6862",
-            fontSize: 13.5,
-            lineHeight: 1.5,
-          }}
-        >
-          Important missing
-          information, overdue
-          care, medications,
-          reminders, foster tasks,
-          and other priority items
-          will appear here.
-        </p>
-      </div>
-
-      {/* ===============================================
-          RECORD MODULES
-      ================================================ */}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 14,
-          marginBottom: 28,
-        }}
-      >
-        <RecordCard
-          title="Overview"
-          text="Identity, source, intake details, current status, and general notes."
-          active
-        />
-
-        <RecordCard
-          title="Medical"
-          text="Veterinary history, vaccinations, procedures, conditions, medications, and reminders."
-          href={`/animals/${encodeURIComponent(
-            animal.id
-          )}/medical`}
-        />
-
-        <RecordCard
-          title="Reminders & Tasks"
-          text="Create follow-ups, appointments, calls, care tasks, and other reminders for this animal."
-          href={`/animals/${encodeURIComponent(
-            animal.id
-          )}/reminders`}
-        />
-
-        <RecordCard
-          title={
-            openHelpOffers > 0
-              ? `Foster & Help Offers (${openHelpOffers})`
-              : "Foster & Help Offers"
-          }
-          text="Review public foster/help offers, private contact information, foster placement, and foster history."
-          href={`/animals/${encodeURIComponent(
-            animal.id
-          )}/offers`}
-        />
-
-        <RecordCard
-          title="Behavior"
-          text="Behavior observations, assessments, training notes, and foster updates."
-        />
-
-        <RecordCard
-          title="Expenses"
-          text="Optional animal-specific expense and support tracking."
-        />
-
-        <RecordCard
-          title="Documents & Photos"
-          text="Photos, veterinary documents, intake paperwork, IDs, and other files."
-        />
-
-        <RecordCard
-          title="Timeline"
-          text="Intake, transfers, custody changes, foster placements, and other important events."
-        />
-
-        <RecordCard
-          title={
-            animal.outcome_status
-              ? `Outcome — ${formatValue(
-                  animal.outcome_status
-                )}`
-              : "Outcome"
-          }
-          text="Adoption, transfer, return, release, or other final outcome information."
-        />
-      </div>
 
       {/* ===============================================
           OVERVIEW
       ================================================ */}
 
-      <Panel title="Overview">
-        <InfoRow
-          label="Species"
-          value={animal.species}
-        />
-
-        <InfoRow
-          label="Breed / type"
-          value={
-            animal.breed_or_type
-          }
-        />
-
-        <InfoRow
-          label="Age"
-          value={calculateAge(
-            animal.birth_date
-          )}
-        />
-
-        <InfoRow
-          label="Sex"
-          value={animal.sex}
-        />
-
-        <InfoRow
-          label="Weight"
-          value={
-            animal.weight_lbs !=
-            null
-              ? `${animal.weight_lbs} lb`
-              : null
-          }
-        />
-
-        <InfoRow
-          label="Source"
-          value={animal.source}
-        />
-
-        <InfoRow
-          label="Current custody"
-          value={formatValue(
-            animal.custody
-          )}
-        />
-
-        <InfoRow
-          label="Current placement"
-          value={
-            animal.placement
-              ? formatValue(
-                  animal.placement
-                )
-              : null
-          }
-        />
-
-        <InfoRow
-          label="Urgency"
-          value={
-            animal.urgency
-              ? formatValue(
-                  animal.urgency
-                )
-              : null
-          }
-        />
-
-        <InfoRow
-          label="Outcome"
-          value={
-            animal.outcome_status
-              ? formatValue(
-                  animal.outcome_status
-                )
-              : null
-          }
-        />
-
-        <InfoRow
-          label="Record created"
-          value={formatDate(
-            animal.created_at
-          )}
-        />
-
-        <div
-          style={{
-            marginTop: 16,
-          }}
-        >
-          <FieldHeading>
-            Private notes
-          </FieldHeading>
-
+      <Panel
+        title="Overview"
+        action={
+          !editingOverview ? (
+            <button
+              type="button"
+              onClick={
+                startOverviewEdit
+              }
+              style={
+                secondaryButton
+              }
+            >
+              Edit Overview
+            </button>
+          ) : null
+        }
+      >
+        {overviewMessage && (
           <div
             style={{
-              fontSize: 14,
-              color: "#3F3D39",
-              lineHeight: 1.6,
-              whiteSpace:
-                "pre-wrap",
+              marginBottom: 14,
+              padding: 10,
+              borderRadius: 7,
+              background:
+                overviewMessage.includes(
+                  "Couldn't"
+                )
+                  ? "#FFF4F2"
+                  : "#EEF4F0",
+
+              color:
+                overviewMessage.includes(
+                  "Couldn't"
+                )
+                  ? "#B23B2E"
+                  : "#2F6F4E",
+
+              border:
+                overviewMessage.includes(
+                  "Couldn't"
+                )
+                  ? "1px solid #F3C7BF"
+                  : "1px solid #C9DDD1",
+
+              fontSize: 13,
             }}
           >
-            {animal.notes ||
-              "No notes recorded yet."}
+            {overviewMessage}
           </div>
-        </div>
+        )}
+
+        {!editingOverview ||
+        !overviewDraft ? (
+          <>
+            <InfoRow
+              label="Name"
+              value={
+                animal.name
+              }
+            />
+
+            <InfoRow
+              label="Temporary name"
+              value={
+                animal.temporary_name
+              }
+            />
+
+            <InfoRow
+              label="Species"
+              value={
+                animal.species
+              }
+            />
+
+            <InfoRow
+              label="Breed / type"
+              value={
+                animal.breed_or_type
+              }
+            />
+
+            <InfoRow
+              label="Age"
+              value={calculateAge(
+                animal.birth_date
+              )}
+            />
+
+            <InfoRow
+              label="Birth date"
+              value={
+                animal.birth_date
+                  ? formatDate(
+                      animal.birth_date
+                    )
+                  : null
+              }
+            />
+
+            <InfoRow
+              label="Sex"
+              value={
+                animal.sex
+              }
+            />
+
+            <InfoRow
+              label="Weight"
+              value={
+                animal.weight_lbs !=
+                null
+                  ? `${animal.weight_lbs} lb`
+                  : null
+              }
+            />
+
+            <InfoRow
+              label="Source"
+              value={
+                animal.source
+              }
+            />
+
+            <InfoRow
+              label="Current custody"
+              value={formatValue(
+                animal.custody
+              )}
+            />
+
+            <InfoRow
+              label="Current placement"
+              value={
+                animal.placement
+                  ? formatValue(
+                      animal.placement
+                    )
+                  : null
+              }
+            />
+
+            <InfoRow
+              label="Urgency"
+              value={
+                animal.urgency
+                  ? formatValue(
+                      animal.urgency
+                    )
+                  : null
+              }
+            />
+
+            <InfoRow
+              label="Record created"
+              value={formatDate(
+                animal.created_at
+              )}
+            />
+
+            <div
+              style={{
+                marginTop: 16,
+              }}
+            >
+              <FieldHeading>
+                Private notes
+              </FieldHeading>
+
+              <div
+                style={{
+                  fontSize: 14,
+                  color:
+                    "#3F3D39",
+                  lineHeight: 1.6,
+                  whiteSpace:
+                    "pre-wrap",
+                }}
+              >
+                {animal.notes ||
+                  "No notes recorded yet."}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              style={{
+                display:
+                  "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 14,
+              }}
+            >
+              <EditField
+                label="Name"
+                value={
+                  overviewDraft.name
+                }
+                onChange={(value) =>
+                  updateOverviewField(
+                    "name",
+                    value
+                  )
+                }
+              />
+
+              <EditField
+                label="Temporary name"
+                value={
+                  overviewDraft.temporaryName
+                }
+                onChange={(value) =>
+                  updateOverviewField(
+                    "temporaryName",
+                    value
+                  )
+                }
+              />
+
+              <div>
+                <FieldHeading>
+                  Species
+                </FieldHeading>
+
+                <select
+                  value={
+                    overviewDraft.species
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "species",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                >
+                  <option value="Dog">
+                    Dog
+                  </option>
+
+                  <option value="Cat">
+                    Cat
+                  </option>
+
+                  <option value="Other">
+                    Other
+                  </option>
+                </select>
+              </div>
+
+              <EditField
+                label="Breed / type"
+                value={
+                  overviewDraft.breedOrType
+                }
+                onChange={(value) =>
+                  updateOverviewField(
+                    "breedOrType",
+                    value
+                  )
+                }
+              />
+
+              <EditField
+                label="Source"
+                value={
+                  overviewDraft.source
+                }
+                onChange={(value) =>
+                  updateOverviewField(
+                    "source",
+                    value
+                  )
+                }
+              />
+
+              <div>
+                <FieldHeading>
+                  Custody
+                </FieldHeading>
+
+                <select
+                  value={
+                    overviewDraft.custody
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "custody",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                >
+                  <option value="rescue">
+                    Rescue custody
+                  </option>
+
+                  <option value="owner">
+                    Owner / assistance
+                  </option>
+
+                  <option value="other">
+                    Other
+                  </option>
+                </select>
+              </div>
+
+              <EditField
+                label="Placement"
+                value={
+                  overviewDraft.placement
+                }
+                onChange={(value) =>
+                  updateOverviewField(
+                    "placement",
+                    value
+                  )
+                }
+              />
+
+              <EditField
+                label="Urgency"
+                value={
+                  overviewDraft.urgency
+                }
+                onChange={(value) =>
+                  updateOverviewField(
+                    "urgency",
+                    value
+                  )
+                }
+              />
+
+              <div>
+                <FieldHeading>
+                  Birth date
+                </FieldHeading>
+
+                <input
+                  type="date"
+                  value={
+                    overviewDraft.birthDate
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "birthDate",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                />
+              </div>
+
+              <div>
+                <FieldHeading>
+                  Sex
+                </FieldHeading>
+
+                <select
+                  value={
+                    overviewDraft.sex
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "sex",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                >
+                  <option value="">
+                    Not recorded
+                  </option>
+
+                  <option value="Female">
+                    Female
+                  </option>
+
+                  <option value="Male">
+                    Male
+                  </option>
+
+                  <option value="Unknown">
+                    Unknown
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <FieldHeading>
+                  Weight (lb)
+                </FieldHeading>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={
+                    overviewDraft.weightLbs
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "weightLbs",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+              }}
+            >
+              <FieldHeading>
+                Private notes
+              </FieldHeading>
+
+              <textarea
+                rows={5}
+                value={
+                  overviewDraft.notes
+                }
+                onChange={(e) =>
+                  updateOverviewField(
+                    "notes",
+                    e.target.value
+                  )
+                }
+                style={
+                  inputStyle
+                }
+              />
+            </div>
+
+            <div
+              style={{
+                display:
+                  "flex",
+                gap: 9,
+                marginTop: 16,
+                flexWrap:
+                  "wrap",
+              }}
+            >
+              <button
+                type="button"
+                disabled={
+                  savingOverview
+                }
+                onClick={
+                  requestOverviewSave
+                }
+                style={
+                  primaryButton
+                }
+              >
+                {savingOverview
+                  ? "Saving…"
+                  : "Save Overview"}
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  savingOverview
+                }
+                onClick={
+                  cancelOverviewEdit
+                }
+                style={
+                  secondaryButton
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
       </Panel>
 
       {/* ===============================================
-          PUBLIC PROFILE & SHARING
+          PUBLIC SYNC CONFIRMATION
+      ================================================ */}
+
+      {syncOptions.length >
+        0 &&
+        pendingOverviewSave && (
+          <Panel title="Update Published Profile?">
+            <p
+              style={{
+                margin:
+                  "0 0 14px",
+                color:
+                  "#6B6862",
+                fontSize: 13.5,
+                lineHeight: 1.55,
+              }}
+            >
+              You changed information
+              that may also be useful on
+              the published profile.
+              Choose exactly which fields
+              should update publicly.
+              Private-only information is
+              never included here.
+            </p>
+
+            <div
+              style={{
+                display:
+                  "grid",
+                gap: 8,
+              }}
+            >
+              {syncOptions.map(
+                (option) => (
+                  <label
+                    key={
+                      option.field
+                    }
+                    style={{
+                      display:
+                        "grid",
+                      gridTemplateColumns:
+                        "22px minmax(120px, 160px) 1fr",
+                      gap: 10,
+                      alignItems:
+                        "start",
+                      padding: 10,
+                      border:
+                        "1px solid #E7E5E1",
+                      borderRadius: 7,
+                      cursor:
+                        "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        option.selected
+                      }
+                      onChange={() =>
+                        toggleSyncOption(
+                          option.field
+                        )
+                      }
+                    />
+
+                    <strong
+                      style={{
+                        fontSize:
+                          13,
+                        color:
+                          "#17233C",
+                      }}
+                    >
+                      {
+                        option.label
+                      }
+                    </strong>
+
+                    <div
+                      style={{
+                        fontSize:
+                          12.5,
+                        color:
+                          "#6B6862",
+                      }}
+                    >
+                      <div>
+                        <span
+                          style={{
+                            color:
+                              "#8A8782",
+                          }}
+                        >
+                          Public now:
+                        </span>{" "}
+                        {option.oldValue ||
+                          "Not shown"}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 3,
+                        }}
+                      >
+                        <span
+                          style={{
+                            color:
+                              "#8A8782",
+                          }}
+                        >
+                          Update to:
+                        </span>{" "}
+                        <strong
+                          style={{
+                            color:
+                              "#1C1B19",
+                          }}
+                        >
+                          {option.newValue ||
+                            "Blank"}
+                        </strong>
+                      </div>
+                    </div>
+                  </label>
+                )
+              )}
+            </div>
+
+            <div
+              style={{
+                display:
+                  "flex",
+                gap: 9,
+                marginTop: 16,
+                flexWrap:
+                  "wrap",
+              }}
+            >
+              <button
+                type="button"
+                disabled={
+                  savingOverview
+                }
+                onClick={
+                  saveWithPublicSync
+                }
+                style={
+                  primaryButton
+                }
+              >
+                Update Selected
+                Public Fields
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  savingOverview
+                }
+                onClick={
+                  saveWithoutPublicSync
+                }
+                style={
+                  secondaryButton
+                }
+              >
+                Keep Public Profile
+                As-Is
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  savingOverview
+                }
+                onClick={() => {
+                  setSyncOptions(
+                    []
+                  );
+
+                  setPendingOverviewSave(
+                    null
+                  );
+                }}
+                style={
+                  textButton
+                }
+              >
+                Go Back
+              </button>
+            </div>
+          </Panel>
+        )}
+
+      {/* ===============================================
+          PUBLIC PROFILE
       ================================================ */}
 
       <Panel title="Public Profile & Sharing">
@@ -1019,7 +1887,7 @@ export default function AnimalRecordPage() {
 
             borderRadius: 8,
             padding: 14,
-            marginBottom: 20,
+            marginBottom: 18,
           }}
         >
           <strong
@@ -1039,119 +1907,110 @@ export default function AnimalRecordPage() {
             style={{
               margin:
                 "5px 0 0",
-              color: "#6B6862",
+              color:
+                "#6B6862",
               fontSize: 13,
               lineHeight: 1.5,
             }}
           >
             {isPublic
-              ? "This animal currently has a shareable public Pack of Five profile. The full Rescue Manager file remains private."
-              : "You can prepare this information now without making the animal public. Nothing below becomes publicly visible until you choose Publish Public Profile."}
+              ? "Only approved public-profile information is visible. The full animal record remains private."
+              : "You can prepare public information while this animal is private. Nothing becomes publicly visible until Publish Public Profile is selected."}
           </p>
         </div>
 
+        {/* PUBLIC APPROVED DETAILS */}
+
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 14,
+            marginBottom: 18,
           }}
         >
-          <div>
-            <FieldHeading>
-              Birth date
-            </FieldHeading>
+          <FieldHeading>
+            Currently approved public details
+          </FieldHeading>
 
-            <input
-              type="date"
-              value={birthDate}
-              onChange={(e) =>
-                setBirthDate(
-                  e.target.value
-                )
+          <div
+            style={{
+              display:
+                "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 8,
+            }}
+          >
+            <PublicValue
+              label="Name"
+              value={
+                animal.public_name
               }
-              style={inputStyle}
             />
-          </div>
 
-          <div>
-            <FieldHeading>
-              Sex
-            </FieldHeading>
-
-            <select
-              value={sex}
-              onChange={(e) =>
-                setSex(
-                  e.target.value
-                )
+            <PublicValue
+              label="Species"
+              value={
+                animal.public_species
               }
-              style={inputStyle}
-            >
-              <option value="">
-                Not recorded
-              </option>
+            />
 
-              <option value="Female">
-                Female
-              </option>
-
-              <option value="Male">
-                Male
-              </option>
-
-              <option value="Unknown">
-                Unknown
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <FieldHeading>
-              Weight (lb)
-            </FieldHeading>
-
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={weightLbs}
-              onChange={(e) =>
-                setWeightLbs(
-                  e.target.value
-                )
+            <PublicValue
+              label="Breed"
+              value={
+                animal.public_breed_or_type
               }
-              style={inputStyle}
+            />
+
+            <PublicValue
+              label="Age"
+              value={calculateAge(
+                animal.public_birth_date
+              )}
+            />
+
+            <PublicValue
+              label="Sex"
+              value={
+                animal.public_sex
+              }
+            />
+
+            <PublicValue
+              label="Weight"
+              value={
+                animal.public_weight_lbs !=
+                null
+                  ? `${animal.public_weight_lbs} lb`
+                  : null
+              }
             />
           </div>
         </div>
 
-        <div
-          style={{
-            marginTop: 16,
-          }}
-        >
+        <div>
           <FieldHeading>
             Public summary
           </FieldHeading>
 
           <textarea
             rows={5}
-            value={publicSummary}
+            value={
+              publicSummary
+            }
             onChange={(e) =>
               setPublicSummary(
                 e.target.value
               )
             }
             placeholder="Public-friendly description of the animal, personality, home needs, and other information you want people to see."
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
         </div>
 
         <div
           style={{
-            marginTop: 16,
+            marginTop: 14,
           }}
         >
           <FieldHeading>
@@ -1160,20 +2019,24 @@ export default function AnimalRecordPage() {
 
           <textarea
             rows={3}
-            value={publicNeed}
+            value={
+              publicNeed
+            }
             onChange={(e) =>
               setPublicNeed(
                 e.target.value
               )
             }
             placeholder="Examples: Foster needed, adoption placement, medical fundraiser, transport assistance."
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
         </div>
 
         <div
           style={{
-            marginTop: 16,
+            marginTop: 14,
           }}
         >
           <FieldHeading>
@@ -1192,280 +2055,404 @@ export default function AnimalRecordPage() {
               )
             }
             placeholder="https://..."
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
-
-          <p
-            style={{
-              margin:
-                "5px 0 0",
-              color: "#6B6862",
-              fontSize: 12,
-              lineHeight: 1.4,
-            }}
-          >
-            Optional. Link to
-            Petfinder, Adopt a
-            Pet, your rescue
-            website, or another
-            adoption listing.
-          </p>
         </div>
-
-        {openHelpOffers > 0 && (
-          <div
-            style={{
-              marginTop: 18,
-              background:
-                "#EEF4F0",
-              border:
-                "1px solid #C9DDD1",
-              borderRadius: 8,
-              padding: 12,
-              color:
-                "#2F6F4E",
-            }}
-          >
-            <strong>
-              {openHelpOffers} active
-              foster/help offer
-              {openHelpOffers === 1
-                ? ""
-                : "s"}{" "}
-              available
-            </strong>
-
-            <p
-              style={{
-                margin:
-                  "4px 0 10px",
-                fontSize: 12.5,
-              }}
-            >
-              Contact information
-              from public
-              responders remains
-              private to the
-              managing
-              organization.
-            </p>
-
-            <a
-              href={`/animals/${encodeURIComponent(
-                animal.id
-              )}/offers`}
-              style={{
-                color: "#2F6F4E",
-                fontSize: 12.5,
-                fontWeight: 700,
-                textDecoration:
-                  "none",
-              }}
-            >
-              Review Offers →
-            </a>
-          </div>
-        )}
 
         <div
           style={{
-            marginTop: 22,
-            paddingTop: 18,
+            marginTop: 18,
+            paddingTop: 16,
             borderTop:
               "1px solid #E7E5E1",
+            display: "flex",
+            gap: 9,
+            flexWrap:
+              "wrap",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              alignItems:
-                "center",
-            }}
+          <button
+            type="button"
+            disabled={
+              savingPublic
+            }
+            onClick={
+              saveProfileDraft
+            }
+            style={
+              secondaryButton
+            }
           >
+            {savingPublic
+              ? "Saving…"
+              : "Save Profile Draft"}
+          </button>
+
+          {!isPublic && (
             <button
               type="button"
               disabled={
                 savingPublic
               }
               onClick={
-                saveProfileDraft
+                publishProfile
               }
               style={
-                secondaryButton
+                primaryButton
               }
             >
-              {savingPublic
-                ? "Saving…"
-                : "Save Profile Draft"}
+              Publish Public
+              Profile
             </button>
+          )}
 
-            {!isPublic && (
+          {isPublic && (
+            <>
+              <a
+                href={
+                  publicUrl
+                }
+                target="_blank"
+                rel="noreferrer"
+                style={
+                  secondaryLink
+                }
+              >
+                View Public Profile
+              </a>
+
+              <button
+                type="button"
+                onClick={
+                  copyPublicLink
+                }
+                style={
+                  secondaryButton
+                }
+              >
+                Copy Public Link
+              </button>
+
               <button
                 type="button"
                 disabled={
                   savingPublic
                 }
                 onClick={
-                  publishProfile
+                  unpublishProfile
                 }
                 style={
-                  publishButton
+                  unpublishButton
                 }
               >
-                Publish Public
-                Profile
+                Unpublish
               </button>
-            )}
-
-            {isPublic && (
-              <>
-                <a
-                  href={publicUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={
-                    secondaryLink
-                  }
-                >
-                  View Public
-                  Profile
-                </a>
-
-                <button
-                  type="button"
-                  onClick={
-                    copyPublicLink
-                  }
-                  style={
-                    secondaryButton
-                  }
-                >
-                  Copy Public Link
-                </button>
-
-                <button
-                  type="button"
-                  disabled={
-                    savingPublic
-                  }
-                  onClick={
-                    unpublishProfile
-                  }
-                  style={
-                    unpublishButton
-                  }
-                >
-                  Unpublish
-                  Profile
-                </button>
-              </>
-            )}
-          </div>
-
-          {publicMessage && (
-            <p
-              style={{
-                margin:
-                  "12px 0 0",
-                fontSize: 13,
-
-                color:
-                  publicMessage.includes(
-                    "Couldn't"
-                  )
-                    ? "#B23B2E"
-                    : "#2F6F4E",
-              }}
-            >
-              {publicMessage}
-            </p>
+            </>
           )}
         </div>
+
+        {publicMessage && (
+          <p
+            style={{
+              margin:
+                "12px 0 0",
+              fontSize: 13,
+              color:
+                publicMessage.includes(
+                  "Couldn't"
+                )
+                  ? "#B23B2E"
+                  : "#2F6F4E",
+            }}
+          >
+            {publicMessage}
+          </p>
+        )}
       </Panel>
 
       {/* ===============================================
           TIMELINE
       ================================================ */}
 
-      <Panel title="Timeline">
-        {animal.timeline.length ===
-          0 && (
-          <p
-            style={{
-              color: "#6B6862",
-              fontSize: 13.5,
-            }}
-          >
-            No timeline events
-            have been recorded.
-          </p>
-        )}
-
-        {animal.timeline.map(
-          (event) => (
-            <div
-              key={event.id}
+      <div id="timeline">
+        <Panel title="Timeline">
+          {animal.timeline.length ===
+            0 && (
+            <p
               style={{
-                borderLeft:
-                  "3px solid #D8D6D2",
-                paddingLeft: 12,
-                marginBottom: 14,
+                color:
+                  "#6B6862",
+                fontSize:
+                  13.5,
               }}
             >
-              <strong
-                style={{
-                  display:
-                    "block",
-                  fontSize: 13.5,
-                  color:
-                    "#17233C",
-                  textTransform:
-                    "capitalize",
-                }}
-              >
-                {event.event_type.replace(
-                  /_/g,
-                  " "
-                )}
-              </strong>
+              No timeline events have
+              been recorded.
+            </p>
+          )}
 
-              <span
+          {animal.timeline.map(
+            (event) => (
+              <div
+                key={
+                  event.id
+                }
                 style={{
-                  fontSize: 12,
-                  color:
-                    "#6B6862",
+                  borderLeft:
+                    "3px solid #D8D6D2",
+                  paddingLeft:
+                    12,
+                  marginBottom:
+                    14,
                 }}
               >
-                {formatDate(
-                  event.started_at
-                )}
-              </span>
-            </div>
-          )
-        )}
-      </Panel>
+                <strong
+                  style={{
+                    display:
+                      "block",
+                    fontSize:
+                      13.5,
+                    color:
+                      "#17233C",
+                    textTransform:
+                      "capitalize",
+                  }}
+                >
+                  {event.event_type.replace(
+                    /_/g,
+                    " "
+                  )}
+                </strong>
+
+                <span
+                  style={{
+                    fontSize:
+                      12,
+                    color:
+                      "#6B6862",
+                  }}
+                >
+                  {formatDate(
+                    event.started_at
+                  )}
+                </span>
+              </div>
+            )
+          )}
+        </Panel>
+      </div>
     </section>
   );
 }
 
 /* =========================================================
-   PANEL
+   OVERVIEW HELPERS
+========================================================= */
+
+function createOverviewDraft(
+  animal: Animal
+): OverviewDraft {
+  return {
+    name:
+      animal.name ?? "",
+
+    temporaryName:
+      animal.temporary_name ??
+      "",
+
+    species:
+      animal.species ??
+      "",
+
+    breedOrType:
+      animal.breed_or_type ??
+      "",
+
+    source:
+      animal.source ?? "",
+
+    custody:
+      animal.custody ??
+      "rescue",
+
+    placement:
+      animal.placement ??
+      "",
+
+    urgency:
+      animal.urgency ?? "",
+
+    birthDate:
+      animal.birth_date
+        ? String(
+            animal.birth_date
+          ).slice(0, 10)
+        : "",
+
+    sex:
+      animal.sex ?? "",
+
+    weightLbs:
+      animal.weight_lbs !=
+      null
+        ? String(
+            animal.weight_lbs
+          )
+        : "",
+
+    notes:
+      animal.notes ?? "",
+  };
+}
+
+function getPublicSyncCandidates(
+  animal: Animal,
+  draft: OverviewDraft
+): SyncOption[] {
+  const options: SyncOption[] =
+    [];
+
+  addCandidate(
+    options,
+    "name",
+    "Name",
+    animal.name,
+    draft.name,
+    animal.public_name
+  );
+
+  addCandidate(
+    options,
+    "species",
+    "Species",
+    animal.species,
+    draft.species,
+    animal.public_species
+  );
+
+  addCandidate(
+    options,
+    "breed_or_type",
+    "Breed / type",
+    animal.breed_or_type,
+    draft.breedOrType,
+    animal.public_breed_or_type
+  );
+
+  addCandidate(
+    options,
+    "birth_date",
+    "Birth date / age",
+    animal.birth_date
+      ? String(
+          animal.birth_date
+        ).slice(0, 10)
+      : "",
+    draft.birthDate,
+    animal.public_birth_date
+      ? String(
+          animal.public_birth_date
+        ).slice(0, 10)
+      : ""
+  );
+
+  addCandidate(
+    options,
+    "sex",
+    "Sex",
+    animal.sex,
+    draft.sex,
+    animal.public_sex
+  );
+
+  addCandidate(
+    options,
+    "weight_lbs",
+    "Weight",
+    animal.weight_lbs,
+    draft.weightLbs,
+    animal.public_weight_lbs
+  );
+
+  return options;
+}
+
+function addCandidate(
+  options: SyncOption[],
+  field: PublicSyncField,
+  label: string,
+  originalPrivate:
+    | string
+    | number
+    | null,
+  newPrivate:
+    | string
+    | number
+    | null,
+  currentPublic:
+    | string
+    | number
+    | null
+) {
+  const oldPrivate =
+    normalizeDisplay(
+      originalPrivate
+    );
+
+  const nextPrivate =
+    normalizeDisplay(
+      newPrivate
+    );
+
+  if (
+    oldPrivate ===
+    nextPrivate
+  ) {
+    return;
+  }
+
+  options.push({
+    field,
+    label,
+
+    oldValue:
+      normalizeDisplay(
+        currentPublic
+      ),
+
+    newValue:
+      nextPrivate,
+
+    /*
+      Preselect by default because these are explicitly
+      public-safe fields, but the rescue still chooses.
+    */
+    selected: true,
+  });
+}
+
+/* =========================================================
+   UI COMPONENTS
 ========================================================= */
 
 function Panel({
   title,
   children,
+  action,
 }: {
   title: string;
   children:
     React.ReactNode;
+  action?:
+    React.ReactNode;
 }) {
   return (
-    <div
+    <section
       style={{
-        background: "#fff",
+        background:
+          "#fff",
         border:
           "1px solid #E7E5E1",
         borderRadius: 10,
@@ -1473,99 +2460,179 @@ function Panel({
         marginBottom: 18,
       }}
     >
-      <h2
+      <div
         style={{
-          fontSize: 18,
-          color: "#17233C",
-          margin:
-            "0 0 16px",
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems:
+            "center",
+          gap: 12,
+          marginBottom: 16,
+          flexWrap:
+            "wrap",
         }}
       >
-        {title}
-      </h2>
+        <h2
+          style={{
+            fontSize: 18,
+            color:
+              "#17233C",
+            margin: 0,
+          }}
+        >
+          {title}
+        </h2>
+
+        {action}
+      </div>
 
       {children}
+    </section>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (
+    value: string
+  ) => void;
+}) {
+  return (
+    <div>
+      <FieldHeading>
+        {label}
+      </FieldHeading>
+
+      <input
+        value={value}
+        onChange={(e) =>
+          onChange(
+            e.target.value
+          )
+        }
+        style={inputStyle}
+      />
     </div>
   );
 }
 
-/* =========================================================
-   RECORD CARD
-========================================================= */
-
-function RecordCard({
-  title,
-  text,
-  active = false,
-  href,
+function PublicValue({
+  label,
+  value,
 }: {
-  title: string;
-  text: string;
-  active?: boolean;
-  href?: string;
+  label: string;
+  value:
+    | string
+    | null;
 }) {
-  const content = (
-    <>
-      <strong
+  return (
+    <div
+      style={{
+        background:
+          "#F7F7F5",
+        border:
+          "1px solid #ECEAE7",
+        borderRadius: 7,
+        padding: 10,
+      }}
+    >
+      <div
         style={{
-          display: "block",
-          color: "#17233C",
-          fontSize: 15,
-          marginBottom: 6,
+          fontSize: 10.5,
+          color:
+            "#6B6862",
+          textTransform:
+            "uppercase",
+          letterSpacing:
+            ".04em",
+          marginBottom: 4,
         }}
       >
-        {title}
-      </strong>
+        {label}
+      </div>
 
-      <p
+      <div
         style={{
-          margin: 0,
-          color: "#6B6862",
-          fontSize: 12.5,
-          lineHeight: 1.5,
+          color:
+            "#17233C",
+          fontSize: 13,
+          fontWeight: 600,
         }}
       >
-        {text}
-      </p>
-    </>
+        {value ||
+          "Not shared"}
+      </div>
+    </div>
   );
+}
 
-  const style = {
-    display: "block",
+function FileMenuItem({
+  label,
+  href,
+  disabled = false,
+}: {
+  label: string;
+  href?: string;
+  disabled?: boolean;
+}) {
+  if (
+    disabled ||
+    !href
+  ) {
+    return (
+      <div
+        style={{
+          padding:
+            "9px 12px",
+          color:
+            "#9A9690",
+          fontSize: 13,
+          borderBottom:
+            "1px solid #F1F0EE",
+        }}
+      >
+        {label}
+        <span
+          style={{
+            float:
+              "right",
+            fontSize:
+              10.5,
+          }}
+        >
+          Soon
+        </span>
+      </div>
+    );
+  }
 
-    background:
-      active
-        ? "#F6F7F8"
-        : "#fff",
-
-    border:
-      active
-        ? "1px solid #B9C1CF"
-        : "1px solid #E7E5E1",
-
-    borderRadius: 9,
-    padding: 15,
-    textDecoration:
-      "none",
-  } as const;
-
-  return href ? (
+  return (
     <a
       href={href}
-      style={style}
+      style={{
+        display:
+          "block",
+        padding:
+          "9px 12px",
+        color:
+          "#17233C",
+        fontSize: 13,
+        textDecoration:
+          "none",
+        borderBottom:
+          "1px solid #F1F0EE",
+      }}
     >
-      {content}
+      {label}
     </a>
-  ) : (
-    <div style={style}>
-      {content}
-    </div>
   );
 }
-
-/* =========================================================
-   STATUS BADGE
-========================================================= */
 
 function StatusBadge({
   label,
@@ -1584,7 +2651,8 @@ function StatusBadge({
         borderRadius: 20,
         padding:
           "5px 9px",
-        color: "#4F5661",
+        color:
+          "#4F5661",
         fontSize: 12,
         fontWeight: 600,
       }}
@@ -1593,10 +2661,6 @@ function StatusBadge({
     </span>
   );
 }
-
-/* =========================================================
-   INFO ROW
-========================================================= */
 
 function InfoRow({
   label,
@@ -1623,7 +2687,8 @@ function InfoRow({
       <div
         style={{
           fontSize: 12,
-          color: "#6B6862",
+          color:
+            "#6B6862",
         }}
       >
         {label}
@@ -1632,7 +2697,8 @@ function InfoRow({
       <div
         style={{
           fontSize: 13.5,
-          color: "#1C1B19",
+          color:
+            "#1C1B19",
         }}
       >
         {value ||
@@ -1641,10 +2707,6 @@ function InfoRow({
     </div>
   );
 }
-
-/* =========================================================
-   FIELD HEADING
-========================================================= */
 
 function FieldHeading({
   children,
@@ -1660,7 +2722,8 @@ function FieldHeading({
           "uppercase",
         letterSpacing:
           ".05em",
-        color: "#6B6862",
+        color:
+          "#6B6862",
         marginBottom: 5,
         fontWeight: 700,
       }}
@@ -1671,8 +2734,27 @@ function FieldHeading({
 }
 
 /* =========================================================
-   AGE
+   HELPERS
 ========================================================= */
+
+function normalizeDisplay(
+  value:
+    | string
+    | number
+    | null
+    | undefined
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  return String(
+    value
+  ).trim();
+}
 
 function calculateAge(
   birthDate:
@@ -1749,15 +2831,14 @@ function calculateAge(
     : "Under 1 mo";
 }
 
-/* =========================================================
-   FORMATTING
-========================================================= */
-
 function formatValue(
   value: string
 ) {
   return value
-    .replace(/_/g, " ")
+    .replace(
+      /_/g,
+      " "
+    )
     .replace(
       /\b\w/g,
       (letter) =>
@@ -1799,28 +2880,15 @@ const inputStyle:
   fontSize: 13.5,
   fontFamily:
     "inherit",
-  color: "#1C1B19",
+  color:
+    "#1C1B19",
 };
 
-const secondaryButton:
+const primaryButton:
   React.CSSProperties =
 {
-  background: "#fff",
-  color: "#17233C",
-  border:
-    "1px solid #D8D6D2",
-  borderRadius: 7,
-  padding:
-    "9px 14px",
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: "pointer",
-};
-
-const publishButton:
-  React.CSSProperties =
-{
-  background: "#17233C",
+  background:
+    "#17233C",
   color: "#fff",
   border: "none",
   borderRadius: 7,
@@ -1828,14 +2896,49 @@ const publishButton:
     "9px 14px",
   fontWeight: 700,
   fontSize: 13,
-  cursor: "pointer",
+  cursor:
+    "pointer",
+};
+
+const secondaryButton:
+  React.CSSProperties =
+{
+  background: "#fff",
+  color:
+    "#17233C",
+  border:
+    "1px solid #D8D6D2",
+  borderRadius: 7,
+  padding:
+    "9px 14px",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor:
+    "pointer",
+};
+
+const textButton:
+  React.CSSProperties =
+{
+  background:
+    "transparent",
+  color:
+    "#6B6862",
+  border: "none",
+  padding:
+    "9px 8px",
+  fontWeight: 600,
+  fontSize: 13,
+  cursor:
+    "pointer",
 };
 
 const unpublishButton:
   React.CSSProperties =
 {
   background: "#fff",
-  color: "#85571F",
+  color:
+    "#85571F",
   border:
     "1px solid #C58A42",
   borderRadius: 7,
@@ -1843,7 +2946,8 @@ const unpublishButton:
     "9px 14px",
   fontWeight: 700,
   fontSize: 13,
-  cursor: "pointer",
+  cursor:
+    "pointer",
 };
 
 const secondaryLink:
@@ -1854,4 +2958,74 @@ const secondaryLink:
     "none",
   display:
     "inline-block",
+};
+
+const backLink:
+  React.CSSProperties =
+{
+  fontSize: 12.5,
+  color:
+    "#C05621",
+  textDecoration:
+    "none",
+  fontWeight: 600,
+};
+
+const fileMenuButton:
+  React.CSSProperties =
+{
+  background:
+    "#17233C",
+  color: "#fff",
+  border: "none",
+  borderRadius: 7,
+  padding:
+    "9px 14px",
+  fontSize: 13,
+  fontWeight: 700,
+  cursor:
+    "pointer",
+};
+
+const fileMenu:
+  React.CSSProperties =
+{
+  position:
+    "absolute",
+  top: "calc(100% + 6px)",
+  left: 0,
+  zIndex: 30,
+  width: 240,
+  background:
+    "#fff",
+  border:
+    "1px solid #D8D6D2",
+  borderRadius: 8,
+  boxShadow:
+    "0 8px 24px rgba(28,27,25,.14)",
+  overflow:
+    "hidden",
+};
+
+const alertLink:
+  React.CSSProperties =
+{
+  display: "flex",
+  justifyContent:
+    "space-between",
+  gap: 12,
+  flexWrap:
+    "wrap",
+  textDecoration:
+    "none",
+  background:
+    "#EEF4F0",
+  border:
+    "1px solid #C9DDD1",
+  borderRadius: 8,
+  padding:
+    "11px 13px",
+  color:
+    "#2F6F4E",
+  fontSize: 13,
 };
