@@ -7,6 +7,19 @@ import { sql } from "@/lib/db";
 
 export const runtime = "edge";
 
+/* =========================================================
+   PUBLIC ADOPTABLE ANIMALS FOR ONE ORGANIZATION
+
+   No login is required.
+
+   Only animals deliberately published by the managing
+   organization are returned.
+
+   Adopted animals are not shown on the active adoptable
+   list. Their permanent public profiles can remain
+   accessible separately.
+========================================================= */
+
 export async function GET(
   _req: NextRequest,
   {
@@ -22,12 +35,18 @@ export async function GET(
       id: orgId,
     } = await params;
 
+    /* -----------------------------------------------------
+       ORGANIZATION
+    ----------------------------------------------------- */
+
     const orgRows = await sql`
       select
         id,
         name,
         city,
-        state
+        county,
+        state,
+        website
       from organizations
       where
         id = ${orgId}
@@ -35,7 +54,10 @@ export async function GET(
       limit 1
     `;
 
-    if (!orgRows[0]) {
+    const organization =
+      orgRows[0];
+
+    if (!organization) {
       return NextResponse.json(
         {
           error:
@@ -47,6 +69,16 @@ export async function GET(
       );
     }
 
+    /* -----------------------------------------------------
+       PUBLIC ANIMALS
+
+       Important:
+       public_share_enabled must be TRUE.
+
+       Animals begin private and only appear here after the
+       rescue/shelter explicitly publishes them.
+    ----------------------------------------------------- */
+
     const animals = await sql`
       select
         a.id,
@@ -56,7 +88,12 @@ export async function GET(
         a.breed_or_type,
         a.birth_date,
         a.sex,
+        a.weight_lbs,
+        a.public_summary,
         a.public_need,
+        a.external_listing_url,
+        a.outcome_status,
+        a.created_at,
 
         (
           select m.url
@@ -73,29 +110,36 @@ export async function GET(
 
       where
         a.current_org_id = ${orgId}
-        and a.public_share_enabled = true
-        and coalesce(a.outcome_status, '') <> 'adopted'
+
+        and
+        a.public_share_enabled = true
+
+        and
+        coalesce(
+          a.outcome_status,
+          ''
+        ) <> 'adopted'
 
       order by
         a.created_at desc
     `;
 
     return NextResponse.json({
-      organization:
-        orgRows[0],
-
+      organization,
       animals,
     });
   } catch (err) {
     console.error(
-      "GET public org adoptable animals failed:",
+      "GET /api/public/organizations/[id]/adoptable failed:",
       err
     );
 
     return NextResponse.json(
       {
         error:
-          "Couldn't load adoptable animals.",
+          err instanceof Error
+            ? err.message
+            : "Couldn't load adoptable animals.",
       },
       {
         status: 500,
