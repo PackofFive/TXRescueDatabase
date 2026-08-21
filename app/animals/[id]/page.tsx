@@ -381,6 +381,7 @@ export default function AnimalRecordPage() {
         <RecordCard
           title="Medical"
           text="Veterinary history, vaccinations, procedures, conditions, medications, and reminders."
+          href={`/animals/${encodeURIComponent(animal.id)}/medical`}
         />
 
         <RecordCard
