@@ -1726,44 +1726,107 @@ function AnimalCard({
               )}
         </div>
 
-        {cardFields.includes(
-          "foster_offers"
-        ) &&
-          helpOffers >
-            0 && (
-            <a
-              href={`/animals/${encodeURIComponent(
-                animal.id
-              )}/offers`}
-              style={{
-                display:
-                  "inline-block",
-                background:
-                  "#EEF4F0",
-                color:
-                  "#2F6F4E",
-                border:
-                  "1px solid #C9DDD1",
-                borderRadius:
-                  20,
-                padding:
-                  "4px 8px",
-                fontSize:
-                  11.5,
-                fontWeight:
-                  700,
-                textDecoration:
-                  "none",
-              }}
-            >
-              {helpOffers}{" "}
-              Help Offer
-              {helpOffers ===
-              1
-                ? ""
-                : "s"}
-            </a>
-          )}
+        <div
+          style={{
+            display:
+              "flex",
+
+            gap:
+              7,
+
+            flexWrap:
+              "wrap",
+
+            alignItems:
+              "center",
+          }}
+        >
+          {cardFields.includes(
+            "foster_offers"
+          ) &&
+            helpOffers >
+              0 && (
+              <a
+                href={`/animals/${encodeURIComponent(
+                  animal.id
+                )}/offers`}
+                style={{
+                  display:
+                    "inline-block",
+                  background:
+                    "#EEF4F0",
+                  color:
+                    "#2F6F4E",
+                  border:
+                    "1px solid #C9DDD1",
+                  borderRadius:
+                    20,
+                  padding:
+                    "4px 8px",
+                  fontSize:
+                    11.5,
+                  fontWeight:
+                    700,
+                  textDecoration:
+                    "none",
+                }}
+              >
+                {helpOffers}{" "}
+                Help Offer
+                {helpOffers ===
+                1
+                  ? ""
+                  : "s"}
+              </a>
+            )}
+
+          <a
+            href={`/animals/${encodeURIComponent(
+              animal.id
+            )}/outcome`}
+            style={{
+              display:
+                "inline-block",
+
+              background:
+                animal.outcome_status
+                  ? "#F1F3F5"
+                  : "#FFF8F5",
+
+              color:
+                animal.outcome_status
+                  ? "#4F5661"
+                  : "#A04B35",
+
+              border:
+                animal.outcome_status
+                  ? "1px solid #DDE1E5"
+                  : "1px solid #F0D3C9",
+
+              borderRadius:
+                20,
+
+              padding:
+                "4px 8px",
+
+              fontSize:
+                11.5,
+
+              fontWeight:
+                700,
+
+              textDecoration:
+                "none",
+
+              whiteSpace:
+                "nowrap",
+            }}
+          >
+            {animal.outcome_status
+              ? "View Outcome"
+              : "Close Case"}
+          </a>
+        </div>
       </div>
     </article>
   );
