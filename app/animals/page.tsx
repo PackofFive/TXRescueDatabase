@@ -61,6 +61,14 @@ type Animal = {
     | string
     | null;
 
+  outcome_status:
+    | string
+    | null;
+
+  outcome_date:
+    | string
+    | null;
+
   created_at: string;
 
   photo_url:
@@ -235,6 +243,14 @@ export default function AnimalsListPage() {
   ] =
     useState("newest");
 
+  const [
+    caseStatus,
+    setCaseStatus,
+  ] =
+    useState<
+      "active" | "closed" | "all"
+    >("active");
+
   /* =====================================================
      LOAD ORGANIZATION IDENTITY
   ===================================================== */
@@ -377,6 +393,11 @@ export default function AnimalsListPage() {
             : sort
         );
 
+        params.set(
+          "caseStatus",
+          caseStatus
+        );
+
         const animalRes =
           await fetch(
             `/api/animals?${params.toString()}`,
@@ -452,6 +473,7 @@ export default function AnimalsListPage() {
     placementFilter,
     needsAttention,
     sort,
+    caseStatus,
   ]);
 
   /* =====================================================
@@ -740,15 +762,14 @@ export default function AnimalsListPage() {
               maxWidth: 720,
             }}
           >
-            Animals currently
-            under your
-            organization&apos;s
-            care or active
-            responsibility.
-            Important reminders
-            appear here; open an
-            animal for its full
-            private file.
+            Active animals are
+            those currently under
+            your organization&apos;s
+            care or responsibility.
+            Closed cases remain
+            available without
+            cluttering the active
+            dashboard.
           </p>
         </div>
 
@@ -958,6 +979,99 @@ export default function AnimalsListPage() {
       )}
 
       {/* ===============================================
+          ACTIVE / CLOSED CASES
+      ================================================ */}
+
+      <div
+        style={{
+          display: "flex",
+          gap: 7,
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
+      >
+        {[
+          {
+            value: "active",
+            label: "Active Animals",
+          },
+          {
+            value: "closed",
+            label: "Closed Cases",
+          },
+          {
+            value: "all",
+            label: "All Records",
+          },
+        ].map((option) => {
+          const selected =
+            caseStatus ===
+            option.value;
+
+          return (
+            <button
+              key={
+                option.value
+              }
+              type="button"
+              onClick={() => {
+                setCaseStatus(
+                  option.value as
+                    | "active"
+                    | "closed"
+                    | "all"
+                );
+
+                if (
+                  option.value ===
+                  "closed"
+                ) {
+                  setNeedsAttention(
+                    false
+                  );
+                }
+              }}
+              style={{
+                border:
+                  selected
+                    ? "1px solid #17233C"
+                    : "1px solid #D8D6D2",
+
+                background:
+                  selected
+                    ? "#EEF1F5"
+                    : "#fff",
+
+                color:
+                  "#17233C",
+
+                borderRadius:
+                  20,
+
+                padding:
+                  "7px 11px",
+
+                fontSize:
+                  12.5,
+
+                fontWeight:
+                  selected
+                    ? 700
+                    : 600,
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              {
+                option.label
+              }
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ===============================================
           FILTERS
       ================================================ */}
 
@@ -1094,6 +1208,10 @@ export default function AnimalsListPage() {
             checked={
               needsAttention
             }
+            disabled={
+              caseStatus ===
+              "closed"
+            }
             onChange={(e) =>
               setNeedsAttention(
                 e.target
@@ -1102,8 +1220,10 @@ export default function AnimalsListPage() {
             }
           />
 
-          Show only animals
-          needing attention
+          {caseStatus ===
+          "closed"
+            ? "Closed cases do not show active reminders"
+            : "Show only animals needing attention"}
         </label>
 
         {!loadingAnimals &&
@@ -1413,6 +1533,52 @@ function AnimalCard({
               </span>
             </div>
 
+            {animal.outcome_status && (
+              <div
+                style={{
+                  marginTop: 7,
+                }}
+              >
+                <span
+                  style={{
+                    display:
+                      "inline-block",
+
+                    background:
+                      "#F1F3F5",
+
+                    border:
+                      "1px solid #DDE1E5",
+
+                    borderRadius:
+                      20,
+
+                    padding:
+                      "4px 7px",
+
+                    color:
+                      "#4F5661",
+
+                    fontSize:
+                      11,
+
+                    fontWeight:
+                      700,
+                  }}
+                >
+                  {formatValue(
+                    animal.outcome_status
+                  )}
+
+                  {animal.outcome_date
+                    ? ` · ${formatDate(
+                        animal.outcome_date
+                      )}`
+                    : ""}
+                </span>
+              </div>
+            )}
+
             {/* ===============================================
                 OPTIONAL FIELDS
             ================================================ */}
@@ -1547,9 +1713,11 @@ function AnimalCard({
               "#6B6862",
           }}
         >
-          {cardFields.includes(
-            "intake_date"
-          )
+          {animal.outcome_status
+            ? "Closed case"
+            : cardFields.includes(
+                "intake_date"
+              )
             ? `Added ${formatDate(
                 animal.created_at
               )}`
