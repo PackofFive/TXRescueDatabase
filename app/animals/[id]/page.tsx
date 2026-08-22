@@ -185,11 +185,6 @@ export default function AnimalRecordPage() {
       null
     );
 
-  const [
-    fileMenuOpen,
-    setFileMenuOpen,
-  ] =
-    useState(false);
 
   /* =====================================================
      PUBLIC PROFILE DRAFT
@@ -967,112 +962,39 @@ export default function AnimalRecordPage() {
             </span>
           </div>
 
-          <div
-            style={{
-              position:
-                "relative",
-              display:
-                "inline-block",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setFileMenuOpen(
-                  (value) =>
-                    !value
-                )
-              }
-              style={
-                fileMenuButton
-              }
-            >
-              Animal File ▾
-            </button>
-
-            {fileMenuOpen && (
-              <div
-                style={
-                  fileMenu
-                }
-              >
-                <FileMenuItem
-                  label="Overview"
-                  href={`/animals/${encodeURIComponent(
-                    animal.id
-                  )}`}
-                />
-
-                <FileMenuItem
-                  label="Medical"
-                  href={`/animals/${encodeURIComponent(
-                    animal.id
-                  )}/medical`}
-                />
-
-                <FileMenuItem
-                  label={
-                    openReminders >
-                    0
-                      ? `Reminders & Tasks (${openReminders})`
-                      : "Reminders & Tasks"
-                  }
-                  href={`/animals/${encodeURIComponent(
-                    animal.id
-                  )}/reminders`}
-                />
-
-                <FileMenuItem
-                  label={
-                    openHelpOffers >
-                    0
-                      ? `Foster & Help Offers (${openHelpOffers})`
-                      : "Foster & Help Offers"
-                  }
-                  href={`/animals/${encodeURIComponent(
-                    animal.id
-                  )}/offers`}
-                />
-
-                <FileMenuItem
-                  label="Behavior"
-                  href={`/animals/${encodeURIComponent(
-                    animal.id
-                  )}/behavior`}
-                />
-
-                <FileMenuItem
-  label="Expenses"
-  href={`/animals/${encodeURIComponent(
-    animal.id
-  )}/expenses`}
-/>
-
-                <FileMenuItem
-  label="Documents & Photos"
-  href={`/animals/${encodeURIComponent(
-    animal.id
-  )}/documents`}
-/>
-
-<FileMenuItem
-  label="Timeline"
-  href={`/animals/${encodeURIComponent(
-    animal.id
-  )}/timeline`}
-/>
-
-               <FileMenuItem
-  label="Outcome"
-  href={`/animals/${encodeURIComponent(
-    animal.id
-  )}/outcome`}
-/>
-              </div>
-            )}
-          </div>
         </div>
       </div>
+
+      <nav
+        aria-label="Animal file sections"
+        style={{
+          display: "flex",
+          alignItems: "stretch",
+          gap: 2,
+          marginBottom: 18,
+          borderTop: "1px solid #E7E5E1",
+          borderBottom: "1px solid #E7E5E1",
+          background: "#FFFFFF",
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        <AnimalTab label="Overview" href={`/animals/${encodeURIComponent(animal.id)}`} active />
+        <AnimalTab label="Medical" href={`/animals/${encodeURIComponent(animal.id)}/medical`} />
+        <AnimalTab
+          label={openReminders > 0 ? `Reminders & Tasks (${openReminders})` : "Reminders & Tasks"}
+          href={`/animals/${encodeURIComponent(animal.id)}/reminders`}
+        />
+        <AnimalTab
+          label={openHelpOffers > 0 ? `Foster & Help Offers (${openHelpOffers})` : "Foster & Help Offers"}
+          href={`/animals/${encodeURIComponent(animal.id)}/offers`}
+        />
+        <AnimalTab label="Behavior" href={`/animals/${encodeURIComponent(animal.id)}/behavior`} />
+        <AnimalTab label="Expenses" href={`/animals/${encodeURIComponent(animal.id)}/expenses`} />
+        <AnimalTab label="Documents & Photos" href={`/animals/${encodeURIComponent(animal.id)}/documents`} />
+        <AnimalTab label="Timeline" href={`/animals/${encodeURIComponent(animal.id)}/timeline`} />
+        <AnimalTab label="Outcome" href={`/animals/${encodeURIComponent(animal.id)}/outcome`} />
+      </nav>
 
       {(openHelpOffers > 0 ||
         openReminders >
@@ -2655,61 +2577,32 @@ function PublicValue({
   );
 }
 
-function FileMenuItem({
+function AnimalTab({
   label,
   href,
-  disabled = false,
+  active = false,
 }: {
   label: string;
-  href?: string;
-  disabled?: boolean;
+  href: string;
+  active?: boolean;
 }) {
-  if (
-    disabled ||
-    !href
-  ) {
-    return (
-      <div
-        style={{
-          padding:
-            "9px 12px",
-          color:
-            "#9A9690",
-          fontSize: 13,
-          borderBottom:
-            "1px solid #F1F0EE",
-        }}
-      >
-        {label}
-        <span
-          style={{
-            float:
-              "right",
-            fontSize:
-              10.5,
-          }}
-        >
-          Soon
-        </span>
-      </div>
-    );
-  }
-
   return (
     <a
       href={href}
+      aria-current={active ? "page" : undefined}
       style={{
-        display:
-          "block",
-        padding:
-          "9px 12px",
-        color:
-          "#17233C",
+        display: "inline-flex",
+        alignItems: "center",
+        minHeight: 50,
+        padding: "0 14px",
+        color: active ? "#17233C" : "#4F5661",
         fontSize: 13,
-        textDecoration:
-          "none",
-        borderBottom:
-          "1px solid #F1F0EE",
+        fontWeight: active ? 800 : 650,
+        textDecoration: "none",
+        whiteSpace: "nowrap",
+        background: active ? "#FAFBFC" : "#FFFFFF",
+        borderBottom: active ? "3px solid #2E62B8" : "3px solid transparent",
+        boxSizing: "border-box",
       }}
     >
       {label}
@@ -3044,42 +2937,6 @@ const backLink:
   textDecoration:
     "none",
   fontWeight: 600,
-};
-
-const fileMenuButton:
-  React.CSSProperties =
-{
-  background:
-    "#17233C",
-  color: "#fff",
-  border: "none",
-  borderRadius: 7,
-  padding:
-    "9px 14px",
-  fontSize: 13,
-  fontWeight: 700,
-  cursor:
-    "pointer",
-};
-
-const fileMenu:
-  React.CSSProperties =
-{
-  position:
-    "absolute",
-  top: "calc(100% + 6px)",
-  left: 0,
-  zIndex: 30,
-  width: 240,
-  background:
-    "#fff",
-  border:
-    "1px solid #D8D6D2",
-  borderRadius: 8,
-  boxShadow:
-    "0 8px 24px rgba(28,27,25,.14)",
-  overflow:
-    "hidden",
 };
 
 const alertLink:
