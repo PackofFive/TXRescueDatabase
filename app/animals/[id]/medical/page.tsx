@@ -3,10 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
-/* =========================================================
-   TYPES
-========================================================= */
-
 type Medication = {
   id: string;
   animal_id: string;
@@ -23,6 +19,18 @@ type Medication = {
   active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+type Administration = {
+  id: string;
+  medication_id: string;
+  animal_id: string;
+  administered_at: string;
+  dose_given: string | null;
+  notes: string | null;
+  recorded_by: string | null;
+  recorded_by_email: string | null;
+  created_at: string;
 };
 
 type MedicalDocument = {
@@ -87,137 +95,66 @@ type ScannedMedication = {
   confidence: "high" | "medium" | "low";
 };
 
-/* =========================================================
-   PAGE
-========================================================= */
-
 export default function MedicalPage() {
   const params = useParams();
   const animalId = params?.id as string;
 
   const [animal, setAnimal] = useState<Animal | null>(null);
-
-  const [medications, setMedications] =
-    useState<Medication[]>([]);
-
-  const [documents, setDocuments] =
-    useState<MedicalDocument[]>([]);
-
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [documents, setDocuments] = useState<MedicalDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [error, setError] =
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const [showAddMedication, setShowAddMedication] = useState(false);
+  const [editingMedicationId, setEditingMedicationId] =
     useState<string | null>(null);
 
-  const [message, setMessage] =
-    useState<string | null>(null);
+  const [savingMedication, setSavingMedication] = useState(false);
 
-  /* =====================================================
-     MEDICATION FORM
-  ===================================================== */
-
-  const [showAddMedication, setShowAddMedication] =
-    useState(false);
-
-  const [
-    editingMedicationId,
-    setEditingMedicationId,
-  ] = useState<string | null>(null);
-
-  const [savingMedication, setSavingMedication] =
-    useState(false);
-
-  const [draft, setDraft] =
-    useState<MedicationDraft>(
-      emptyMedicationDraft()
-    );
-
-  /* =====================================================
-     MEDICATION HISTORY
-  ===================================================== */
-
-  const [
-    showMedicationHistory,
-    setShowMedicationHistory,
-  ] = useState(false);
-
-  /* =====================================================
-     MEDICATION SCAN
-  ===================================================== */
-
-  const [
-    showMedicationScan,
-    setShowMedicationScan,
-  ] = useState(false);
-
-  const [
-    medicationScanFile,
-    setMedicationScanFile,
-  ] = useState<File | null>(null);
-
-  const [
-    scanningMedication,
-    setScanningMedication,
-  ] = useState(false);
-
-  const [
-    scanResult,
-    setScanResult,
-  ] = useState<ScannedMedication | null>(null);
-
-  /* =====================================================
-     VET DOCUMENTS
-  ===================================================== */
-
-  const [
-    showDocumentUpload,
-    setShowDocumentUpload,
-  ] = useState(false);
-
-  const [
-    documentDraft,
-    setDocumentDraft,
-  ] = useState<DocumentDraft>(
-    emptyDocumentDraft()
+  const [draft, setDraft] = useState<MedicationDraft>(
+    emptyMedicationDraft()
   );
 
-  const [
-    documentFile,
-    setDocumentFile,
-  ] = useState<File | null>(null);
+  const [showMedicationHistory, setShowMedicationHistory] =
+    useState(false);
 
-  const [
-    uploadingDocument,
-    setUploadingDocument,
-  ] = useState(false);
+  const [showMedicationScan, setShowMedicationScan] =
+    useState(false);
 
-  /* =====================================================
-     DOSE GIVEN
-  ===================================================== */
+  const [medicationScanFile, setMedicationScanFile] =
+    useState<File | null>(null);
 
-  const [
-    doseMedication,
-    setDoseMedication,
-  ] = useState<Medication | null>(null);
+  const [scanningMedication, setScanningMedication] =
+    useState(false);
 
-  const [
-    doseDraft,
-    setDoseDraft,
-  ] = useState<DoseDraft>(
-    emptyDoseDraft()
-  );
+  const [scanResult, setScanResult] =
+    useState<ScannedMedication | null>(null);
 
-  const [
-    savingDose,
-    setSavingDose,
-  ] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] =
+    useState(false);
 
-  /* =====================================================
-     LOAD PAGE
-  ===================================================== */
+  const [documentDraft, setDocumentDraft] =
+    useState<DocumentDraft>(emptyDocumentDraft());
+
+  const [documentFile, setDocumentFile] =
+    useState<File | null>(null);
+
+  const [uploadingDocument, setUploadingDocument] =
+    useState(false);
+
+  const [doseMedication, setDoseMedication] =
+    useState<Medication | null>(null);
+
+  const [doseDraft, setDoseDraft] =
+    useState<DoseDraft>(emptyDoseDraft());
+
+  const [savingDose, setSavingDose] =
+    useState(false);
 
   useEffect(() => {
     if (!animalId) return;
-
     loadPage();
   }, [animalId]);
 
@@ -227,79 +164,63 @@ export default function MedicalPage() {
 
     try {
       const animalRes = await fetch(
-        `/api/animals/${encodeURIComponent(
-          animalId
-        )}`,
+        `/api/animals/${encodeURIComponent(animalId)}`,
         {
           cache: "no-store",
         }
       );
 
-      const animalData =
-        await animalRes.json();
+      const animalData = await animalRes.json();
 
       if (!animalRes.ok) {
         throw new Error(
-          animalData.error ??
-            "Couldn't load animal."
+          animalData.error ?? "Couldn't load animal."
         );
       }
 
       setAnimal({
         id: animalData.animal.id,
         name: animalData.animal.name,
-        temporary_name:
-          animalData.animal.temporary_name,
+        temporary_name: animalData.animal.temporary_name,
       });
 
-      const [medRes, docRes] =
-        await Promise.all([
-          fetch(
-            `/api/animals/${encodeURIComponent(
-              animalId
-            )}/medications`,
-            {
-              cache: "no-store",
-            }
-          ),
+      const [medRes, docRes] = await Promise.all([
+        fetch(
+          `/api/animals/${encodeURIComponent(
+            animalId
+          )}/medications`,
+          {
+            cache: "no-store",
+          }
+        ),
 
-          fetch(
-            `/api/animals/${encodeURIComponent(
-              animalId
-            )}/medical-documents`,
-            {
-              cache: "no-store",
-            }
-          ),
-        ]);
+        fetch(
+          `/api/animals/${encodeURIComponent(
+            animalId
+          )}/medical-documents`,
+          {
+            cache: "no-store",
+          }
+        ),
+      ]);
 
-      const medData =
-        await medRes.json();
-
-      const docData =
-        await docRes.json();
+      const medData = await medRes.json();
+      const docData = await docRes.json();
 
       if (!medRes.ok) {
         throw new Error(
-          medData.error ??
-            "Couldn't load medications."
+          medData.error ?? "Couldn't load medications."
         );
       }
 
       if (!docRes.ok) {
         throw new Error(
-          docData.error ??
-            "Couldn't load veterinary records."
+          docData.error ?? "Couldn't load veterinary records."
         );
       }
 
-      setMedications(
-        medData.medications ?? []
-      );
-
-      setDocuments(
-        docData.documents ?? []
-      );
+      setMedications(medData.medications ?? []);
+      setDocuments(docData.documents ?? []);
     } catch (err) {
       setError(
         err instanceof Error
@@ -312,7 +233,7 @@ export default function MedicalPage() {
   }
 
   /* =====================================================
-     SCAN MEDICATION LABEL
+     MEDICATION SCAN
   ===================================================== */
 
   function beginMedicationScan() {
@@ -338,7 +259,6 @@ export default function MedicalPage() {
       setError(
         "Select or take a photo of the medication label."
       );
-
       return;
     }
 
@@ -348,8 +268,7 @@ export default function MedicalPage() {
     setScanResult(null);
 
     try {
-      const formData =
-        new FormData();
+      const formData = new FormData();
 
       formData.append(
         "file",
@@ -366,8 +285,7 @@ export default function MedicalPage() {
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
@@ -376,9 +294,7 @@ export default function MedicalPage() {
         );
       }
 
-      setScanResult(
-        data.extracted
-      );
+      setScanResult(data.extracted);
     } catch (err) {
       setError(
         err instanceof Error
@@ -393,13 +309,6 @@ export default function MedicalPage() {
   function useScannedMedication() {
     if (!scanResult) return;
 
-    /*
-      Scanning NEVER saves medication automatically.
-
-      It simply pre-fills the normal Add Medication form
-      so the rescue can verify everything before saving.
-    */
-
     const dosage =
       scanResult.doseGiven ||
       scanResult.strength ||
@@ -412,9 +321,7 @@ export default function MedicalPage() {
 
     const extraNotes: string[] = [];
 
-    if (
-      scanResult.quantity
-    ) {
+    if (scanResult.quantity) {
       extraNotes.push(
         `Prescription quantity: ${scanResult.quantity}`
       );
@@ -423,8 +330,7 @@ export default function MedicalPage() {
     if (
       scanResult.strength &&
       scanResult.doseGiven &&
-      scanResult.strength !==
-        scanResult.doseGiven
+      scanResult.strength !== scanResult.doseGiven
     ) {
       extraNotes.push(
         `Label strength: ${scanResult.strength}`
@@ -432,31 +338,16 @@ export default function MedicalPage() {
     }
 
     setDraft({
-      medicationName:
-        scanResult.medicationName,
-
+      medicationName: scanResult.medicationName,
       dosage,
-
-      frequency:
-        scanResult.frequency,
-
+      frequency: scanResult.frequency,
       instructions,
-
       startedAt: "",
-
       endedAt: "",
-
       nextDueAt: "",
-
-      prescribingVet:
-        scanResult.prescribingVet,
-
-      pharmacy:
-        scanResult.pharmacy,
-
-      notes:
-        extraNotes.join("\n"),
-
+      prescribingVet: scanResult.prescribingVet,
+      pharmacy: scanResult.pharmacy,
+      notes: extraNotes.join("\n"),
       active: true,
     });
 
@@ -468,29 +359,22 @@ export default function MedicalPage() {
     setScanResult(null);
 
     setMessage(
-      "Medication label scanned. Review the information below before saving."
+      "Medication label scanned. Review the information before saving."
     );
   }
 
   /* =====================================================
-     RECORD DOSE
+     DOSE
   ===================================================== */
 
   function beginDose(
     medication: Medication
   ) {
-    setDoseMedication(
-      medication
-    );
+    setDoseMedication(medication);
 
     setDoseDraft({
-      administeredAt:
-        currentLocalDateTime(),
-
-      doseGiven:
-        medication.dosage ??
-        "",
-
+      administeredAt: currentLocalDateTime(),
+      doseGiven: medication.dosage ?? "",
       notes: "",
     });
 
@@ -500,9 +384,7 @@ export default function MedicalPage() {
 
   function cancelDose() {
     setDoseMedication(null);
-    setDoseDraft(
-      emptyDoseDraft()
-    );
+    setDoseDraft(emptyDoseDraft());
   }
 
   async function recordDose(
@@ -510,9 +392,7 @@ export default function MedicalPage() {
   ) {
     event.preventDefault();
 
-    if (!doseMedication) {
-      return;
-    }
+    if (!doseMedication) return;
 
     setSavingDose(true);
     setError(null);
@@ -520,9 +400,7 @@ export default function MedicalPage() {
 
     try {
       const administeredDate =
-        new Date(
-          doseDraft.administeredAt
-        );
+        new Date(doseDraft.administeredAt);
 
       if (
         Number.isNaN(
@@ -548,22 +426,20 @@ export default function MedicalPage() {
               "application/json",
           },
 
-          body:
-            JSON.stringify({
-              administeredAt:
-                administeredDate.toISOString(),
+          body: JSON.stringify({
+            administeredAt:
+              administeredDate.toISOString(),
 
-              doseGiven:
-                doseDraft.doseGiven,
+            doseGiven:
+              doseDraft.doseGiven,
 
-              notes:
-                doseDraft.notes,
-            }),
+            notes:
+              doseDraft.notes,
+          }),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
@@ -572,15 +448,12 @@ export default function MedicalPage() {
         );
       }
 
-      setMedications(
-        (current) =>
-          current.map(
-            (medication) =>
-              medication.id ===
-              doseMedication.id
-                ? data.medication
-                : medication
-          )
+      setMedications((current) =>
+        current.map((medication) =>
+          medication.id === doseMedication.id
+            ? data.medication
+            : medication
+        )
       );
 
       if (
@@ -594,14 +467,12 @@ export default function MedicalPage() {
         );
       } else {
         setMessage(
-          "Dose recorded. The medication frequency was not automatically interpreted, so review the next due date if needed."
+          "Dose recorded. Review the next due time if the schedule could not be automatically calculated."
         );
       }
 
       setDoseMedication(null);
-      setDoseDraft(
-        emptyDoseDraft()
-      );
+      setDoseDraft(emptyDoseDraft());
     } catch (err) {
       setError(
         err instanceof Error
@@ -614,18 +485,13 @@ export default function MedicalPage() {
   }
 
   /* =====================================================
-     ADD MEDICATION
+     ADD / EDIT MEDICATION
   ===================================================== */
 
   function beginAddMedication() {
     setEditingMedicationId(null);
-
-    setDraft(
-      emptyMedicationDraft()
-    );
-
+    setDraft(emptyMedicationDraft());
     setShowAddMedication(true);
-
     setError(null);
     setMessage(null);
   }
@@ -635,13 +501,10 @@ export default function MedicalPage() {
   ) {
     event.preventDefault();
 
-    if (
-      !draft.medicationName.trim()
-    ) {
+    if (!draft.medicationName.trim()) {
       setError(
         "Medication name is required."
       );
-
       return;
     }
 
@@ -662,13 +525,11 @@ export default function MedicalPage() {
               "application/json",
           },
 
-          body:
-            JSON.stringify(draft),
+          body: JSON.stringify(draft),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
@@ -677,24 +538,15 @@ export default function MedicalPage() {
         );
       }
 
-      setMedications(
-        (current) => [
-          data.medication,
-          ...current,
-        ]
-      );
+      setMedications((current) => [
+        data.medication,
+        ...current,
+      ]);
 
-      setDraft(
-        emptyMedicationDraft()
-      );
+      setDraft(emptyMedicationDraft());
+      setShowAddMedication(false);
 
-      setShowAddMedication(
-        false
-      );
-
-      setMessage(
-        "Medication added."
-      );
+      setMessage("Medication added.");
     } catch (err) {
       setError(
         err instanceof Error
@@ -705,10 +557,6 @@ export default function MedicalPage() {
       setSavingMedication(false);
     }
   }
-
-  /* =====================================================
-     EDIT MEDICATION
-  ===================================================== */
 
   function beginEditMedication(
     medication: Medication
@@ -721,20 +569,16 @@ export default function MedicalPage() {
 
     setDraft({
       medicationName:
-        medication.medication_name ??
-        "",
+        medication.medication_name ?? "",
 
       dosage:
-        medication.dosage ??
-        "",
+        medication.dosage ?? "",
 
       frequency:
-        medication.frequency ??
-        "",
+        medication.frequency ?? "",
 
       instructions:
-        medication.instructions ??
-        "",
+        medication.instructions ?? "",
 
       startedAt:
         toLocalInputValue(
@@ -752,16 +596,13 @@ export default function MedicalPage() {
         ),
 
       prescribingVet:
-        medication.prescribing_vet ??
-        "",
+        medication.prescribing_vet ?? "",
 
       pharmacy:
-        medication.pharmacy ??
-        "",
+        medication.pharmacy ?? "",
 
       notes:
-        medication.notes ??
-        "",
+        medication.notes ?? "",
 
       active:
         medication.active,
@@ -776,17 +617,12 @@ export default function MedicalPage() {
   ) {
     event.preventDefault();
 
-    if (!editingMedicationId) {
-      return;
-    }
+    if (!editingMedicationId) return;
 
-    if (
-      !draft.medicationName.trim()
-    ) {
+    if (!draft.medicationName.trim()) {
       setError(
         "Medication name is required."
       );
-
       return;
     }
 
@@ -807,18 +643,16 @@ export default function MedicalPage() {
               "application/json",
           },
 
-          body:
-            JSON.stringify({
-              medicationId:
-                editingMedicationId,
+          body: JSON.stringify({
+            medicationId:
+              editingMedicationId,
 
-              ...draft,
-            }),
+            ...draft,
+          }),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
@@ -827,28 +661,18 @@ export default function MedicalPage() {
         );
       }
 
-      setMedications(
-        (current) =>
-          current.map(
-            (medication) =>
-              medication.id ===
-              editingMedicationId
-                ? data.medication
-                : medication
-          )
+      setMedications((current) =>
+        current.map((medication) =>
+          medication.id ===
+          editingMedicationId
+            ? data.medication
+            : medication
+        )
       );
 
-      setEditingMedicationId(
-        null
-      );
-
-      setDraft(
-        emptyMedicationDraft()
-      );
-
-      setShowAddMedication(
-        false
-      );
+      setEditingMedicationId(null);
+      setDraft(emptyMedicationDraft());
+      setShowAddMedication(false);
 
       setMessage(
         "Medication updated."
@@ -863,10 +687,6 @@ export default function MedicalPage() {
       setSavingMedication(false);
     }
   }
-
-  /* =====================================================
-     ACTIVE / HISTORY
-  ===================================================== */
 
   async function setMedicationActive(
     medication: Medication,
@@ -889,21 +709,19 @@ export default function MedicalPage() {
               "application/json",
           },
 
-          body:
-            JSON.stringify({
-              medicationId:
-                medication.id,
+          body: JSON.stringify({
+            medicationId:
+              medication.id,
 
-              medicationName:
-                medication.medication_name,
+            medicationName:
+              medication.medication_name,
 
-              active,
-            }),
+            active,
+          }),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
@@ -912,15 +730,12 @@ export default function MedicalPage() {
         );
       }
 
-      setMedications(
-        (current) =>
-          current.map(
-            (item) =>
-              item.id ===
-              medication.id
-                ? data.medication
-                : item
-          )
+      setMedications((current) =>
+        current.map((item) =>
+          item.id === medication.id
+            ? data.medication
+            : item
+        )
       );
 
       setMessage(
@@ -940,29 +755,24 @@ export default function MedicalPage() {
   }
 
   /* =====================================================
-     VETERINARY DOCUMENTS
+     DOCUMENTS
   ===================================================== */
 
   function beginDocumentUpload() {
     setShowDocumentUpload(true);
-
     setDocumentDraft(
       emptyDocumentDraft()
     );
-
     setDocumentFile(null);
-
     setError(null);
     setMessage(null);
   }
 
   function cancelDocumentUpload() {
     setShowDocumentUpload(false);
-
     setDocumentDraft(
       emptyDocumentDraft()
     );
-
     setDocumentFile(null);
   }
 
@@ -975,7 +785,6 @@ export default function MedicalPage() {
       setError(
         "Select a PDF or image to upload."
       );
-
       return;
     }
 
@@ -1027,8 +836,7 @@ export default function MedicalPage() {
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
@@ -1037,21 +845,15 @@ export default function MedicalPage() {
         );
       }
 
-      setDocuments(
-        (current) => [
-          data.document,
-          ...current,
-        ]
-      );
+      setDocuments((current) => [
+        data.document,
+        ...current,
+      ]);
 
-      setShowDocumentUpload(
-        false
-      );
-
+      setShowDocumentUpload(false);
       setDocumentDraft(
         emptyDocumentDraft()
       );
-
       setDocumentFile(null);
 
       setMessage(
@@ -1067,10 +869,6 @@ export default function MedicalPage() {
       setUploadingDocument(false);
     }
   }
-
-  /* =====================================================
-     GROUPS
-  ===================================================== */
 
   const activeMedications =
     useMemo(
@@ -1092,10 +890,6 @@ export default function MedicalPage() {
       [medications]
     );
 
-  /* =====================================================
-     LOADING
-  ===================================================== */
-
   if (loading) {
     return <p>Loading…</p>;
   }
@@ -1104,10 +898,6 @@ export default function MedicalPage() {
     animal?.name ||
     animal?.temporary_name ||
     "Animal";
-
-  /* =====================================================
-     PAGE
-  ===================================================== */
 
   return (
     <section>
@@ -1120,77 +910,27 @@ export default function MedicalPage() {
         ← Back to {animalName}
       </a>
 
-      {/* ===============================================
-          HEADER
-      ================================================ */}
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent:
-            "space-between",
-          alignItems:
-            "flex-start",
-          gap: 16,
-          marginTop: 18,
-          marginBottom: 24,
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={pageHeader}>
         <div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 800,
-              color: "#6B6862",
-              letterSpacing:
-                ".08em",
-            }}
-          >
+          <p style={eyebrow}>
             PRIVATE RESCUE MANAGER
           </p>
 
-          <h1
-            style={{
-              color: "#17233C",
-              fontSize: 28,
-              margin:
-                "6px 0 6px",
-            }}
-          >
+          <h1 style={pageTitle}>
             Medical
           </h1>
 
-          <p
-            style={{
-              margin: 0,
-              color: "#6B6862",
-              maxWidth: 720,
-              lineHeight: 1.55,
-            }}
-          >
-            Medical records,
-            medications,
-            veterinary documents,
-            procedures, and care
-            tracking for{" "}
+          <p style={pageDescription}>
+            Medical records, medications, veterinary
+            documents, procedures, and care tracking for{" "}
             {animalName}.
           </p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={headerActions}>
           <button
             type="button"
-            onClick={
-              beginMedicationScan
-            }
+            onClick={beginMedicationScan}
             style={secondaryButton}
           >
             Scan Medication Label
@@ -1198,9 +938,7 @@ export default function MedicalPage() {
 
           <button
             type="button"
-            onClick={
-              beginDocumentUpload
-            }
+            onClick={beginDocumentUpload}
             style={secondaryButton}
           >
             Upload Vet Record
@@ -1208,9 +946,7 @@ export default function MedicalPage() {
 
           <button
             type="button"
-            onClick={
-              beginAddMedication
-            }
+            onClick={beginAddMedication}
             style={primaryButton}
           >
             + Add Medication
@@ -1230,9 +966,7 @@ export default function MedicalPage() {
         </Notice>
       )}
 
-      {/* ===============================================
-          MEDICATION SCAN
-      ================================================ */}
+      {/* SCAN MEDICATION */}
 
       {showMedicationScan && (
         <section style={panelStyle}>
@@ -1243,18 +977,15 @@ export default function MedicalPage() {
               </h2>
 
               <p style={panelDescriptionStyle}>
-                Take or upload a clear photo of the
-                prescription bottle or veterinary medication
-                label. Extracted information must be reviewed
-                before it is saved.
+                Upload or photograph a prescription bottle
+                or veterinary medication label. Review all
+                extracted information before saving.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={
-                cancelMedicationScan
-              }
+              onClick={cancelMedicationScan}
               style={textButton}
             >
               Close
@@ -1262,11 +993,7 @@ export default function MedicalPage() {
           </div>
 
           {!scanResult ? (
-            <form
-              onSubmit={
-                scanMedicationLabel
-              }
-            >
+            <form onSubmit={scanMedicationLabel}>
               <Field label="Medication Label Photo *">
                 <input
                   type="file"
@@ -1280,28 +1007,12 @@ export default function MedicalPage() {
                   }
                   style={fileInputStyle}
                 />
-
-                <p style={helpTextStyle}>
-                  JPG, PNG, or WebP. For best results,
-                  photograph the label straight-on with the
-                  medication name and directions clearly
-                  visible.
-                </p>
               </Field>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginTop: 16,
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={formActions}>
                 <button
                   type="submit"
-                  disabled={
-                    scanningMedication
-                  }
+                  disabled={scanningMedication}
                   style={primaryButton}
                 >
                   {scanningMedication
@@ -1311,12 +1022,7 @@ export default function MedicalPage() {
 
                 <button
                   type="button"
-                  disabled={
-                    scanningMedication
-                  }
-                  onClick={
-                    cancelMedicationScan
-                  }
+                  onClick={cancelMedicationScan}
                   style={secondaryButton}
                 >
                   Cancel
@@ -1325,44 +1031,12 @@ export default function MedicalPage() {
             </form>
           ) : (
             <div>
-              <div
-                style={{
-                  background:
-                    scanResult.confidence ===
-                    "high"
-                      ? "#EEF4F0"
-                      : scanResult.confidence ===
-                        "medium"
-                      ? "#FFF8EA"
-                      : "#FFF4F2",
-
-                  border:
-                    "1px solid #E7E5E1",
-
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 14,
-                }}
-              >
-                <strong
-                  style={{
-                    color:
-                      "#17233C",
-                  }}
-                >
+              <div style={reviewBox}>
+                <strong>
                   Review extracted information
                 </strong>
 
-                <p
-                  style={{
-                    margin:
-                      "4px 0 0",
-                    color:
-                      "#6B6862",
-                    fontSize: 12.5,
-                    lineHeight: 1.5,
-                  }}
-                >
+                <p style={reviewText}>
                   Scan confidence:{" "}
                   <strong>
                     {capitalize(
@@ -1375,30 +1049,22 @@ export default function MedicalPage() {
 
               <ScanValue
                 label="Medication"
-                value={
-                  scanResult.medicationName
-                }
+                value={scanResult.medicationName}
               />
 
               <ScanValue
                 label="Strength"
-                value={
-                  scanResult.strength
-                }
+                value={scanResult.strength}
               />
 
               <ScanValue
                 label="Dose"
-                value={
-                  scanResult.doseGiven
-                }
+                value={scanResult.doseGiven}
               />
 
               <ScanValue
                 label="Frequency"
-                value={
-                  scanResult.frequency
-                }
+                value={scanResult.frequency}
               />
 
               <ScanValue
@@ -1411,38 +1077,18 @@ export default function MedicalPage() {
 
               <ScanValue
                 label="Prescribing Vet"
-                value={
-                  scanResult.prescribingVet
-                }
+                value={scanResult.prescribingVet}
               />
 
               <ScanValue
                 label="Pharmacy"
-                value={
-                  scanResult.pharmacy
-                }
+                value={scanResult.pharmacy}
               />
 
-              <ScanValue
-                label="Quantity"
-                value={
-                  scanResult.quantity
-                }
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginTop: 16,
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={formActions}>
                 <button
                   type="button"
-                  onClick={
-                    useScannedMedication
-                  }
+                  onClick={useScannedMedication}
                   style={primaryButton}
                 >
                   Review in Medication Form
@@ -1451,27 +1097,12 @@ export default function MedicalPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setScanResult(
-                      null
-                    );
-
-                    setMedicationScanFile(
-                      null
-                    );
+                    setScanResult(null);
+                    setMedicationScanFile(null);
                   }}
                   style={secondaryButton}
                 >
-                  Scan Another Photo
-                </button>
-
-                <button
-                  type="button"
-                  onClick={
-                    cancelMedicationScan
-                  }
-                  style={textButton}
-                >
-                  Cancel
+                  Scan Another
                 </button>
               </div>
             </div>
@@ -1479,9 +1110,7 @@ export default function MedicalPage() {
         </section>
       )}
 
-      {/* ===============================================
-          DOSE GIVEN
-      ================================================ */}
+      {/* DOSE FORM */}
 
       {doseMedication && (
         <section style={panelStyle}>
@@ -1492,10 +1121,7 @@ export default function MedicalPage() {
               </h2>
 
               <p style={panelDescriptionStyle}>
-                {
-                  doseMedication.medication_name
-                }
-
+                {doseMedication.medication_name}
                 {doseMedication.frequency
                   ? ` · ${doseMedication.frequency}`
                   : ""}
@@ -1515,17 +1141,12 @@ export default function MedicalPage() {
             <div style={formGrid}>
               <Field label="Dose Given">
                 <input
-                  value={
-                    doseDraft.doseGiven
-                  }
+                  value={doseDraft.doseGiven}
                   onChange={(e) =>
-                    setDoseDraft(
-                      (current) => ({
-                        ...current,
-                        doseGiven:
-                          e.target.value,
-                      })
-                    )
+                    setDoseDraft((current) => ({
+                      ...current,
+                      doseGiven: e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1535,44 +1156,30 @@ export default function MedicalPage() {
                 <input
                   type="datetime-local"
                   required
-                  value={
-                    doseDraft.administeredAt
-                  }
+                  value={doseDraft.administeredAt}
                   onChange={(e) =>
-                    setDoseDraft(
-                      (current) => ({
-                        ...current,
-                        administeredAt:
-                          e.target.value,
-                      })
-                    )
+                    setDoseDraft((current) => ({
+                      ...current,
+                      administeredAt:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
               </Field>
             </div>
 
-            <div
-              style={{
-                marginTop: 12,
-              }}
-            >
+            <div style={{ marginTop: 12 }}>
               <Field label="Notes">
                 <textarea
                   rows={3}
-                  value={
-                    doseDraft.notes
-                  }
+                  value={doseDraft.notes}
                   onChange={(e) =>
-                    setDoseDraft(
-                      (current) => ({
-                        ...current,
-                        notes:
-                          e.target.value,
-                      })
-                    )
+                    setDoseDraft((current) => ({
+                      ...current,
+                      notes: e.target.value,
+                    }))
                   }
-                  placeholder="Optional notes about administration, reaction, refusal, etc."
                   style={inputStyle}
                 />
               </Field>
@@ -1591,7 +1198,6 @@ export default function MedicalPage() {
 
               <button
                 type="button"
-                disabled={savingDose}
                 onClick={cancelDose}
                 style={secondaryButton}
               >
@@ -1602,9 +1208,7 @@ export default function MedicalPage() {
         </section>
       )}
 
-      {/* ===============================================
-          VET DOCUMENT UPLOAD
-      ================================================ */}
+      {/* VET DOCUMENT UPLOAD */}
 
       {showDocumentUpload && (
         <section style={panelStyle}>
@@ -1615,28 +1219,21 @@ export default function MedicalPage() {
               </h2>
 
               <p style={panelDescriptionStyle}>
-                Upload the original PDF or photo from the
-                veterinary provider. These records remain
-                private to the managing organization.
+                Upload a PDF or photo from the veterinary
+                provider.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={
-                cancelDocumentUpload
-              }
+              onClick={cancelDocumentUpload}
               style={textButton}
             >
               Close
             </button>
           </div>
 
-          <form
-            onSubmit={
-              uploadDocument
-            }
-          >
+          <form onSubmit={uploadDocument}>
             <Field label="File *">
               <input
                 type="file"
@@ -1649,10 +1246,6 @@ export default function MedicalPage() {
                 }
                 style={fileInputStyle}
               />
-
-              <p style={helpTextStyle}>
-                PDF, JPG, PNG, or WebP. Maximum 15 MB.
-              </p>
             </Field>
 
             <div
@@ -1663,21 +1256,12 @@ export default function MedicalPage() {
             >
               <Field label="Record Title">
                 <input
-                  value={
-                    documentDraft.title
-                  }
+                  value={documentDraft.title}
                   onChange={(e) =>
-                    setDocumentDraft(
-                      (current) => ({
-                        ...current,
-                        title:
-                          e.target.value,
-                      })
-                    )
-                  }
-                  placeholder={
-                    documentFile?.name ??
-                    "Example: Annual Wellness Exam"
+                    setDocumentDraft((current) => ({
+                      ...current,
+                      title: e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1685,56 +1269,40 @@ export default function MedicalPage() {
 
               <Field label="Document Type">
                 <select
-                  value={
-                    documentDraft.documentType
-                  }
+                  value={documentDraft.documentType}
                   onChange={(e) =>
-                    setDocumentDraft(
-                      (current) => ({
-                        ...current,
-                        documentType:
-                          e.target.value,
-                      })
-                    )
+                    setDocumentDraft((current) => ({
+                      ...current,
+                      documentType:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 >
                   <option value="">
                     Select…
                   </option>
-
                   <option value="exam">
-                    Exam / Visit Record
+                    Exam / Visit
                   </option>
-
                   <option value="vaccination">
-                    Vaccination Record
+                    Vaccination
                   </option>
-
                   <option value="lab">
-                    Lab / Test Result
+                    Lab / Test
                   </option>
-
                   <option value="surgery">
                     Surgery / Procedure
                   </option>
-
                   <option value="discharge">
-                    Discharge Instructions
+                    Discharge
                   </option>
-
                   <option value="prescription">
                     Prescription
                   </option>
-
                   <option value="invoice">
-                    Vet Invoice / Receipt
+                    Invoice / Receipt
                   </option>
-
-                  <option value="certificate">
-                    Certificate
-                  </option>
-
                   <option value="other">
                     Other
                   </option>
@@ -1747,13 +1315,11 @@ export default function MedicalPage() {
                     documentDraft.veterinaryProvider
                   }
                   onChange={(e) =>
-                    setDocumentDraft(
-                      (current) => ({
-                        ...current,
-                        veterinaryProvider:
-                          e.target.value,
-                      })
-                    )
+                    setDocumentDraft((current) => ({
+                      ...current,
+                      veterinaryProvider:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1762,42 +1328,29 @@ export default function MedicalPage() {
               <Field label="Record Date">
                 <input
                   type="date"
-                  value={
-                    documentDraft.recordDate
-                  }
+                  value={documentDraft.recordDate}
                   onChange={(e) =>
-                    setDocumentDraft(
-                      (current) => ({
-                        ...current,
-                        recordDate:
-                          e.target.value,
-                      })
-                    )
+                    setDocumentDraft((current) => ({
+                      ...current,
+                      recordDate:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
               </Field>
             </div>
 
-            <div
-              style={{
-                marginTop: 12,
-              }}
-            >
+            <div style={{ marginTop: 12 }}>
               <Field label="Notes">
                 <textarea
                   rows={3}
-                  value={
-                    documentDraft.notes
-                  }
+                  value={documentDraft.notes}
                   onChange={(e) =>
-                    setDocumentDraft(
-                      (current) => ({
-                        ...current,
-                        notes:
-                          e.target.value,
-                      })
-                    )
+                    setDocumentDraft((current) => ({
+                      ...current,
+                      notes: e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1807,65 +1360,35 @@ export default function MedicalPage() {
             <div style={formActions}>
               <button
                 type="submit"
-                disabled={
-                  uploadingDocument
-                }
+                disabled={uploadingDocument}
                 style={primaryButton}
               >
                 {uploadingDocument
                   ? "Uploading…"
                   : "Upload Record"}
               </button>
-
-              <button
-                type="button"
-                disabled={
-                  uploadingDocument
-                }
-                onClick={
-                  cancelDocumentUpload
-                }
-                style={secondaryButton}
-              >
-                Cancel
-              </button>
             </div>
           </form>
         </section>
       )}
 
-      {/* ===============================================
-          ADD / EDIT MEDICATION
-      ================================================ */}
+      {/* ADD / EDIT MEDICATION */}
 
       {(showAddMedication ||
         editingMedicationId) && (
         <section style={panelStyle}>
           <div style={panelHeaderStyle}>
-            <div>
-              <h2 style={panelTitleStyle}>
-                {editingMedicationId
-                  ? "Edit Medication"
-                  : "Add Medication"}
-              </h2>
-
-              <p style={panelDescriptionStyle}>
-                Review medication information carefully
-                before saving.
-              </p>
-            </div>
+            <h2 style={panelTitleStyle}>
+              {editingMedicationId
+                ? "Edit Medication"
+                : "Add Medication"}
+            </h2>
 
             <button
               type="button"
               onClick={() => {
-                setShowAddMedication(
-                  false
-                );
-
-                setEditingMedicationId(
-                  null
-                );
-
+                setShowAddMedication(false);
+                setEditingMedicationId(null);
                 setDraft(
                   emptyMedicationDraft()
                 );
@@ -1886,74 +1409,55 @@ export default function MedicalPage() {
             <div style={formGrid}>
               <Field label="Medication Name *">
                 <input
-                  value={
-                    draft.medicationName
-                  }
-                  onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        medicationName:
-                          e.target.value,
-                      })
-                    )
-                  }
                   required
+                  value={draft.medicationName}
+                  onChange={(e) =>
+                    setDraft((current) => ({
+                      ...current,
+                      medicationName:
+                        e.target.value,
+                    }))
+                  }
                   style={inputStyle}
                 />
               </Field>
 
               <Field label="Dosage">
                 <input
-                  value={
-                    draft.dosage
-                  }
+                  value={draft.dosage}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        dosage:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      dosage: e.target.value,
+                    }))
                   }
-                  placeholder="Example: 50 mg or 1/2 tablet"
                   style={inputStyle}
                 />
               </Field>
 
               <Field label="Frequency">
                 <input
-                  value={
-                    draft.frequency
-                  }
+                  value={draft.frequency}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        frequency:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      frequency:
+                        e.target.value,
+                    }))
                   }
-                  placeholder="Example: Daily or every 12 hours"
                   style={inputStyle}
                 />
               </Field>
 
               <Field label="Prescribing Vet">
                 <input
-                  value={
-                    draft.prescribingVet
-                  }
+                  value={draft.prescribingVet}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        prescribingVet:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      prescribingVet:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1961,17 +1465,13 @@ export default function MedicalPage() {
 
               <Field label="Pharmacy">
                 <input
-                  value={
-                    draft.pharmacy
-                  }
+                  value={draft.pharmacy}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        pharmacy:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      pharmacy:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1980,17 +1480,13 @@ export default function MedicalPage() {
               <Field label="Start Date / Time">
                 <input
                   type="datetime-local"
-                  value={
-                    draft.startedAt
-                  }
+                  value={draft.startedAt}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        startedAt:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      startedAt:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -1999,17 +1495,13 @@ export default function MedicalPage() {
               <Field label="End Date / Time">
                 <input
                   type="datetime-local"
-                  value={
-                    draft.endedAt
-                  }
+                  value={draft.endedAt}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        endedAt:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      endedAt:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
@@ -2018,118 +1510,56 @@ export default function MedicalPage() {
               <Field label="Next Due">
                 <input
                   type="datetime-local"
-                  value={
-                    draft.nextDueAt
-                  }
+                  value={draft.nextDueAt}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        nextDueAt:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      nextDueAt:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
-
-                <p style={helpTextStyle}>
-                  Once a dose is recorded, a recognized
-                  frequency will automatically calculate the
-                  next due time.
-                </p>
               </Field>
             </div>
 
-            <div
-              style={{
-                marginTop: 12,
-              }}
-            >
+            <div style={{ marginTop: 12 }}>
               <Field label="Instructions">
                 <textarea
                   rows={3}
-                  value={
-                    draft.instructions
-                  }
+                  value={draft.instructions}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        instructions:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      instructions:
+                        e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
               </Field>
             </div>
 
-            <div
-              style={{
-                marginTop: 12,
-              }}
-            >
+            <div style={{ marginTop: 12 }}>
               <Field label="Notes">
                 <textarea
                   rows={3}
-                  value={
-                    draft.notes
-                  }
+                  value={draft.notes}
                   onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        notes:
-                          e.target.value,
-                      })
-                    )
+                    setDraft((current) => ({
+                      ...current,
+                      notes: e.target.value,
+                    }))
                   }
                   style={inputStyle}
                 />
               </Field>
             </div>
-
-            {editingMedicationId && (
-              <label
-                style={{
-                  display: "flex",
-                  alignItems:
-                    "center",
-                  gap: 7,
-                  marginTop: 14,
-                  fontSize: 13,
-                  color:
-                    "#4F4D49",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={
-                    draft.active
-                  }
-                  onChange={(e) =>
-                    setDraft(
-                      (current) => ({
-                        ...current,
-                        active:
-                          e.target.checked,
-                      })
-                    )
-                  }
-                />
-
-                Active medication
-              </label>
-            )}
 
             <div style={formActions}>
               <button
                 type="submit"
-                disabled={
-                  savingMedication
-                }
+                disabled={savingMedication}
                 style={primaryButton}
               >
                 {savingMedication
@@ -2138,43 +1568,14 @@ export default function MedicalPage() {
                   ? "Save Medication"
                   : "Add Medication"}
               </button>
-
-              <button
-                type="button"
-                disabled={
-                  savingMedication
-                }
-                onClick={() => {
-                  setShowAddMedication(
-                    false
-                  );
-
-                  setEditingMedicationId(
-                    null
-                  );
-
-                  setDraft(
-                    emptyMedicationDraft()
-                  );
-                }}
-                style={secondaryButton}
-              >
-                Cancel
-              </button>
             </div>
           </form>
         </section>
       )}
 
-      {/* ===============================================
-          ACTIVE MEDICATIONS
-      ================================================ */}
+      {/* ACTIVE MEDICATIONS */}
 
-      <section
-        style={{
-          marginBottom: 26,
-        }}
-      >
+      <section style={{ marginBottom: 26 }}>
         <div style={sectionHeading}>
           <h2 style={sectionTitleStyle}>
             Active Medications
@@ -2185,8 +1586,7 @@ export default function MedicalPage() {
           </span>
         </div>
 
-        {activeMedications.length ===
-          0 && (
+        {activeMedications.length === 0 && (
           <EmptyState>
             No active medications recorded.
           </EmptyState>
@@ -2201,18 +1601,11 @@ export default function MedicalPage() {
           {activeMedications.map(
             (medication) => (
               <MedicationCard
-                key={
-                  medication.id
-                }
-                medication={
-                  medication
-                }
-                onDose={
-                  beginDose
-                }
-                onEdit={
-                  beginEditMedication
-                }
+                key={medication.id}
+                medication={medication}
+                animalId={animalId}
+                onDose={beginDose}
+                onEdit={beginEditMedication}
                 onArchive={() =>
                   setMedicationActive(
                     medication,
@@ -2225,15 +1618,9 @@ export default function MedicalPage() {
         </div>
       </section>
 
-      {/* ===============================================
-          VETERINARY RECORDS
-      ================================================ */}
+      {/* VET RECORDS */}
 
-      <section
-        style={{
-          marginBottom: 26,
-        }}
-      >
+      <section style={{ marginBottom: 26 }}>
         <div style={sectionHeading}>
           <div>
             <h2 style={sectionTitleStyle}>
@@ -2251,8 +1638,7 @@ export default function MedicalPage() {
           </span>
         </div>
 
-        {documents.length ===
-          0 && (
+        {documents.length === 0 && (
           <EmptyState>
             No veterinary documents uploaded yet.
           </EmptyState>
@@ -2264,35 +1650,24 @@ export default function MedicalPage() {
             gap: 9,
           }}
         >
-          {documents.map(
-            (document) => (
-              <MedicalDocumentCard
-                key={
-                  document.id
-                }
-                document={
-                  document
-                }
-                animalId={
-                  animalId
-                }
-              />
-            )
-          )}
+          {documents.map((document) => (
+            <MedicalDocumentCard
+              key={document.id}
+              document={document}
+              animalId={animalId}
+            />
+          ))}
         </div>
       </section>
 
-      {/* ===============================================
-          MEDICATION HISTORY — COLLAPSED
-      ================================================ */}
+      {/* MEDICATION HISTORY */}
 
       <section>
         <button
           type="button"
           onClick={() =>
             setShowMedicationHistory(
-              (current) =>
-                !current
+              (current) => !current
             )
           }
           style={historyToggle}
@@ -2301,9 +1676,7 @@ export default function MedicalPage() {
             <strong
               style={{
                 display: "block",
-                color:
-                  "#17233C",
-                fontSize: 15,
+                color: "#17233C",
               }}
             >
               Medication History
@@ -2311,30 +1684,18 @@ export default function MedicalPage() {
 
             <span
               style={{
-                color:
-                  "#6B6862",
+                color: "#6B6862",
                 fontSize: 12,
               }}
             >
-              {
-                medicationHistory.length
-              }{" "}
-              inactive medication
-              {medicationHistory.length ===
-              1
+              {medicationHistory.length} inactive medication
+              {medicationHistory.length === 1
                 ? ""
                 : "s"}
             </span>
           </div>
 
-          <span
-            style={{
-              color:
-                "#17233C",
-              fontSize: 21,
-              lineHeight: 1,
-            }}
-          >
+          <span>
             {showMedicationHistory
               ? "⌃"
               : "⌄"}
@@ -2359,15 +1720,10 @@ export default function MedicalPage() {
             {medicationHistory.map(
               (medication) => (
                 <MedicationCard
-                  key={
-                    medication.id
-                  }
-                  medication={
-                    medication
-                  }
-                  onEdit={
-                    beginEditMedication
-                  }
+                  key={medication.id}
+                  medication={medication}
+                  animalId={animalId}
+                  onEdit={beginEditMedication}
                   onReactivate={() =>
                     setMedicationActive(
                       medication,
@@ -2390,24 +1746,35 @@ export default function MedicalPage() {
 
 function MedicationCard({
   medication,
+  animalId,
   onDose,
   onEdit,
   onArchive,
   onReactivate,
 }: {
   medication: Medication;
-
+  animalId: string;
   onDose?: (
     medication: Medication
   ) => void;
-
   onEdit: (
     medication: Medication
   ) => void;
-
   onArchive?: () => void;
   onReactivate?: () => void;
 }) {
+  const [showDoseHistory, setShowDoseHistory] =
+    useState(false);
+
+  const [administrations, setAdministrations] =
+    useState<Administration[] | null>(null);
+
+  const [historyLoading, setHistoryLoading] =
+    useState(false);
+
+  const [historyError, setHistoryError] =
+    useState<string | null>(null);
+
   const overdue =
     Boolean(
       medication.active &&
@@ -2417,6 +1784,62 @@ function MedicationCard({
         ).getTime() <
           Date.now()
     );
+
+  async function toggleDoseHistory() {
+    const opening =
+      !showDoseHistory;
+
+    setShowDoseHistory(
+      opening
+    );
+
+    if (
+      opening &&
+      administrations === null
+    ) {
+      await loadDoseHistory();
+    }
+  }
+
+  async function loadDoseHistory() {
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      const res = await fetch(
+        `/api/animals/${encodeURIComponent(
+          animalId
+        )}/medications/${encodeURIComponent(
+          medication.id
+        )}/administrations`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't load dose history."
+        );
+      }
+
+      setAdministrations(
+        data.administrations ?? []
+      );
+    } catch (err) {
+      setHistoryError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't load dose history."
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
 
   return (
     <article
@@ -2432,164 +1855,254 @@ function MedicationCard({
           : "5px solid #2B5C8A",
 
         borderRadius: 9,
-        padding: 15,
+        overflow: "hidden",
       }}
     >
       <div
         style={{
-          display: "flex",
-          justifyContent:
-            "space-between",
-          gap: 14,
-          alignItems:
-            "flex-start",
-          flexWrap: "wrap",
+          padding: 15,
         }}
       >
         <div
           style={{
-            flex: 1,
-            minWidth: 200,
-          }}
-        >
-          <strong
-            style={{
-              color: "#17233C",
-              fontSize: 15,
-            }}
-          >
-            {
-              medication.medication_name
-            }
-          </strong>
-
-          <div
-            style={{
-              color:
-                "#6B6862",
-              fontSize: 12.5,
-              marginTop: 4,
-            }}
-          >
-            {[
-              medication.dosage,
-              medication.frequency,
-            ]
-              .filter(Boolean)
-              .join(" · ") ||
-              "Dose / frequency not recorded"}
-          </div>
-
-          {medication.next_due_at && (
-            <div
-              style={{
-                fontSize: 12.5,
-                marginTop: 7,
-
-                color: overdue
-                  ? "#B23B2E"
-                  : "#4F4D49",
-
-                fontWeight:
-                  overdue
-                    ? 700
-                    : 500,
-              }}
-            >
-              {overdue
-                ? "Overdue · "
-                : "Next due · "}
-
-              {formatDateTime(
-                medication.next_due_at
-              )}
-            </div>
-          )}
-
-          {medication.instructions && (
-            <p
-              style={{
-                margin:
-                  "8px 0 0",
-                color:
-                  "#4F4D49",
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
-              {
-                medication.instructions
-              }
-            </p>
-          )}
-        </div>
-
-        <div
-          style={{
             display: "flex",
-            gap: 7,
+            justifyContent:
+              "space-between",
+            gap: 14,
+            alignItems:
+              "flex-start",
             flexWrap: "wrap",
           }}
         >
-          {onDose && (
+          <div
+            style={{
+              flex: 1,
+              minWidth: 200,
+            }}
+          >
+            <strong
+              style={{
+                color: "#17233C",
+                fontSize: 15,
+              }}
+            >
+              {medication.medication_name}
+            </strong>
+
+            <div
+              style={{
+                color: "#6B6862",
+                fontSize: 12.5,
+                marginTop: 4,
+              }}
+            >
+              {[
+                medication.dosage,
+                medication.frequency,
+              ]
+                .filter(Boolean)
+                .join(" · ") ||
+                "Dose / frequency not recorded"}
+            </div>
+
+            {medication.next_due_at && (
+              <div
+                style={{
+                  marginTop: 7,
+                  fontSize: 12.5,
+                  color: overdue
+                    ? "#B23B2E"
+                    : "#4F4D49",
+                  fontWeight: overdue
+                    ? 700
+                    : 500,
+                }}
+              >
+                {overdue
+                  ? "Overdue · "
+                  : "Next due · "}
+
+                {formatDateTime(
+                  medication.next_due_at
+                )}
+              </div>
+            )}
+
+            {medication.instructions && (
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  color: "#4F4D49",
+                  fontSize: 13,
+                }}
+              >
+                {medication.instructions}
+              </p>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 7,
+              flexWrap: "wrap",
+            }}
+          >
+            {onDose && (
+              <button
+                type="button"
+                onClick={() =>
+                  onDose(medication)
+                }
+                style={doseButton}
+              >
+                Dose Given
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() =>
-                onDose(
-                  medication
-                )
+                onEdit(medication)
               }
-              style={doseButton}
+              style={secondaryButton}
             >
-              Dose Given
+              Open / Edit
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={() =>
-              onEdit(
-                medication
-              )
-            }
-            style={
-              secondaryButton
-            }
-          >
-            Open / Edit
-          </button>
+            {onArchive && (
+              <button
+                type="button"
+                onClick={onArchive}
+                style={textButton}
+              >
+                Move to History
+              </button>
+            )}
 
-          {onArchive && (
-            <button
-              type="button"
-              onClick={
-                onArchive
-              }
-              style={textButton}
-            >
-              Move to History
-            </button>
-          )}
-
-          {onReactivate && (
-            <button
-              type="button"
-              onClick={
-                onReactivate
-              }
-              style={textButton}
-            >
-              Reactivate
-            </button>
-          )}
+            {onReactivate && (
+              <button
+                type="button"
+                onClick={onReactivate}
+                style={textButton}
+              >
+                Reactivate
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* DOSE HISTORY */}
+
+      <button
+        type="button"
+        onClick={toggleDoseHistory}
+        style={doseHistoryToggle}
+      >
+        <span>
+          Dose History
+          {administrations !== null
+            ? ` (${administrations.length})`
+            : ""}
+        </span>
+
+        <span>
+          {showDoseHistory
+            ? "⌃"
+            : "⌄"}
+        </span>
+      </button>
+
+      {showDoseHistory && (
+        <div style={doseHistoryPanel}>
+          {historyLoading && (
+            <p style={smallMuted}>
+              Loading dose history…
+            </p>
+          )}
+
+          {historyError && (
+            <p
+              style={{
+                ...smallMuted,
+                color: "#B23B2E",
+              }}
+            >
+              {historyError}
+            </p>
+          )}
+
+          {!historyLoading &&
+            administrations?.length ===
+              0 && (
+              <p style={smallMuted}>
+                No doses recorded yet.
+              </p>
+            )}
+
+          {administrations?.map(
+            (administration) => (
+              <div
+                key={administration.id}
+                style={doseHistoryRow}
+              >
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      color: "#17233C",
+                      fontSize: 12.5,
+                    }}
+                  >
+                    {formatDateTime(
+                      administration.administered_at
+                    )}
+                  </strong>
+
+                  <div style={smallMuted}>
+                    {administration.dose_given ||
+                      "Dose not specified"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    minWidth: 160,
+                  }}
+                >
+                  {administration.recorded_by_email && (
+                    <div style={smallMuted}>
+                      Recorded by{" "}
+                      {
+                        administration.recorded_by_email
+                      }
+                    </div>
+                  )}
+
+                  {administration.notes && (
+                    <div
+                      style={{
+                        marginTop: 3,
+                        color: "#4F4D49",
+                        fontSize: 12,
+                      }}
+                    >
+                      {administration.notes}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      )}
     </article>
   );
 }
 
 /* =========================================================
-   MEDICAL DOCUMENT CARD
+   DOCUMENT CARD
 ========================================================= */
 
 function MedicalDocumentCard({
@@ -2600,125 +2113,52 @@ function MedicalDocumentCard({
   animalId: string;
 }) {
   return (
-    <article
-      style={{
-        background: "#fff",
-        border:
-          "1px solid #E7E5E1",
-        borderRadius: 9,
-        padding: 14,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent:
-            "space-between",
-          gap: 14,
-          alignItems:
-            "flex-start",
-          flexWrap: "wrap",
-        }}
-      >
-        <div
+    <article style={documentCard}>
+      <div>
+        <strong
           style={{
-            flex: 1,
+            color: "#17233C",
           }}
         >
-          <strong
-            style={{
-              color:
-                "#17233C",
-            }}
-          >
-            {document.title}
-          </strong>
+          {document.title}
+        </strong>
 
-          <div
-            style={{
-              marginTop: 4,
-              color:
-                "#6B6862",
-              fontSize: 12.5,
-            }}
-          >
-            {[
-              document.document_type
-                ? formatDocumentType(
-                    document.document_type
-                  )
-                : "Veterinary Record",
+        <div style={smallMuted}>
+          {[
+            document.document_type
+              ? formatDocumentType(
+                  document.document_type
+                )
+              : "Veterinary Record",
 
-              document.veterinary_provider,
+            document.veterinary_provider,
 
-              document.record_date
-                ? formatDate(
-                    document.record_date
-                  )
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </div>
-
-          <div
-            style={{
-              marginTop: 5,
-              fontSize: 11.5,
-              color:
-                "#8A8782",
-            }}
-          >
-            {
-              document.original_filename
-            }
-
-            {document.file_size !=
-            null
-              ? ` · ${formatFileSize(
-                  Number(
-                    document.file_size
-                  )
-                )}`
-              : ""}
-          </div>
-
-          {document.notes && (
-            <p
-              style={{
-                margin:
-                  "8px 0 0",
-                color:
-                  "#4F4D49",
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
-              {document.notes}
-            </p>
-          )}
+            document.record_date
+              ? formatDate(
+                  document.record_date
+                )
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </div>
-
-        <a
-          href={`/api/animals/${encodeURIComponent(
-            animalId
-          )}/medical-documents/${encodeURIComponent(
-            document.id
-          )}`}
-          target="_blank"
-          rel="noreferrer"
-          style={secondaryLink}
-        >
-          Open Record
-        </a>
       </div>
+
+      <a
+        href={`/api/animals/${encodeURIComponent(
+          animalId
+        )}/medical-documents/${encodeURIComponent(
+          document.id
+        )}`}
+        target="_blank"
+        rel="noreferrer"
+        style={secondaryLink}
+      >
+        Open Record
+      </a>
     </article>
   );
 }
-
-/* =========================================================
-   SCAN VALUE
-========================================================= */
 
 function ScanValue({
   label,
@@ -2728,47 +2168,18 @@ function ScanValue({
   value: string;
 }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          "140px minmax(0, 1fr)",
-        gap: 10,
-        borderBottom:
-          "1px solid #F0EFED",
-        padding:
-          "8px 0",
-      }}
-    >
-      <div
-        style={{
-          color:
-            "#6B6862",
-          fontSize: 12,
-        }}
-      >
+    <div style={scanRow}>
+      <div style={smallMuted}>
         {label}
       </div>
 
-      <div
-        style={{
-          color:
-            "#1C1B19",
-          fontSize: 13.5,
-          whiteSpace:
-            "pre-wrap",
-        }}
-      >
+      <div>
         {value ||
           "Not detected"}
       </div>
     </div>
   );
 }
-
-/* =========================================================
-   SMALL COMPONENTS
-========================================================= */
 
 function Field({
   label,
@@ -2780,20 +2191,7 @@ function Field({
 }) {
   return (
     <div>
-      <label
-        style={{
-          display: "block",
-          fontSize: 11.5,
-          color:
-            "#6B6862",
-          fontWeight: 700,
-          textTransform:
-            "uppercase",
-          letterSpacing:
-            ".04em",
-          marginBottom: 5,
-        }}
-      >
+      <label style={labelStyle}>
         {label}
       </label>
 
@@ -2812,32 +2210,13 @@ function Notice({
   children:
     React.ReactNode;
 }) {
-  const success =
-    type === "success";
-
   return (
     <div
-      style={{
-        background:
-          success
-            ? "#EEF4F0"
-            : "#FFF4F2",
-
-        border:
-          success
-            ? "1px solid #C9DDD1"
-            : "1px solid #F3C7BF",
-
-        color:
-          success
-            ? "#2F6F4E"
-            : "#B23B2E",
-
-        borderRadius: 8,
-        padding: 11,
-        marginBottom: 16,
-        fontSize: 13,
-      }}
+      style={
+        type === "success"
+          ? successNotice
+          : errorNotice
+      }
     >
       {children}
     </div>
@@ -2851,35 +2230,10 @@ function EmptyState({
     React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        border:
-          "1px dashed #D8D6D2",
-        borderRadius: 8,
-        padding: 18,
-        color:
-          "#6B6862",
-        fontSize: 13.5,
-      }}
-    >
+    <div style={emptyState}>
       {children}
     </div>
   );
-}
-
-/* =========================================================
-   DEFAULTS
-========================================================= */
-
-function emptyDoseDraft(): DoseDraft {
-  return {
-    administeredAt:
-      currentLocalDateTime(),
-
-    doseGiven: "",
-    notes: "",
-  };
 }
 
 function emptyMedicationDraft(): MedicationDraft {
@@ -2908,20 +2262,23 @@ function emptyDocumentDraft(): DocumentDraft {
   };
 }
 
-/* =========================================================
-   FORMATTING
-========================================================= */
+function emptyDoseDraft(): DoseDraft {
+  return {
+    administeredAt:
+      currentLocalDateTime(),
+    doseGiven: "",
+    notes: "",
+  };
+}
 
 function currentLocalDateTime() {
   const now =
     new Date();
 
-  const offset =
-    now.getTimezoneOffset();
-
   return new Date(
     now.getTime() -
-      offset * 60000
+      now.getTimezoneOffset() *
+        60000
   )
     .toISOString()
     .slice(0, 16);
@@ -2943,12 +2300,10 @@ function toLocalInputValue(
     return "";
   }
 
-  const offset =
-    date.getTimezoneOffset();
-
   return new Date(
     date.getTime() -
-      offset * 60000
+      date.getTimezoneOffset() *
+        60000
   )
     .toISOString()
     .slice(0, 16);
@@ -2986,32 +2341,14 @@ function formatDate(
   const date =
     new Date(value);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return value;
-  }
-
-  return date.toLocaleDateString(
-    [],
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }
-  );
+  return date.toLocaleDateString();
 }
 
 function formatDocumentType(
   value: string
 ) {
   return value
-    .replace(
-      /_/g,
-      " "
-    )
+    .replace(/_/g, " ")
     .replace(
       /\b\w/g,
       (letter) =>
@@ -3019,51 +2356,59 @@ function formatDocumentType(
     );
 }
 
-function formatFileSize(
-  bytes: number
-) {
-  if (
-    !Number.isFinite(
-      bytes
-    )
-  ) {
-    return "";
-  }
-
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (
-    bytes <
-    1024 * 1024
-  ) {
-    return `${(
-      bytes / 1024
-    ).toFixed(1)} KB`;
-  }
-
-  return `${(
-    bytes /
-    (1024 * 1024)
-  ).toFixed(1)} MB`;
-}
-
 function capitalize(
   value: string
 ) {
-  if (!value) return "";
-
-  return (
-    value.charAt(0)
-      .toUpperCase() +
-    value.slice(1)
-  );
+  return value
+    ? value.charAt(0).toUpperCase() +
+        value.slice(1)
+    : "";
 }
 
 /* =========================================================
    STYLES
 ========================================================= */
+
+const pageHeader:
+  React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+    marginTop: 18,
+    marginBottom: 24,
+    flexWrap: "wrap",
+  };
+
+const eyebrow:
+  React.CSSProperties = {
+    margin: 0,
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#6B6862",
+    letterSpacing: ".08em",
+  };
+
+const pageTitle:
+  React.CSSProperties = {
+    color: "#17233C",
+    fontSize: 28,
+    margin: "6px 0",
+  };
+
+const pageDescription:
+  React.CSSProperties = {
+    margin: 0,
+    color: "#6B6862",
+    lineHeight: 1.55,
+  };
+
+const headerActions:
+  React.CSSProperties = {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+  };
 
 const formGrid:
   React.CSSProperties = {
@@ -3084,8 +2429,7 @@ const formActions:
 const panelStyle:
   React.CSSProperties = {
     background: "#fff",
-    border:
-      "1px solid #E7E5E1",
+    border: "1px solid #E7E5E1",
     borderRadius: 10,
     padding: 18,
     marginBottom: 22,
@@ -3094,10 +2438,7 @@ const panelStyle:
 const panelHeaderStyle:
   React.CSSProperties = {
     display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems:
-      "flex-start",
+    justifyContent: "space-between",
     gap: 12,
     marginBottom: 16,
   };
@@ -3114,17 +2455,12 @@ const panelDescriptionStyle:
     margin: "5px 0 0",
     color: "#6B6862",
     fontSize: 13,
-    lineHeight: 1.5,
-    maxWidth: 650,
   };
 
 const sectionHeading:
   React.CSSProperties = {
     display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems:
-      "flex-start",
+    justifyContent: "space-between",
     gap: 12,
     marginBottom: 10,
   };
@@ -3152,33 +2488,28 @@ const smallDescriptionStyle:
 const inputStyle:
   React.CSSProperties = {
     width: "100%",
-    boxSizing:
-      "border-box",
-    border:
-      "1px solid #D8D6D2",
+    boxSizing: "border-box",
+    border: "1px solid #D8D6D2",
     borderRadius: 7,
     padding: 9,
-    fontFamily:
-      "inherit",
+    fontFamily: "inherit",
     fontSize: 13.5,
-    color:
-      "#1C1B19",
-    background: "#fff",
   };
 
 const fileInputStyle:
   React.CSSProperties = {
     ...inputStyle,
-    background:
-      "#FAFAF9",
+    background: "#FAFAF9",
   };
 
-const helpTextStyle:
+const labelStyle:
   React.CSSProperties = {
-    margin: "5px 0 0",
-    color: "#8A8782",
+    display: "block",
     fontSize: 11.5,
-    lineHeight: 1.45,
+    color: "#6B6862",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    marginBottom: 5,
   };
 
 const primaryButton:
@@ -3189,7 +2520,6 @@ const primaryButton:
     borderRadius: 7,
     padding: "9px 14px",
     fontWeight: 700,
-    fontSize: 13,
     cursor: "pointer",
   };
 
@@ -3201,7 +2531,6 @@ const doseButton:
     borderRadius: 7,
     padding: "8px 11px",
     fontWeight: 700,
-    fontSize: 12.5,
     cursor: "pointer",
   };
 
@@ -3209,33 +2538,25 @@ const secondaryButton:
   React.CSSProperties = {
     background: "#fff",
     color: "#17233C",
-    border:
-      "1px solid #D8D6D2",
+    border: "1px solid #D8D6D2",
     borderRadius: 7,
     padding: "8px 11px",
     fontWeight: 700,
-    fontSize: 12.5,
     cursor: "pointer",
   };
 
 const secondaryLink:
   React.CSSProperties = {
     ...secondaryButton,
-    display:
-      "inline-block",
-    textDecoration:
-      "none",
+    textDecoration: "none",
   };
 
 const textButton:
   React.CSSProperties = {
-    background:
-      "transparent",
+    background: "transparent",
     color: "#6B6862",
     border: "none",
-    padding: "8px 6px",
-    fontWeight: 600,
-    fontSize: 12.5,
+    padding: 8,
     cursor: "pointer",
   };
 
@@ -3243,25 +2564,125 @@ const historyToggle:
   React.CSSProperties = {
     width: "100%",
     display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems:
-      "center",
-    gap: 12,
+    justifyContent: "space-between",
+    alignItems: "center",
     background: "#fff",
-    border:
-      "1px solid #E7E5E1",
+    border: "1px solid #E7E5E1",
     borderRadius: 9,
     padding: "13px 15px",
     cursor: "pointer",
     textAlign: "left",
   };
 
+const doseHistoryToggle:
+  React.CSSProperties = {
+    width: "100%",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    border: "none",
+    borderTop: "1px solid #EEECE8",
+    background: "#FAFAF9",
+    padding: "9px 14px",
+    color: "#4F4D49",
+    fontSize: 12.5,
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+
+const doseHistoryPanel:
+  React.CSSProperties = {
+    background: "#FAFAF9",
+    borderTop: "1px solid #EEECE8",
+    padding: "4px 14px 12px",
+  };
+
+const doseHistoryRow:
+  React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 20,
+    padding: "10px 0",
+    borderBottom: "1px solid #EEECE8",
+    flexWrap: "wrap",
+  };
+
+const documentCard:
+  React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    background: "#fff",
+    border: "1px solid #E7E5E1",
+    borderRadius: 9,
+    padding: 14,
+  };
+
+const scanRow:
+  React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "140px 1fr",
+    gap: 10,
+    padding: "8px 0",
+    borderBottom: "1px solid #EEECE8",
+  };
+
+const reviewBox:
+  React.CSSProperties = {
+    background: "#EEF4F0",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 14,
+  };
+
+const reviewText:
+  React.CSSProperties = {
+    margin: "4px 0 0",
+    color: "#6B6862",
+    fontSize: 12.5,
+  };
+
+const smallMuted:
+  React.CSSProperties = {
+    color: "#6B6862",
+    fontSize: 12,
+    margin: 0,
+  };
+
+const emptyState:
+  React.CSSProperties = {
+    background: "#fff",
+    border: "1px dashed #D8D6D2",
+    borderRadius: 8,
+    padding: 18,
+    color: "#6B6862",
+    fontSize: 13.5,
+  };
+
+const successNotice:
+  React.CSSProperties = {
+    background: "#EEF4F0",
+    border: "1px solid #C9DDD1",
+    color: "#2F6F4E",
+    borderRadius: 8,
+    padding: 11,
+    marginBottom: 16,
+  };
+
+const errorNotice:
+  React.CSSProperties = {
+    background: "#FFF4F2",
+    border: "1px solid #F3C7BF",
+    color: "#B23B2E",
+    borderRadius: 8,
+    padding: 11,
+    marginBottom: 16,
+  };
+
 const backLink:
   React.CSSProperties = {
     color: "#C05621",
-    textDecoration:
-      "none",
+    textDecoration: "none",
     fontSize: 13,
     fontWeight: 600,
   };
