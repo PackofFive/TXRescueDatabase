@@ -84,6 +84,9 @@ const ALERT_TYPE_LABELS:
 
   foster_offer:
     "Foster / Help Offers",
+
+  custom_reminder:
+    "Custom Reminders",
 };
 
 export default function PortalPage() {
@@ -144,10 +147,6 @@ export default function PortalPage() {
       Set<Priority>
     >(new Set());
 
-  /* =====================================================
-     CUSTOM ALERT SETTINGS
-  ===================================================== */
-
   const [
     showAlertSettings,
     setShowAlertSettings,
@@ -176,10 +175,6 @@ export default function PortalPage() {
       string | null
     >(null);
 
-  /* =====================================================
-     LOAD
-  ===================================================== */
-
   useEffect(() => {
     loadDashboard();
   }, []);
@@ -189,10 +184,6 @@ export default function PortalPage() {
     setError(null);
 
     try {
-      /* ---------------------------------------------------
-         ORGANIZATION NAME
-      --------------------------------------------------- */
-
       const authRes =
         await fetch(
           "/api/auth/me",
@@ -246,14 +237,9 @@ export default function PortalPage() {
             );
           }
         } catch {
-          // AppShell handles
-          // missing test org.
+          // AppShell handles missing test org.
         }
       }
-
-      /* ---------------------------------------------------
-         DASHBOARD
-      --------------------------------------------------- */
 
       const res =
         await fetch(
@@ -309,13 +295,6 @@ export default function PortalPage() {
           ),
       });
 
-      /* ---------------------------------------------------
-         ALERT PREFERENCES
-
-         Load from settings API so the edit panel
-         receives normalized defaults.
-      --------------------------------------------------- */
-
       const preferenceRes =
         await fetch(
           "/api/org-settings/alerts",
@@ -346,10 +325,6 @@ export default function PortalPage() {
       setLoading(false);
     }
   }
-
-  /* =====================================================
-     SAVE ALERT PREFERENCES
-  ===================================================== */
 
   async function saveAlertPreferences() {
     setSavingPreferences(
@@ -394,11 +369,6 @@ export default function PortalPage() {
       setPreferenceMessage(
         "Alert preferences saved."
       );
-
-      /*
-        Reload dashboard immediately
-        so new priorities/colors apply.
-      */
 
       await loadDashboard();
     } catch (err) {
@@ -451,10 +421,6 @@ export default function PortalPage() {
         )
     );
   }
-
-  /* =====================================================
-     DASHBOARD FILTERS
-  ===================================================== */
 
   const visibleAlerts =
     useMemo(() => {
@@ -556,10 +522,6 @@ export default function PortalPage() {
     );
   }
 
-  /* =====================================================
-     PAGE
-  ===================================================== */
-
   return (
     <section>
       <div
@@ -634,10 +596,6 @@ export default function PortalPage() {
           Customize Alerts
         </button>
       </div>
-
-      {/* ===============================================
-          ALERT SETTINGS
-      ================================================ */}
 
       {showAlertSettings && (
         <section
@@ -850,10 +808,6 @@ export default function PortalPage() {
         </section>
       )}
 
-      {/* ===============================================
-          AT A GLANCE
-      ================================================ */}
-
       <div
         style={{
           display: "grid",
@@ -892,10 +846,6 @@ export default function PortalPage() {
           label="Adopted"
         />
       </div>
-
-      {/* ===============================================
-          DASHBOARD VIEW CONTROLS
-      ================================================ */}
 
       <div
         style={{
@@ -1150,10 +1100,6 @@ export default function PortalPage() {
   );
 }
 
-/* =========================================================
-   PRIORITY SECTION
-========================================================= */
-
 function PrioritySection({
   priority,
   label,
@@ -1262,10 +1208,6 @@ function PrioritySection({
   );
 }
 
-/* =========================================================
-   ALERT ROW
-========================================================= */
-
 function AlertRow({
   alert,
   last,
@@ -1287,15 +1229,40 @@ function AlertRow({
           alert.created_at
         );
 
-  const destination =
+  let destination =
+    `/animals/${encodeURIComponent(
+      alert.animal_id
+    )}`;
+
+  if (
+    alert.alert_type ===
+    "medication"
+  ) {
+    destination =
+      `/animals/${encodeURIComponent(
+        alert.animal_id
+      )}/medical`;
+  }
+
+  if (
+    alert.alert_type ===
+    "medical"
+  ) {
+    destination =
+      `/animals/${encodeURIComponent(
+        alert.animal_id
+      )}/medical`;
+  }
+
+  if (
     alert.alert_type ===
     "foster_offer"
-      ? `/animals/${encodeURIComponent(
-          alert.animal_id
-        )}/offers`
-      : `/animals/${encodeURIComponent(
-          alert.animal_id
-        )}`;
+  ) {
+    destination =
+      `/animals/${encodeURIComponent(
+        alert.animal_id
+      )}/offers`;
+  }
 
   return (
     <div
@@ -1370,10 +1337,6 @@ function AlertRow({
   );
 }
 
-/* =========================================================
-   STAT CARD
-========================================================= */
-
 function StatCard({
   value,
   label,
@@ -1434,10 +1397,6 @@ function StatCard({
   );
 }
 
-/* =========================================================
-   FILTER BUTTON
-========================================================= */
-
 function FilterButton({
   active,
   onClick,
@@ -1485,10 +1444,6 @@ function FilterButton({
     </button>
   );
 }
-
-/* =========================================================
-   TIME
-========================================================= */
 
 function relativeDue(
   value: string
@@ -1586,10 +1541,6 @@ function relativeCreated(
   } ago`;
 }
 
-/* =========================================================
-   COLORS
-========================================================= */
-
 const priorityColors:
   Record<
     Priority,
@@ -1618,10 +1569,6 @@ const priorityColors:
     border: "#DDDAD6",
   },
 };
-
-/* =========================================================
-   SHARED STYLES
-========================================================= */
 
 const inputStyle:
   React.CSSProperties =
