@@ -273,6 +273,14 @@ export default function DocumentsPage() {
       null
     );
 
+  const [
+    settingProfilePhotoId,
+    setSettingProfilePhotoId,
+  ] =
+    useState<string | null>(
+      null
+    );
+
   /* =====================================================
      FILTERS
   ===================================================== */
@@ -742,6 +750,96 @@ export default function DocumentsPage() {
     } finally {
       setSavingEdit(
         false
+      );
+    }
+  }
+
+  /* =====================================================
+     PROFILE PHOTO
+  ===================================================== */
+
+  async function setProfilePhoto(
+    document:
+      AnimalDocument
+  ) {
+    if (
+      !document.content_type.startsWith(
+        "image/"
+      )
+    ) {
+      setError(
+        "Only image files can be used as the profile photo."
+      );
+
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Set "${document.title}" as this animal's profile photo?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSettingProfilePhotoId(
+      document.id
+    );
+
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res =
+        await fetch(
+          `/api/animals/${encodeURIComponent(
+            animalId
+          )}/documents/profile-photo`,
+          {
+            method:
+              "POST",
+
+            credentials:
+              "same-origin",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                documentId:
+                  document.id,
+              }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't set profile photo."
+        );
+      }
+
+      setMessage(
+        "Profile photo updated."
+      );
+
+      await loadPage();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't set profile photo."
+      );
+    } finally {
+      setSettingProfilePhotoId(
+        null
       );
     }
   }
@@ -1578,6 +1676,11 @@ export default function DocumentsPage() {
                     document.id
                   }
 
+                  settingProfilePhoto={
+                    settingProfilePhotoId ===
+                    document.id
+                  }
+
                   onBeginEdit={() =>
                     beginEdit(
                       document
@@ -1590,6 +1693,12 @@ export default function DocumentsPage() {
 
                   onSaveEdit={
                     saveEdit
+                  }
+
+                  onSetProfilePhoto={() =>
+                    setProfilePhoto(
+                      document
+                    )
                   }
 
                   onDelete={() =>
@@ -1619,9 +1728,11 @@ function DocumentCard({
   setEditDraft,
   savingEdit,
   deleting,
+  settingProfilePhoto,
   onBeginEdit,
   onCancelEdit,
   onSaveEdit,
+  onSetProfilePhoto,
   onDelete,
 }: {
   document:
@@ -1647,6 +1758,9 @@ function DocumentCard({
   deleting:
     boolean;
 
+  settingProfilePhoto:
+    boolean;
+
   onBeginEdit:
     () => void;
 
@@ -1654,6 +1768,9 @@ function DocumentCard({
     () => void;
 
   onSaveEdit:
+    () => void;
+
+  onSetProfilePhoto:
     () => void;
 
   onDelete:
@@ -2050,6 +2167,30 @@ function DocumentCard({
                 >
                   Download
                 </a>
+
+                {document.content_type.startsWith(
+                  "image/"
+                ) && (
+                  <button
+                    type="button"
+
+                    disabled={
+                      settingProfilePhoto
+                    }
+
+                    onClick={
+                      onSetProfilePhoto
+                    }
+
+                    style={
+                      primaryButton
+                    }
+                  >
+                    {settingProfilePhoto
+                      ? "Setting…"
+                      : "Set as Profile Photo"}
+                  </button>
+                )}
 
                 <button
                   type="button"
