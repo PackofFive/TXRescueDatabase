@@ -64,6 +64,12 @@ type DocumentDraft = {
   notes: string;
 };
 
+type DoseDraft = {
+  administeredAt: string;
+  doseGiven: string;
+  notes: string;
+};
+
 export default function MedicalPage() {
   const params = useParams();
   const animalId = params?.id as string;
@@ -78,6 +84,7 @@ export default function MedicalPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [showAddMedication, setShowAddMedication] = useState(false);
+
   const [editingMedicationId, setEditingMedicationId] =
     useState<string | null>(null);
 
@@ -97,6 +104,19 @@ export default function MedicalPage() {
     useState<File | null>(null);
 
   const [uploadingDocument, setUploadingDocument] =
+    useState(false);
+
+  /* =====================================================
+     DOSE GIVEN
+  ===================================================== */
+
+  const [doseMedication, setDoseMedication] =
+    useState<Medication | null>(null);
+
+  const [doseDraft, setDoseDraft] =
+    useState<DoseDraft>(emptyDoseDraft());
+
+  const [savingDose, setSavingDose] =
     useState(false);
 
   useEffect(() => {
@@ -179,6 +199,150 @@ export default function MedicalPage() {
   }
 
   /* =====================================================
+     DOSE ADMINISTRATION
+  ===================================================== */
+
+  function beginDose(
+    medication: Medication
+  ) {
+    setDoseMedication(medication);
+
+    setDoseDraft({
+      administeredAt:
+        currentLocalDateTime(),
+
+      doseGiven:
+        medication.dosage ?? "",
+
+      notes: "",
+    });
+
+    setError(null);
+    setMessage(null);
+  }
+
+  function cancelDose() {
+    setDoseMedication(null);
+    setDoseDraft(
+      emptyDoseDraft()
+    );
+  }
+
+  async function recordDose(
+    event: React.FormEvent
+  ) {
+    event.preventDefault();
+
+    if (!doseMedication) {
+      return;
+    }
+
+    setSavingDose(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const administeredDate =
+        new Date(
+          doseDraft.administeredAt
+        );
+
+      if (
+        Number.isNaN(
+          administeredDate.getTime()
+        )
+      ) {
+        throw new Error(
+          "Dose date or time is invalid."
+        );
+      }
+
+      const res = await fetch(
+        `/api/animals/${encodeURIComponent(
+          animalId
+        )}/medications/${encodeURIComponent(
+          doseMedication.id
+        )}/dose`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            administeredAt:
+              administeredDate.toISOString(),
+
+            doseGiven:
+              doseDraft.doseGiven,
+
+            notes:
+              doseDraft.notes,
+          }),
+        }
+      );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't record medication dose."
+        );
+      }
+
+      /*
+        Replace medication with the updated
+        version returned by the API.
+
+        This immediately refreshes next_due_at.
+      */
+
+      setMedications(
+        (current) =>
+          current.map(
+            (medication) =>
+              medication.id ===
+              doseMedication.id
+                ? data.medication
+                : medication
+          )
+      );
+
+      if (
+        data.nextDueCalculated
+      ) {
+        setMessage(
+          `Dose recorded. Next dose is due ${formatDateTime(
+            data.medication
+              .next_due_at
+          )}.`
+        );
+      } else {
+        setMessage(
+          "Dose recorded. The medication frequency could not be automatically converted into a next due time, so no automatic next dose was scheduled."
+        );
+      }
+
+      setDoseMedication(null);
+      setDoseDraft(
+        emptyDoseDraft()
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't record medication dose."
+      );
+    } finally {
+      setSavingDose(false);
+    }
+  }
+
+  /* =====================================================
      MEDICATIONS
   ===================================================== */
 
@@ -196,7 +360,10 @@ export default function MedicalPage() {
     event.preventDefault();
 
     if (!draft.medicationName.trim()) {
-      setError("Medication name is required.");
+      setError(
+        "Medication name is required."
+      );
+
       return;
     }
 
@@ -211,30 +378,45 @@ export default function MedicalPage() {
         )}/medications`,
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(draft),
+
+          body:
+            JSON.stringify(draft),
         }
       );
 
-      const data = await res.json();
+      const data =
+        await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ?? "Couldn't add medication."
+          data.error ??
+            "Couldn't add medication."
         );
       }
 
-      setMedications((current) => [
-        data.medication,
-        ...current,
-      ]);
+      setMedications(
+        (current) => [
+          data.medication,
+          ...current,
+        ]
+      );
 
-      setDraft(emptyMedicationDraft());
-      setShowAddMedication(false);
+      setDraft(
+        emptyMedicationDraft()
+      );
 
-      setMessage("Medication added.");
+      setShowAddMedication(
+        false
+      );
+
+      setMessage(
+        "Medication added."
+      );
     } catch (err) {
       setError(
         err instanceof Error
@@ -250,20 +432,57 @@ export default function MedicalPage() {
     medication: Medication
   ) {
     setShowAddMedication(false);
-    setEditingMedicationId(medication.id);
+
+    setEditingMedicationId(
+      medication.id
+    );
 
     setDraft({
-      medicationName: medication.medication_name ?? "",
-      dosage: medication.dosage ?? "",
-      frequency: medication.frequency ?? "",
-      instructions: medication.instructions ?? "",
-      startedAt: toLocalInputValue(medication.started_at),
-      endedAt: toLocalInputValue(medication.ended_at),
-      nextDueAt: toLocalInputValue(medication.next_due_at),
-      prescribingVet: medication.prescribing_vet ?? "",
-      pharmacy: medication.pharmacy ?? "",
-      notes: medication.notes ?? "",
-      active: medication.active,
+      medicationName:
+        medication.medication_name ??
+        "",
+
+      dosage:
+        medication.dosage ??
+        "",
+
+      frequency:
+        medication.frequency ??
+        "",
+
+      instructions:
+        medication.instructions ??
+        "",
+
+      startedAt:
+        toLocalInputValue(
+          medication.started_at
+        ),
+
+      endedAt:
+        toLocalInputValue(
+          medication.ended_at
+        ),
+
+      nextDueAt:
+        toLocalInputValue(
+          medication.next_due_at
+        ),
+
+      prescribingVet:
+        medication.prescribing_vet ??
+        "",
+
+      pharmacy:
+        medication.pharmacy ??
+        "",
+
+      notes:
+        medication.notes ??
+        "",
+
+      active:
+        medication.active,
     });
 
     setError(null);
@@ -275,10 +494,15 @@ export default function MedicalPage() {
   ) {
     event.preventDefault();
 
-    if (!editingMedicationId) return;
+    if (!editingMedicationId) {
+      return;
+    }
 
     if (!draft.medicationName.trim()) {
-      setError("Medication name is required.");
+      setError(
+        "Medication name is required."
+      );
+
       return;
     }
 
@@ -293,36 +517,53 @@ export default function MedicalPage() {
         )}/medications`,
         {
           method: "PATCH",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
+
           body: JSON.stringify({
-            medicationId: editingMedicationId,
+            medicationId:
+              editingMedicationId,
+
             ...draft,
           }),
         }
       );
 
-      const data = await res.json();
+      const data =
+        await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ?? "Couldn't update medication."
+          data.error ??
+            "Couldn't update medication."
         );
       }
 
-      setMedications((current) =>
-        current.map((medication) =>
-          medication.id === editingMedicationId
-            ? data.medication
-            : medication
-        )
+      setMedications(
+        (current) =>
+          current.map(
+            (medication) =>
+              medication.id ===
+              editingMedicationId
+                ? data.medication
+                : medication
+          )
       );
 
-      setEditingMedicationId(null);
-      setDraft(emptyMedicationDraft());
+      setEditingMedicationId(
+        null
+      );
 
-      setMessage("Medication updated.");
+      setDraft(
+        emptyMedicationDraft()
+      );
+
+      setMessage(
+        "Medication updated."
+      );
     } catch (err) {
       setError(
         err instanceof Error
@@ -351,31 +592,41 @@ export default function MedicalPage() {
           method: "PATCH",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
-            medicationId: medication.id,
-            medicationName: medication.medication_name,
+            medicationId:
+              medication.id,
+
+            medicationName:
+              medication.medication_name,
+
             active,
           }),
         }
       );
 
-      const data = await res.json();
+      const data =
+        await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ?? "Couldn't update medication."
+          data.error ??
+            "Couldn't update medication."
         );
       }
 
-      setMedications((current) =>
-        current.map((item) =>
-          item.id === medication.id
-            ? data.medication
-            : item
-        )
+      setMedications(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              medication.id
+                ? data.medication
+                : item
+          )
       );
 
       setMessage(
@@ -400,7 +651,11 @@ export default function MedicalPage() {
 
   function beginDocumentUpload() {
     setShowDocumentUpload(true);
-    setDocumentDraft(emptyDocumentDraft());
+
+    setDocumentDraft(
+      emptyDocumentDraft()
+    );
+
     setDocumentFile(null);
     setError(null);
     setMessage(null);
@@ -408,7 +663,9 @@ export default function MedicalPage() {
 
   function cancelDocumentUpload() {
     setShowDocumentUpload(false);
-    setDocumentDraft(emptyDocumentDraft());
+    setDocumentDraft(
+      emptyDocumentDraft()
+    );
     setDocumentFile(null);
   }
 
@@ -418,7 +675,10 @@ export default function MedicalPage() {
     event.preventDefault();
 
     if (!documentFile) {
-      setError("Select a PDF or image to upload.");
+      setError(
+        "Select a PDF or image to upload."
+      );
+
       return;
     }
 
@@ -427,23 +687,38 @@ export default function MedicalPage() {
     setMessage(null);
 
     try {
-      const formData = new FormData();
+      const formData =
+        new FormData();
 
-      formData.append("file", documentFile);
-      formData.append("title", documentDraft.title);
+      formData.append(
+        "file",
+        documentFile
+      );
+
+      formData.append(
+        "title",
+        documentDraft.title
+      );
+
       formData.append(
         "documentType",
         documentDraft.documentType
       );
+
       formData.append(
         "veterinaryProvider",
         documentDraft.veterinaryProvider
       );
+
       formData.append(
         "recordDate",
         documentDraft.recordDate
       );
-      formData.append("notes", documentDraft.notes);
+
+      formData.append(
+        "notes",
+        documentDraft.notes
+      );
 
       const res = await fetch(
         `/api/animals/${encodeURIComponent(
@@ -455,24 +730,34 @@ export default function MedicalPage() {
         }
       );
 
-      const data = await res.json();
+      const data =
+        await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ?? "Couldn't upload veterinary record."
+          data.error ??
+            "Couldn't upload veterinary record."
         );
       }
 
-      setDocuments((current) => [
-        data.document,
-        ...current,
-      ]);
+      setDocuments(
+        (current) => [
+          data.document,
+          ...current,
+        ]
+      );
 
       setShowDocumentUpload(false);
-      setDocumentDraft(emptyDocumentDraft());
+
+      setDocumentDraft(
+        emptyDocumentDraft()
+      );
+
       setDocumentFile(null);
 
-      setMessage("Veterinary record uploaded.");
+      setMessage(
+        "Veterinary record uploaded."
+      );
     } catch (err) {
       setError(
         err instanceof Error
@@ -488,21 +773,25 @@ export default function MedicalPage() {
      GROUPS
   ===================================================== */
 
-  const activeMedications = useMemo(
-    () =>
-      medications.filter(
-        (medication) => medication.active
-      ),
-    [medications]
-  );
+  const activeMedications =
+    useMemo(
+      () =>
+        medications.filter(
+          (medication) =>
+            medication.active
+        ),
+      [medications]
+    );
 
-  const medicationHistory = useMemo(
-    () =>
-      medications.filter(
-        (medication) => !medication.active
-      ),
-    [medications]
-  );
+  const medicationHistory =
+    useMemo(
+      () =>
+        medications.filter(
+          (medication) =>
+            !medication.active
+        ),
+      [medications]
+    );
 
   if (loading) {
     return <p>Loading…</p>;
@@ -527,8 +816,10 @@ export default function MedicalPage() {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
+          justifyContent:
+            "space-between",
+          alignItems:
+            "flex-start",
           gap: 16,
           marginTop: 18,
           marginBottom: 24,
@@ -542,7 +833,8 @@ export default function MedicalPage() {
               fontSize: 12,
               fontWeight: 800,
               color: "#6B6862",
-              letterSpacing: ".08em",
+              letterSpacing:
+                ".08em",
             }}
           >
             PRIVATE RESCUE MANAGER
@@ -552,7 +844,8 @@ export default function MedicalPage() {
             style={{
               color: "#17233C",
               fontSize: 28,
-              margin: "6px 0 6px",
+              margin:
+                "6px 0 6px",
             }}
           >
             Medical
@@ -566,8 +859,11 @@ export default function MedicalPage() {
               lineHeight: 1.55,
             }}
           >
-            Medical records, medications, veterinary
-            documents, procedures, and care tracking for{" "}
+            Medical records,
+            medications,
+            veterinary documents,
+            procedures, and care
+            tracking for{" "}
             {animalName}.
           </p>
         </div>
@@ -581,16 +877,24 @@ export default function MedicalPage() {
         >
           <button
             type="button"
-            onClick={beginDocumentUpload}
-            style={secondaryButton}
+            onClick={
+              beginDocumentUpload
+            }
+            style={
+              secondaryButton
+            }
           >
             Upload Vet Record
           </button>
 
           <button
             type="button"
-            onClick={beginAddMedication}
-            style={primaryButton}
+            onClick={
+              beginAddMedication
+            }
+            style={
+              primaryButton
+            }
           >
             + Add Medication
           </button>
@@ -609,7 +913,155 @@ export default function MedicalPage() {
         </Notice>
       )}
 
-      {/* VET RECORD UPLOAD */}
+      {/* ===============================================
+          DOSE GIVEN PANEL
+      ================================================ */}
+
+      {doseMedication && (
+        <section style={panelStyle}>
+          <div style={panelHeaderStyle}>
+            <div>
+              <h2 style={panelTitleStyle}>
+                Record Dose Given
+              </h2>
+
+              <p style={panelDescriptionStyle}>
+                {doseMedication.medication_name}
+
+                {doseMedication.frequency
+                  ? ` · ${doseMedication.frequency}`
+                  : ""}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={cancelDose}
+              style={textButton}
+            >
+              Close
+            </button>
+          </div>
+
+          <form onSubmit={recordDose}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: 12,
+              }}
+            >
+              <Field label="Dose Given">
+                <input
+                  value={
+                    doseDraft.doseGiven
+                  }
+                  onChange={(e) =>
+                    setDoseDraft(
+                      (current) => ({
+                        ...current,
+                        doseGiven:
+                          e.target.value,
+                      })
+                    )
+                  }
+                  placeholder="Example: 50 mg"
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Date / Time Given *">
+                <input
+                  type="datetime-local"
+                  required
+                  value={
+                    doseDraft.administeredAt
+                  }
+                  onChange={(e) =>
+                    setDoseDraft(
+                      (current) => ({
+                        ...current,
+                        administeredAt:
+                          e.target.value,
+                      })
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </Field>
+            </div>
+
+            <div
+              style={{
+                marginTop: 12,
+              }}
+            >
+              <Field label="Notes">
+                <textarea
+                  rows={3}
+                  value={
+                    doseDraft.notes
+                  }
+                  onChange={(e) =>
+                    setDoseDraft(
+                      (current) => ({
+                        ...current,
+                        notes:
+                          e.target.value,
+                      })
+                    )
+                  }
+                  placeholder="Optional notes about administration, reaction, refusal, etc."
+                  style={inputStyle}
+                />
+              </Field>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="submit"
+                disabled={
+                  savingDose
+                }
+                style={
+                  doseButton
+                }
+              >
+                {savingDose
+                  ? "Recording…"
+                  : "Confirm Dose Given"}
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  savingDose
+                }
+                onClick={
+                  cancelDose
+                }
+                style={
+                  secondaryButton
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {/* ===============================================
+          VET RECORD UPLOAD
+      ================================================ */}
 
       {showDocumentUpload && (
         <section style={panelStyle}>
@@ -628,7 +1080,9 @@ export default function MedicalPage() {
 
             <button
               type="button"
-              onClick={cancelDocumentUpload}
+              onClick={
+                cancelDocumentUpload
+              }
               style={textButton}
             >
               Close
@@ -636,28 +1090,23 @@ export default function MedicalPage() {
           </div>
 
           <form onSubmit={uploadDocument}>
-            <div
-              style={{
-                marginBottom: 14,
-              }}
-            >
-              <Field label="File *">
-                <input
-                  type="file"
-                  accept=".pdf,image/jpeg,image/png,image/webp"
-                  onChange={(e) =>
-                    setDocumentFile(
-                      e.target.files?.[0] ?? null
-                    )
-                  }
-                  style={fileInputStyle}
-                />
+            <Field label="File *">
+              <input
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/webp"
+                onChange={(e) =>
+                  setDocumentFile(
+                    e.target.files?.[0] ??
+                      null
+                  )
+                }
+                style={fileInputStyle}
+              />
 
-                <p style={helpTextStyle}>
-                  PDF, JPG, PNG, or WebP. Maximum 15 MB.
-                </p>
-              </Field>
-            </div>
+              <p style={helpTextStyle}>
+                PDF, JPG, PNG, or WebP. Maximum 15 MB.
+              </p>
+            </Field>
 
             <div
               style={{
@@ -665,16 +1114,22 @@ export default function MedicalPage() {
                 gridTemplateColumns:
                   "repeat(auto-fit, minmax(210px, 1fr))",
                 gap: 12,
+                marginTop: 14,
               }}
             >
               <Field label="Record Title">
                 <input
-                  value={documentDraft.title}
+                  value={
+                    documentDraft.title
+                  }
                   onChange={(e) =>
-                    setDocumentDraft((current) => ({
-                      ...current,
-                      title: e.target.value,
-                    }))
+                    setDocumentDraft(
+                      (current) => ({
+                        ...current,
+                        title:
+                          e.target.value,
+                      })
+                    )
                   }
                   placeholder={
                     documentFile?.name ??
@@ -686,12 +1141,17 @@ export default function MedicalPage() {
 
               <Field label="Document Type">
                 <select
-                  value={documentDraft.documentType}
+                  value={
+                    documentDraft.documentType
+                  }
                   onChange={(e) =>
-                    setDocumentDraft((current) => ({
-                      ...current,
-                      documentType: e.target.value,
-                    }))
+                    setDocumentDraft(
+                      (current) => ({
+                        ...current,
+                        documentType:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 >
@@ -743,12 +1203,14 @@ export default function MedicalPage() {
                     documentDraft.veterinaryProvider
                   }
                   onChange={(e) =>
-                    setDocumentDraft((current) => ({
-                      ...current,
-                      veterinaryProvider: e.target.value,
-                    }))
+                    setDocumentDraft(
+                      (current) => ({
+                        ...current,
+                        veterinaryProvider:
+                          e.target.value,
+                      })
+                    )
                   }
-                  placeholder="Clinic or veterinarian"
                   style={inputStyle}
                 />
               </Field>
@@ -756,34 +1218,39 @@ export default function MedicalPage() {
               <Field label="Record Date">
                 <input
                   type="date"
-                  value={documentDraft.recordDate}
+                  value={
+                    documentDraft.recordDate
+                  }
                   onChange={(e) =>
-                    setDocumentDraft((current) => ({
-                      ...current,
-                      recordDate: e.target.value,
-                    }))
+                    setDocumentDraft(
+                      (current) => ({
+                        ...current,
+                        recordDate:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
               </Field>
             </div>
 
-            <div
-              style={{
-                marginTop: 12,
-              }}
-            >
+            <div style={{ marginTop: 12 }}>
               <Field label="Notes">
                 <textarea
                   rows={3}
-                  value={documentDraft.notes}
-                  onChange={(e) =>
-                    setDocumentDraft((current) => ({
-                      ...current,
-                      notes: e.target.value,
-                    }))
+                  value={
+                    documentDraft.notes
                   }
-                  placeholder="Optional internal notes about this record."
+                  onChange={(e) =>
+                    setDocumentDraft(
+                      (current) => ({
+                        ...current,
+                        notes:
+                          e.target.value,
+                      })
+                    )
+                  }
                   style={inputStyle}
                 />
               </Field>
@@ -793,13 +1260,15 @@ export default function MedicalPage() {
               style={{
                 display: "flex",
                 gap: 8,
-                flexWrap: "wrap",
                 marginTop: 16,
+                flexWrap: "wrap",
               }}
             >
               <button
                 type="submit"
-                disabled={uploadingDocument}
+                disabled={
+                  uploadingDocument
+                }
                 style={primaryButton}
               >
                 {uploadingDocument
@@ -809,9 +1278,15 @@ export default function MedicalPage() {
 
               <button
                 type="button"
-                disabled={uploadingDocument}
-                onClick={cancelDocumentUpload}
-                style={secondaryButton}
+                disabled={
+                  uploadingDocument
+                }
+                onClick={
+                  cancelDocumentUpload
+                }
+                style={
+                  secondaryButton
+                }
               >
                 Cancel
               </button>
@@ -820,7 +1295,9 @@ export default function MedicalPage() {
         </section>
       )}
 
-      {/* MEDICATION FORM */}
+      {/* ===============================================
+          MEDICATION FORM
+      ================================================ */}
 
       {(showAddMedication ||
         editingMedicationId) && (
@@ -837,7 +1314,9 @@ export default function MedicalPage() {
               onClick={() => {
                 setShowAddMedication(false);
                 setEditingMedicationId(null);
-                setDraft(emptyMedicationDraft());
+                setDraft(
+                  emptyMedicationDraft()
+                );
               }}
               style={textButton}
             >
@@ -862,15 +1341,20 @@ export default function MedicalPage() {
             >
               <Field label="Medication Name *">
                 <input
-                  value={draft.medicationName}
-                  onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      medicationName: e.target.value,
-                    }))
+                  value={
+                    draft.medicationName
                   }
-                  style={inputStyle}
+                  onChange={(e) =>
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        medicationName:
+                          e.target.value,
+                      })
+                    )
+                  }
                   required
+                  style={inputStyle}
                 />
               </Field>
 
@@ -878,38 +1362,50 @@ export default function MedicalPage() {
                 <input
                   value={draft.dosage}
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      dosage: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        dosage:
+                          e.target.value,
+                      })
+                    )
                   }
-                  placeholder="Example: 25 mg"
                   style={inputStyle}
                 />
               </Field>
 
               <Field label="Frequency">
                 <input
-                  value={draft.frequency}
-                  onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      frequency: e.target.value,
-                    }))
+                  value={
+                    draft.frequency
                   }
-                  placeholder="Example: Twice daily"
+                  onChange={(e) =>
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        frequency:
+                          e.target.value,
+                      })
+                    )
+                  }
+                  placeholder="Example: Daily or every 12 hours"
                   style={inputStyle}
                 />
               </Field>
 
               <Field label="Prescribing Vet">
                 <input
-                  value={draft.prescribingVet}
+                  value={
+                    draft.prescribingVet
+                  }
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      prescribingVet: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        prescribingVet:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
@@ -917,12 +1413,17 @@ export default function MedicalPage() {
 
               <Field label="Pharmacy">
                 <input
-                  value={draft.pharmacy}
+                  value={
+                    draft.pharmacy
+                  }
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      pharmacy: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        pharmacy:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
@@ -931,12 +1432,17 @@ export default function MedicalPage() {
               <Field label="Start Date / Time">
                 <input
                   type="datetime-local"
-                  value={draft.startedAt}
+                  value={
+                    draft.startedAt
+                  }
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      startedAt: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        startedAt:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
@@ -945,12 +1451,17 @@ export default function MedicalPage() {
               <Field label="End Date / Time">
                 <input
                   type="datetime-local"
-                  value={draft.endedAt}
+                  value={
+                    draft.endedAt
+                  }
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      endedAt: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        endedAt:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
@@ -959,12 +1470,17 @@ export default function MedicalPage() {
               <Field label="Next Due">
                 <input
                   type="datetime-local"
-                  value={draft.nextDueAt}
+                  value={
+                    draft.nextDueAt
+                  }
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      nextDueAt: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        nextDueAt:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
@@ -975,12 +1491,17 @@ export default function MedicalPage() {
               <Field label="Instructions">
                 <textarea
                   rows={3}
-                  value={draft.instructions}
+                  value={
+                    draft.instructions
+                  }
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      instructions: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        instructions:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
@@ -993,53 +1514,31 @@ export default function MedicalPage() {
                   rows={3}
                   value={draft.notes}
                   onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      notes: e.target.value,
-                    }))
+                    setDraft(
+                      (current) => ({
+                        ...current,
+                        notes:
+                          e.target.value,
+                      })
+                    )
                   }
                   style={inputStyle}
                 />
               </Field>
             </div>
 
-            {editingMedicationId && (
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  marginTop: 14,
-                  fontSize: 13,
-                  color: "#4F4D49",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={draft.active}
-                  onChange={(e) =>
-                    setDraft((current) => ({
-                      ...current,
-                      active: e.target.checked,
-                    }))
-                  }
-                />
-
-                Active medication
-              </label>
-            )}
-
             <div
               style={{
                 display: "flex",
                 gap: 9,
                 marginTop: 16,
-                flexWrap: "wrap",
               }}
             >
               <button
                 type="submit"
-                disabled={savingMedication}
+                disabled={
+                  savingMedication
+                }
                 style={primaryButton}
               >
                 {savingMedication
@@ -1051,13 +1550,11 @@ export default function MedicalPage() {
 
               <button
                 type="button"
-                disabled={savingMedication}
+                style={secondaryButton}
                 onClick={() => {
                   setShowAddMedication(false);
                   setEditingMedicationId(null);
-                  setDraft(emptyMedicationDraft());
                 }}
-                style={secondaryButton}
               >
                 Cancel
               </button>
@@ -1066,9 +1563,15 @@ export default function MedicalPage() {
         </section>
       )}
 
-      {/* ACTIVE MEDICATIONS */}
+      {/* ===============================================
+          ACTIVE MEDICATIONS
+      ================================================ */}
 
-      <section style={{ marginBottom: 26 }}>
+      <section
+        style={{
+          marginBottom: 26,
+        }}
+      >
         <div style={sectionHeading}>
           <h2 style={sectionTitleStyle}>
             Active Medications
@@ -1091,22 +1594,42 @@ export default function MedicalPage() {
             gap: 10,
           }}
         >
-          {activeMedications.map((medication) => (
-            <MedicationCard
-              key={medication.id}
-              medication={medication}
-              onEdit={beginEditMedication}
-              onArchive={() =>
-                setMedicationActive(medication, false)
-              }
-            />
-          ))}
+          {activeMedications.map(
+            (medication) => (
+              <MedicationCard
+                key={
+                  medication.id
+                }
+                medication={
+                  medication
+                }
+                onDose={
+                  beginDose
+                }
+                onEdit={
+                  beginEditMedication
+                }
+                onArchive={() =>
+                  setMedicationActive(
+                    medication,
+                    false
+                  )
+                }
+              />
+            )
+          )}
         </div>
       </section>
 
-      {/* VETERINARY RECORDS */}
+      {/* ===============================================
+          VETERINARY RECORDS
+      ================================================ */}
 
-      <section style={{ marginBottom: 26 }}>
+      <section
+        style={{
+          marginBottom: 26,
+        }}
+      >
         <div style={sectionHeading}>
           <div>
             <h2 style={sectionTitleStyle}>
@@ -1136,17 +1659,27 @@ export default function MedicalPage() {
             gap: 9,
           }}
         >
-          {documents.map((document) => (
-            <MedicalDocumentCard
-              key={document.id}
-              document={document}
-              animalId={animalId}
-            />
-          ))}
+          {documents.map(
+            (document) => (
+              <MedicalDocumentCard
+                key={
+                  document.id
+                }
+                document={
+                  document
+                }
+                animalId={
+                  animalId
+                }
+              />
+            )
+          )}
         </div>
       </section>
 
-      {/* MEDICATION HISTORY */}
+      {/* ===============================================
+          MEDICATION HISTORY
+      ================================================ */}
 
       <section>
         <div style={sectionHeading}>
@@ -1171,161 +1704,80 @@ export default function MedicalPage() {
             gap: 10,
           }}
         >
-          {medicationHistory.map((medication) => (
-            <MedicationCard
-              key={medication.id}
-              medication={medication}
-              onEdit={beginEditMedication}
-              onReactivate={() =>
-                setMedicationActive(medication, true)
-              }
-            />
-          ))}
+          {medicationHistory.map(
+            (medication) => (
+              <MedicationCard
+                key={
+                  medication.id
+                }
+                medication={
+                  medication
+                }
+                onEdit={
+                  beginEditMedication
+                }
+                onReactivate={() =>
+                  setMedicationActive(
+                    medication,
+                    true
+                  )
+                }
+              />
+            )
+          )}
         </div>
       </section>
     </section>
   );
 }
 
-function MedicalDocumentCard({
-  document,
-  animalId,
-}: {
-  document: MedicalDocument;
-  animalId: string;
-}) {
-  const typeLabel =
-    document.document_type
-      ? formatDocumentType(document.document_type)
-      : "Veterinary Record";
-
-  return (
-    <article
-      style={{
-        background: "#fff",
-        border: "1px solid #E7E5E1",
-        borderRadius: 9,
-        padding: 14,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 14,
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-        }}
-      >
-        <div
-          style={{
-            flex: 1,
-            minWidth: 200,
-          }}
-        >
-          <strong
-            style={{
-              display: "block",
-              color: "#17233C",
-              fontSize: 14.5,
-            }}
-          >
-            {document.title}
-          </strong>
-
-          <div
-            style={{
-              marginTop: 4,
-              color: "#6B6862",
-              fontSize: 12.5,
-            }}
-          >
-            {[
-              typeLabel,
-              document.veterinary_provider,
-              document.record_date
-                ? formatDate(document.record_date)
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </div>
-
-          <div
-            style={{
-              marginTop: 5,
-              color: "#8A8782",
-              fontSize: 11.5,
-            }}
-          >
-            {document.original_filename}
-
-            {document.file_size != null
-              ? ` · ${formatFileSize(
-                  Number(document.file_size)
-                )}`
-              : ""}
-          </div>
-
-          {document.notes && (
-            <p
-              style={{
-                margin: "8px 0 0",
-                color: "#4F4D49",
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
-              {document.notes}
-            </p>
-          )}
-        </div>
-
-        <a
-          href={`/api/animals/${encodeURIComponent(
-            animalId
-          )}/medical-documents/${encodeURIComponent(
-            document.id
-          )}`}
-          target="_blank"
-          rel="noreferrer"
-          style={secondaryLink}
-        >
-          Open Record
-        </a>
-      </div>
-    </article>
-  );
-}
+/* =========================================================
+   MEDICATION CARD
+========================================================= */
 
 function MedicationCard({
   medication,
+  onDose,
   onEdit,
   onArchive,
   onReactivate,
 }: {
   medication: Medication;
-  onEdit: (medication: Medication) => void;
+
+  onDose?: (
+    medication: Medication
+  ) => void;
+
+  onEdit: (
+    medication: Medication
+  ) => void;
+
   onArchive?: () => void;
   onReactivate?: () => void;
 }) {
-  const overdue = Boolean(
-    medication.active &&
-      medication.next_due_at &&
-      new Date(medication.next_due_at).getTime() <
-        Date.now()
-  );
+  const overdue =
+    Boolean(
+      medication.active &&
+        medication.next_due_at &&
+        new Date(
+          medication.next_due_at
+        ).getTime() <
+          Date.now()
+    );
 
   return (
     <article
       style={{
         background: "#fff",
+
         border: overdue
           ? "1px solid #E6C3BD"
           : "1px solid #E7E5E1",
+
         borderLeft: overdue
           ? "5px solid #B23B2E"
           : "5px solid #2B5C8A",
+
         borderRadius: 9,
         padding: 15,
       }}
@@ -1333,9 +1785,11 @@ function MedicationCard({
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent:
+            "space-between",
           gap: 14,
-          alignItems: "flex-start",
+          alignItems:
+            "flex-start",
           flexWrap: "wrap",
         }}
       >
@@ -1351,7 +1805,9 @@ function MedicationCard({
               fontSize: 15,
             }}
           >
-            {medication.medication_name}
+            {
+              medication.medication_name
+            }
           </strong>
 
           <div
@@ -1375,30 +1831,40 @@ function MedicationCard({
               style={{
                 fontSize: 12.5,
                 marginTop: 7,
+
                 color: overdue
                   ? "#B23B2E"
                   : "#4F4D49",
-                fontWeight: overdue ? 700 : 500,
+
+                fontWeight: overdue
+                  ? 700
+                  : 500,
               }}
             >
               {overdue
                 ? "Overdue · "
                 : "Next due · "}
 
-              {formatDateTime(medication.next_due_at)}
+              {formatDateTime(
+                medication.next_due_at
+              )}
             </div>
           )}
 
           {medication.instructions && (
             <p
               style={{
-                margin: "8px 0 0",
-                color: "#4F4D49",
+                margin:
+                  "8px 0 0",
+                color:
+                  "#4F4D49",
                 fontSize: 13,
                 lineHeight: 1.5,
               }}
             >
-              {medication.instructions}
+              {
+                medication.instructions
+              }
             </p>
           )}
         </div>
@@ -1410,10 +1876,32 @@ function MedicationCard({
             flexWrap: "wrap",
           }}
         >
+          {onDose && (
+            <button
+              type="button"
+              onClick={() =>
+                onDose(
+                  medication
+                )
+              }
+              style={
+                doseButton
+              }
+            >
+              Dose Given
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={() => onEdit(medication)}
-            style={secondaryButton}
+            onClick={() =>
+              onEdit(
+                medication
+              )
+            }
+            style={
+              secondaryButton
+            }
           >
             Open / Edit
           </button>
@@ -1421,8 +1909,12 @@ function MedicationCard({
           {onArchive && (
             <button
               type="button"
-              onClick={onArchive}
-              style={textButton}
+              onClick={
+                onArchive
+              }
+              style={
+                textButton
+              }
             >
               Move to History
             </button>
@@ -1431,8 +1923,12 @@ function MedicationCard({
           {onReactivate && (
             <button
               type="button"
-              onClick={onReactivate}
-              style={textButton}
+              onClick={
+                onReactivate
+              }
+              style={
+                textButton
+              }
             >
               Reactivate
             </button>
@@ -1443,12 +1939,123 @@ function MedicationCard({
   );
 }
 
+/* =========================================================
+   DOCUMENT CARD
+========================================================= */
+
+function MedicalDocumentCard({
+  document,
+  animalId,
+}: {
+  document: MedicalDocument;
+  animalId: string;
+}) {
+  return (
+    <article
+      style={{
+        background: "#fff",
+        border:
+          "1px solid #E7E5E1",
+        borderRadius: 9,
+        padding: 14,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          gap: 14,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <strong
+            style={{
+              color: "#17233C",
+            }}
+          >
+            {document.title}
+          </strong>
+
+          <div
+            style={{
+              marginTop: 4,
+              color: "#6B6862",
+              fontSize: 12.5,
+            }}
+          >
+            {[
+              document.document_type
+                ? formatDocumentType(
+                    document.document_type
+                  )
+                : "Veterinary Record",
+
+              document.veterinary_provider,
+
+              document.record_date
+                ? formatDate(
+                    document.record_date
+                  )
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+
+          <div
+            style={{
+              marginTop: 5,
+              fontSize: 11.5,
+              color: "#8A8782",
+            }}
+          >
+            {
+              document.original_filename
+            }
+
+            {document.file_size !=
+            null
+              ? ` · ${formatFileSize(
+                  Number(
+                    document.file_size
+                  )
+                )}`
+              : ""}
+          </div>
+        </div>
+
+        <a
+          href={`/api/animals/${encodeURIComponent(
+            animalId
+          )}/medical-documents/${encodeURIComponent(
+            document.id
+          )}`}
+          target="_blank"
+          rel="noreferrer"
+          style={
+            secondaryLink
+          }
+        >
+          Open Record
+        </a>
+      </div>
+    </article>
+  );
+}
+
+/* =========================================================
+   SMALL COMPONENTS
+========================================================= */
+
 function Field({
   label,
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children:
+    React.ReactNode;
 }) {
   return (
     <div>
@@ -1458,8 +2065,10 @@ function Field({
           fontSize: 11.5,
           color: "#6B6862",
           fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: ".04em",
+          textTransform:
+            "uppercase",
+          letterSpacing:
+            ".04em",
           marginBottom: 5,
         }}
       >
@@ -1475,8 +2084,11 @@ function Notice({
   type,
   children,
 }: {
-  type: "success" | "error";
-  children: React.ReactNode;
+  type:
+    | "success"
+    | "error";
+  children:
+    React.ReactNode;
 }) {
   const success =
     type === "success";
@@ -1484,15 +2096,21 @@ function Notice({
   return (
     <div
       style={{
-        background: success
-          ? "#EEF4F0"
-          : "#FFF4F2",
-        border: success
-          ? "1px solid #C9DDD1"
-          : "1px solid #F3C7BF",
-        color: success
-          ? "#2F6F4E"
-          : "#B23B2E",
+        background:
+          success
+            ? "#EEF4F0"
+            : "#FFF4F2",
+
+        border:
+          success
+            ? "1px solid #C9DDD1"
+            : "1px solid #F3C7BF",
+
+        color:
+          success
+            ? "#2F6F4E"
+            : "#B23B2E",
+
         borderRadius: 8,
         padding: 11,
         marginBottom: 16,
@@ -1507,13 +2125,15 @@ function Notice({
 function EmptyState({
   children,
 }: {
-  children: React.ReactNode;
+  children:
+    React.ReactNode;
 }) {
   return (
     <div
       style={{
         background: "#fff",
-        border: "1px dashed #D8D6D2",
+        border:
+          "1px dashed #D8D6D2",
         borderRadius: 8,
         padding: 18,
         color: "#6B6862",
@@ -1523,6 +2143,35 @@ function EmptyState({
       {children}
     </div>
   );
+}
+
+/* =========================================================
+   DEFAULTS / HELPERS
+========================================================= */
+
+function emptyDoseDraft(): DoseDraft {
+  return {
+    administeredAt:
+      currentLocalDateTime(),
+
+    doseGiven: "",
+    notes: "",
+  };
+}
+
+function currentLocalDateTime() {
+  const now =
+    new Date();
+
+  const offset =
+    now.getTimezoneOffset();
+
+  return new Date(
+    now.getTime() -
+      offset * 60000
+  )
+    .toISOString()
+    .slice(0, 16);
 }
 
 function emptyMedicationDraft(): MedicationDraft {
@@ -1559,24 +2208,13 @@ function toLocalInputValue(
   const date =
     new Date(value);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
   const offset =
     date.getTimezoneOffset();
 
-  const local =
-    new Date(
-      date.getTime() -
-        offset * 60000
-    );
-
-  return local
+  return new Date(
+    date.getTime() -
+      offset * 60000
+  )
     .toISOString()
     .slice(0, 16);
 }
@@ -1610,48 +2248,9 @@ function formatDateTime(
 function formatDate(
   value: string
 ) {
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return value;
-  }
-
-  return date.toLocaleDateString(
-    [],
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }
-  );
-}
-
-function formatFileSize(
-  bytes: number
-) {
-  if (!Number.isFinite(bytes)) {
-    return "";
-  }
-
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(
-      bytes / 1024
-    ).toFixed(1)} KB`;
-  }
-
-  return `${(
-    bytes /
-    (1024 * 1024)
-  ).toFixed(1)} MB`;
+  return new Date(
+    value
+  ).toLocaleDateString();
 }
 
 function formatDocumentType(
@@ -1666,11 +2265,68 @@ function formatDocumentType(
     );
 }
 
+function formatFileSize(
+  bytes: number
+) {
+  if (
+    bytes <
+    1024 * 1024
+  ) {
+    return `${(
+      bytes / 1024
+    ).toFixed(1)} KB`;
+  }
+
+  return `${(
+    bytes /
+    (1024 * 1024)
+  ).toFixed(1)} MB`;
+}
+
+/* =========================================================
+   STYLES
+========================================================= */
+
+const panelStyle:
+  React.CSSProperties = {
+    background: "#fff",
+    border:
+      "1px solid #E7E5E1",
+    borderRadius: 10,
+    padding: 18,
+    marginBottom: 22,
+  };
+
+const panelHeaderStyle:
+  React.CSSProperties = {
+    display: "flex",
+    justifyContent:
+      "space-between",
+    gap: 12,
+    marginBottom: 16,
+  };
+
+const panelTitleStyle:
+  React.CSSProperties = {
+    margin: 0,
+    color: "#17233C",
+    fontSize: 18,
+  };
+
+const panelDescriptionStyle:
+  React.CSSProperties = {
+    margin: "5px 0 0",
+    color: "#6B6862",
+    fontSize: 13,
+  };
+
 const sectionHeading:
   React.CSSProperties = {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    justifyContent:
+      "space-between",
+    alignItems:
+      "flex-start",
     gap: 12,
     marginBottom: 10,
   };
@@ -1695,62 +2351,25 @@ const smallDescriptionStyle:
     fontSize: 12.5,
   };
 
-const panelStyle:
-  React.CSSProperties = {
-    background: "#fff",
-    border: "1px solid #E7E5E1",
-    borderRadius: 10,
-    padding: 18,
-    marginBottom: 22,
-  };
-
-const panelHeaderStyle:
-  React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 16,
-  };
-
-const panelTitleStyle:
-  React.CSSProperties = {
-    margin: 0,
-    color: "#17233C",
-    fontSize: 18,
-  };
-
-const panelDescriptionStyle:
-  React.CSSProperties = {
-    margin: "5px 0 0",
-    color: "#6B6862",
-    fontSize: 13,
-    lineHeight: 1.5,
-    maxWidth: 650,
-  };
-
 const inputStyle:
   React.CSSProperties = {
     width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #D8D6D2",
+    boxSizing:
+      "border-box",
+    border:
+      "1px solid #D8D6D2",
     borderRadius: 7,
     padding: 9,
-    fontFamily: "inherit",
+    fontFamily:
+      "inherit",
     fontSize: 13.5,
-    color: "#1C1B19",
-    background: "#fff",
   };
 
 const fileInputStyle:
   React.CSSProperties = {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid #D8D6D2",
-    borderRadius: 7,
-    padding: 10,
-    background: "#FAFAF9",
-    fontFamily: "inherit",
+    ...inputStyle,
+    background:
+      "#FAFAF9",
   };
 
 const helpTextStyle:
@@ -1768,15 +2387,14 @@ const primaryButton:
     borderRadius: 7,
     padding: "9px 14px",
     fontWeight: 700,
-    fontSize: 13,
     cursor: "pointer",
   };
 
-const secondaryButton:
+const doseButton:
   React.CSSProperties = {
-    background: "#fff",
-    color: "#17233C",
-    border: "1px solid #D8D6D2",
+    background: "#2F6F4E",
+    color: "#fff",
+    border: "none",
     borderRadius: 7,
     padding: "8px 11px",
     fontWeight: 700,
@@ -1784,21 +2402,31 @@ const secondaryButton:
     cursor: "pointer",
   };
 
+const secondaryButton:
+  React.CSSProperties = {
+    background: "#fff",
+    color: "#17233C",
+    border:
+      "1px solid #D8D6D2",
+    borderRadius: 7,
+    padding: "8px 11px",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+
 const secondaryLink:
   React.CSSProperties = {
     ...secondaryButton,
-    display: "inline-block",
     textDecoration: "none",
   };
 
 const textButton:
   React.CSSProperties = {
-    background: "transparent",
+    background:
+      "transparent",
     color: "#6B6862",
     border: "none",
-    padding: "8px 6px",
-    fontWeight: 600,
-    fontSize: 12.5,
+    padding: "8px",
     cursor: "pointer",
   };
 
