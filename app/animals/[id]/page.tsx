@@ -1395,6 +1395,26 @@ export default function AnimalRecordPage() {
                     Cat
                   </option>
 
+                  <option value="Rabbit">
+                    Rabbit
+                  </option>
+
+                  <option value="Bird">
+                    Bird
+                  </option>
+
+                  <option value="Equine">
+                    Equine
+                  </option>
+
+                  <option value="Farm Animal">
+                    Farm Animal
+                  </option>
+
+                  <option value="Wildlife">
+                    Wildlife
+                  </option>
+
                   <option value="Other">
                     Other
                   </option>
@@ -1460,31 +1480,149 @@ export default function AnimalRecordPage() {
                 </select>
               </div>
 
-              <EditField
-                label="Placement"
-                value={
-                  overviewDraft.placement
-                }
-                onChange={(value) =>
-                  updateOverviewField(
-                    "placement",
-                    value
-                  )
-                }
-              />
+              <div>
+                <FieldHeading>
+                  Placement
+                </FieldHeading>
 
-              <EditField
-                label="Urgency"
-                value={
-                  overviewDraft.urgency
-                }
-                onChange={(value) =>
-                  updateOverviewField(
-                    "urgency",
-                    value
-                  )
-                }
-              />
+                <select
+                  value={
+                    overviewDraft.placement
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "placement",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                >
+                  <option value="">
+                    Not recorded
+                  </option>
+
+                  <option value="in_foster">
+                    In Foster
+                  </option>
+
+                  <option value="in_facility">
+                    In Facility
+                  </option>
+
+                  <option value="medical_hold">
+                    Medical Hold
+                  </option>
+
+                  <option value="adoption_ready">
+                    Adoption Ready
+                  </option>
+
+                  <option value="adoption_pending">
+                    Adoption Pending
+                  </option>
+
+                  <option value="temporary_care">
+                    Temporary Care
+                  </option>
+
+                  <option value="other">
+                    Other
+                  </option>
+
+                  {overviewDraft.placement &&
+                  ![
+                    "in_foster",
+                    "in_facility",
+                    "medical_hold",
+                    "adoption_ready",
+                    "adoption_pending",
+                    "temporary_care",
+                    "other",
+                  ].includes(
+                    overviewDraft.placement
+                  ) ? (
+                    <option
+                      value={
+                        overviewDraft.placement
+                      }
+                    >
+                      Current:{" "}
+                      {formatValue(
+                        overviewDraft.placement
+                      )}
+                    </option>
+                  ) : null}
+                </select>
+              </div>
+
+              <div>
+                <FieldHeading>
+                  Urgency
+                </FieldHeading>
+
+                <select
+                  value={
+                    overviewDraft.urgency
+                  }
+                  onChange={(e) =>
+                    updateOverviewField(
+                      "urgency",
+                      e.target.value
+                    )
+                  }
+                  style={
+                    inputStyle
+                  }
+                >
+                  <option value="">
+                    Not recorded
+                  </option>
+
+                  <option value="normal">
+                    Normal
+                  </option>
+
+                  <option value="monitor">
+                    Monitor
+                  </option>
+
+                  <option value="priority">
+                    Priority
+                  </option>
+
+                  <option value="urgent">
+                    Urgent
+                  </option>
+
+                  <option value="critical">
+                    Critical
+                  </option>
+
+                  {overviewDraft.urgency &&
+                  ![
+                    "normal",
+                    "monitor",
+                    "priority",
+                    "urgent",
+                    "critical",
+                  ].includes(
+                    overviewDraft.urgency
+                  ) ? (
+                    <option
+                      value={
+                        overviewDraft.urgency
+                      }
+                    >
+                      Current:{" "}
+                      {formatValue(
+                        overviewDraft.urgency
+                      )}
+                    </option>
+                  ) : null}
+                </select>
+              </div>
 
               <div>
                 <FieldHeading>
