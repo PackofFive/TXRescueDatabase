@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  useParams,
-} from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 
 type OutcomeType =
   | "adopted"
@@ -50,17 +44,47 @@ type OutcomeDraft = {
   notes: string;
 };
 
-const OUTCOMES = [
-  ["adopted", "Adopted"],
-  ["transferred", "Transferred"],
-  ["returned_to_owner", "Returned to Owner"],
-  ["returned_to_shelter", "Returned to Shelter"],
-  ["released", "Released"],
-  ["escaped_missing", "Escaped / Missing"],
-  ["died", "Died"],
-  ["euthanized", "Euthanized"],
-  ["other", "Other"],
-] as const;
+const OUTCOMES: Array<{
+  value: OutcomeType;
+  label: string;
+}> = [
+  {
+    value: "adopted",
+    label: "Adopted",
+  },
+  {
+    value: "transferred",
+    label: "Transferred",
+  },
+  {
+    value: "returned_to_owner",
+    label: "Returned to Owner",
+  },
+  {
+    value: "returned_to_shelter",
+    label: "Returned to Shelter",
+  },
+  {
+    value: "released",
+    label: "Released",
+  },
+  {
+    value: "escaped_missing",
+    label: "Escaped / Missing",
+  },
+  {
+    value: "died",
+    label: "Died",
+  },
+  {
+    value: "euthanized",
+    label: "Euthanized",
+  },
+  {
+    value: "other",
+    label: "Other",
+  },
+];
 
 export default function OutcomePage() {
   const params = useParams();
@@ -137,7 +161,7 @@ export default function OutcomePage() {
       return;
     }
 
-    loadOutcome();
+    void loadOutcome();
   }, [animalId]);
 
   async function loadOutcome() {
@@ -167,29 +191,33 @@ export default function OutcomePage() {
         );
       }
 
-      const loaded =
-        data.outcome ??
-        null;
+      const loadedOutcome =
+        (data.outcome ??
+          null) as
+          | OutcomeRecord
+          | null;
 
       setAnimal(
-        data.animal ??
-          null
+        (data.animal ??
+          null) as
+          | AnimalSummary
+          | null
       );
 
       setOutcome(
-        loaded
+        loadedOutcome
       );
 
       setDraft(
-        loaded
+        loadedOutcome
           ? outcomeToDraft(
-              loaded
+              loadedOutcome
             )
           : emptyDraft()
       );
 
       setEditing(
-        !loaded
+        !loadedOutcome
       );
     } catch (err) {
       setError(
@@ -202,9 +230,11 @@ export default function OutcomePage() {
     }
   }
 
-  function updateDraft(
-    key: keyof OutcomeDraft,
-    value: string
+  function updateDraft<
+    K extends keyof OutcomeDraft
+  >(
+    key: K,
+    value: OutcomeDraft[K]
   ) {
     setDraft(
       (current) => ({
@@ -345,10 +375,13 @@ export default function OutcomePage() {
       }
 
       setOutcome(null);
+
       setDraft(
         emptyDraft()
       );
+
       setEditing(true);
+
       setMessage(
         "Animal reopened."
       );
@@ -364,7 +397,11 @@ export default function OutcomePage() {
   }
 
   if (loading) {
-    return <p>Loading…</p>;
+    return (
+      <p>
+        Loading…
+      </p>
+    );
   }
 
   const displayName =
@@ -388,64 +425,34 @@ export default function OutcomePage() {
       </a>
 
       <div
-        style={{
-          display: "flex",
-          justifyContent:
-            "space-between",
-          gap: 16,
-          alignItems:
-            "flex-start",
-          flexWrap: "wrap",
-          margin:
-            "14px 0 20px",
-        }}
+        style={headerRow}
       >
         <div>
           <p
-            style={{
-              margin: 0,
-              fontSize: 11.5,
-              fontWeight: 800,
-              letterSpacing:
-                ".08em",
-              color:
-                "#6B6862",
-              textTransform:
-                "uppercase",
-            }}
+            style={eyebrow}
           >
             Private Animal File
           </p>
 
           <h1
-            style={{
-              margin:
-                "5px 0 6px",
-              fontSize: 28,
-              color:
-                "#17233C",
-            }}
+            style={pageTitle}
           >
             Outcome
           </h1>
 
           <p
-            style={{
-              margin: 0,
-              color:
-                "#6B6862",
-              fontSize: 13.5,
-              lineHeight: 1.5,
-            }}
+            style={
+              pageDescription
+            }
           >
-            Record the final or closing
-            disposition for{" "}
-            {displayName}.
+            Record the final or
+            closing disposition
+            for {displayName}.
           </p>
         </div>
 
         {outcome &&
-          !editing && (
+        !editing ? (
           <button
             type="button"
             onClick={() => {
@@ -456,6 +463,9 @@ export default function OutcomePage() {
               );
 
               setEditing(true);
+
+              setError(null);
+              setMessage(null);
             }}
             style={
               secondaryButton
@@ -463,22 +473,22 @@ export default function OutcomePage() {
           >
             Edit Outcome
           </button>
-        )}
+        ) : null}
       </div>
 
-      {error && (
+      {error ? (
         <Notice
           error
         >
           {error}
         </Notice>
-      )}
+      ) : null}
 
-      {message && (
+      {message ? (
         <Notice>
           {message}
         </Notice>
-      )}
+      ) : null}
 
       {outcome &&
       !editing ? (
@@ -500,6 +510,7 @@ export default function OutcomePage() {
               style={{
                 margin:
                   "10px 0 4px",
+
                 color:
                   "#17233C",
               }}
@@ -513,8 +524,12 @@ export default function OutcomePage() {
               style={{
                 color:
                   "#6B6862",
-                fontSize: 13,
-                marginBottom: 16,
+
+                fontSize:
+                  13,
+
+                marginBottom:
+                  16,
               }}
             >
               {formatDate(
@@ -522,76 +537,69 @@ export default function OutcomePage() {
               )}
             </div>
 
-            {outcome.destination_org_name && (
+            {outcome.destination_org_name ? (
               <InfoRow
                 label="Destination organization"
                 value={
                   outcome.destination_org_name
                 }
               />
-            )}
+            ) : null}
 
-            {outcome.destination_name && (
+            {outcome.destination_name ? (
               <InfoRow
                 label="Destination / person"
                 value={
                   outcome.destination_name
                 }
               />
-            )}
+            ) : null}
 
-            {outcome.destination_contact && (
+            {outcome.destination_contact ? (
               <InfoRow
                 label="Destination contact"
                 value={
                   outcome.destination_contact
                 }
               />
-            )}
+            ) : null}
 
-            {outcome.reason && (
+            {outcome.reason ? (
               <LongValue
                 label="Reason"
                 value={
                   outcome.reason
                 }
               />
-            )}
+            ) : null}
 
-            {outcome.notes && (
+            {outcome.notes ? (
               <LongValue
                 label="Private notes"
                 value={
                   outcome.notes
                 }
               />
-            )}
+            ) : null}
 
-            {outcome.recorded_by_email && (
+            {outcome.recorded_by_email ? (
               <div
-                style={{
-                  marginTop: 14,
-                  color:
-                    "#8A8782",
-                  fontSize: 11.5,
-                }}
+                style={
+                  recordedByStyle
+                }
               >
                 Recorded by{" "}
                 {
                   outcome.recorded_by_email
                 }
               </div>
-            )}
+            ) : null}
           </section>
 
           <section
-            style={{
-              ...panelStyle,
-              background:
-                "#FFFDF8",
-              border:
-                "1px solid #E7D2B4",
-            }}
+            style={
+              reopenPanelStyle
+            }
           >
             <strong
               style={{
@@ -603,16 +611,15 @@ export default function OutcomePage() {
             </strong>
 
             <p
-              style={{
-                color:
-                  "#6B6862",
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
+              style={
+                reopenHelpStyle
+              }
             >
-              Use this if the outcome was
-              entered incorrectly or the
-              animal returns to active care.
+              Use this if the
+              outcome was entered
+              incorrectly or the
+              animal returns to
+              active care.
             </p>
 
             <button
@@ -654,7 +661,9 @@ export default function OutcomePage() {
                 onChange={(e) =>
                   updateDraft(
                     "outcomeType",
-                    e.target.value
+
+                    e.target
+                      .value as OutcomeDraft["outcomeType"]
                   )
                 }
                 style={
@@ -666,19 +675,18 @@ export default function OutcomePage() {
                 </option>
 
                 {OUTCOMES.map(
-                  ([
-                    value,
-                    label,
-                  ]) => (
+                  (option) => (
                     <option
                       key={
-                        value
+                        option.value
                       }
                       value={
-                        value
+                        option.value
                       }
                     >
-                      {label}
+                      {
+                        option.label
+                      }
                     </option>
                   )
                 )}
@@ -745,4 +753,606 @@ export default function OutcomePage() {
           </div>
 
           {draft.outcomeType ===
-           
+          "transferred" ? (
+            <div
+              style={{
+                marginTop: 12,
+              }}
+            >
+              <Field
+                label="Destination Organization ID"
+              >
+                <input
+                  value={
+                    draft.destinationOrgId
+                  }
+                  onChange={(e) =>
+                    updateDraft(
+                      "destinationOrgId",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Optional"
+                  style={
+                    inputStyle
+                  }
+                />
+              </Field>
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              marginTop: 12,
+            }}
+          >
+            <Field
+              label="Reason"
+            >
+              <textarea
+                rows={3}
+                value={
+                  draft.reason
+                }
+                onChange={(e) =>
+                  updateDraft(
+                    "reason",
+                    e.target.value
+                  )
+                }
+                style={
+                  inputStyle
+                }
+              />
+            </Field>
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+            }}
+          >
+            <Field
+              label="Private Outcome Notes"
+            >
+              <textarea
+                rows={4}
+                value={
+                  draft.notes
+                }
+                onChange={(e) =>
+                  updateDraft(
+                    "notes",
+                    e.target.value
+                  )
+                }
+                style={
+                  inputStyle
+                }
+              />
+            </Field>
+          </div>
+
+          <div
+            style={
+              formActions
+            }
+          >
+            <button
+              type="button"
+              disabled={
+                saving
+              }
+              onClick={
+                saveOutcome
+              }
+              style={
+                primaryButton
+              }
+            >
+              {saving
+                ? "Saving…"
+                : outcome
+                ? "Save Changes"
+                : "Record Outcome"}
+            </button>
+
+            {outcome ? (
+              <button
+                type="button"
+                disabled={
+                  saving
+                }
+                onClick={() => {
+                  setDraft(
+                    outcomeToDraft(
+                      outcome
+                    )
+                  );
+
+                  setEditing(
+                    false
+                  );
+
+                  setError(
+                    null
+                  );
+                }}
+                style={
+                  secondaryButton
+                }
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function emptyDraft():
+  OutcomeDraft {
+  const now =
+    new Date();
+
+  const date =
+    `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    )}-${String(
+      now.getDate()
+    ).padStart(
+      2,
+      "0"
+    )}`;
+
+  return {
+    outcomeType: "",
+    outcomeDate: date,
+    destinationName: "",
+    destinationContact: "",
+    destinationOrgId: "",
+    reason: "",
+    notes: "",
+  };
+}
+
+function outcomeToDraft(
+  outcome:
+    OutcomeRecord
+): OutcomeDraft {
+  return {
+    outcomeType:
+      outcome.outcome_type,
+
+    outcomeDate:
+      String(
+        outcome.outcome_date
+      ).slice(
+        0,
+        10
+      ),
+
+    destinationName:
+      outcome.destination_name ??
+      "",
+
+    destinationContact:
+      outcome.destination_contact ??
+      "",
+
+    destinationOrgId:
+      outcome.destination_org_id ??
+      "",
+
+    reason:
+      outcome.reason ??
+      "",
+
+    notes:
+      outcome.notes ??
+      "",
+  };
+}
+
+function outcomeLabel(
+  value: string
+) {
+  return (
+    OUTCOMES.find(
+      (option) =>
+        option.value ===
+        value
+    )?.label ??
+    value
+  );
+}
+
+function formatDate(
+  value: string
+) {
+  const date =
+    new Date(
+      `${String(
+        value
+      ).slice(
+        0,
+        10
+      )}T00:00:00`
+    );
+
+  return Number.isNaN(
+    date.getTime()
+  )
+    ? value
+    : date.toLocaleDateString();
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <label>
+      <span
+        style={
+          fieldLabelStyle
+        }
+      >
+        {label}
+      </span>
+
+      {children}
+    </label>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+
+  value: string;
+}) {
+  return (
+    <div
+      style={
+        infoRowStyle
+      }
+    >
+      <span
+        style={{
+          color:
+            "#6B6862",
+
+          fontSize:
+            12,
+        }}
+      >
+        {label}
+      </span>
+
+      <span
+        style={{
+          color:
+            "#1C1B19",
+
+          fontSize:
+            13.5,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function LongValue({
+  label,
+  value,
+}: {
+  label: string;
+
+  value: string;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 14,
+      }}
+    >
+      <strong
+        style={
+          longValueLabelStyle
+        }
+      >
+        {label}
+      </strong>
+
+      <div
+        style={
+          longValueTextStyle
+        }
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function Notice({
+  error = false,
+  children,
+}: {
+  error?: boolean;
+
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        padding: 11,
+        marginBottom: 14,
+        borderRadius: 8,
+
+        background:
+          error
+            ? "#FFF4F2"
+            : "#EEF4F0",
+
+        border:
+          error
+            ? "1px solid #F3C7BF"
+            : "1px solid #C9DDD1",
+
+        color:
+          error
+            ? "#B23B2E"
+            : "#2F6F4E",
+
+        fontSize: 13,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const backLink:
+  React.CSSProperties =
+{
+  color: "#52627A",
+  fontSize: 13,
+  fontWeight: 700,
+  textDecoration: "none",
+};
+
+const headerRow:
+  React.CSSProperties =
+{
+  display: "flex",
+  justifyContent:
+    "space-between",
+  gap: 16,
+  alignItems:
+    "flex-start",
+  flexWrap: "wrap",
+  margin:
+    "14px 0 20px",
+};
+
+const eyebrow:
+  React.CSSProperties =
+{
+  margin: 0,
+  fontSize: 11.5,
+  fontWeight: 800,
+  letterSpacing:
+    ".08em",
+  color: "#6B6862",
+  textTransform:
+    "uppercase",
+};
+
+const pageTitle:
+  React.CSSProperties =
+{
+  margin:
+    "5px 0 6px",
+  fontSize: 28,
+  color: "#17233C",
+};
+
+const pageDescription:
+  React.CSSProperties =
+{
+  margin: 0,
+  color: "#6B6862",
+  fontSize: 13.5,
+  lineHeight: 1.5,
+};
+
+const panelStyle:
+  React.CSSProperties =
+{
+  background: "#fff",
+  border:
+    "1px solid #E7E5E1",
+  borderRadius: 10,
+  padding: 18,
+  marginBottom: 16,
+};
+
+const reopenPanelStyle:
+  React.CSSProperties =
+{
+  ...panelStyle,
+
+  background:
+    "#FFFDF8",
+
+  border:
+    "1px solid #E7D2B4",
+};
+
+const reopenHelpStyle:
+  React.CSSProperties =
+{
+  color: "#6B6862",
+  fontSize: 13,
+  lineHeight: 1.5,
+};
+
+const recordedByStyle:
+  React.CSSProperties =
+{
+  marginTop: 14,
+  color: "#8A8782",
+  fontSize: 11.5,
+};
+
+const formGrid:
+  React.CSSProperties =
+{
+  display: "grid",
+
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(220px, 1fr))",
+
+  gap: 12,
+};
+
+const formActions:
+  React.CSSProperties =
+{
+  display: "flex",
+  gap: 9,
+  flexWrap: "wrap",
+  marginTop: 16,
+};
+
+const fieldLabelStyle:
+  React.CSSProperties =
+{
+  display: "block",
+  marginBottom: 5,
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#4F4D49",
+};
+
+const infoRowStyle:
+  React.CSSProperties =
+{
+  display: "grid",
+  gridTemplateColumns:
+    "170px 1fr",
+  gap: 12,
+  padding:
+    "8px 0",
+  borderBottom:
+    "1px solid #F0EFED",
+};
+
+const longValueLabelStyle:
+  React.CSSProperties =
+{
+  display: "block",
+  marginBottom: 4,
+  fontSize: 11,
+  color: "#77736D",
+  textTransform:
+    "uppercase",
+};
+
+const longValueTextStyle:
+  React.CSSProperties =
+{
+  whiteSpace:
+    "pre-wrap",
+  fontSize: 13.5,
+  lineHeight: 1.55,
+};
+
+const inputStyle:
+  React.CSSProperties =
+{
+  width: "100%",
+  boxSizing:
+    "border-box",
+  padding: 9,
+  border:
+    "1px solid #D8D6D2",
+  borderRadius: 7,
+  fontSize: 13,
+  fontFamily:
+    "inherit",
+};
+
+const primaryButton:
+  React.CSSProperties =
+{
+  background: "#17233C",
+  color: "#fff",
+  border: "none",
+  borderRadius: 7,
+  padding:
+    "9px 14px",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: "pointer",
+};
+
+const secondaryButton:
+  React.CSSProperties =
+{
+  background: "#fff",
+  color: "#17233C",
+  border:
+    "1px solid #D8D6D2",
+  borderRadius: 7,
+  padding:
+    "9px 14px",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: "pointer",
+};
+
+const reopenButton:
+  React.CSSProperties =
+{
+  ...secondaryButton,
+
+  color:
+    "#85571F",
+
+  border:
+    "1px solid #C58A42",
+};
+
+const outcomeBadge:
+  React.CSSProperties =
+{
+  display:
+    "inline-block",
+  borderRadius: 20,
+  padding:
+    "4px 8px",
+  fontSize: 11,
+  fontWeight: 800,
+  background:
+    "#EEF4F0",
+  color:
+    "#2F6F4E",
+};
