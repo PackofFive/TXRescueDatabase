@@ -8,5 +8,8 @@
       "binding": "MEDICAL_FILES",
       "bucket_name": "pack-of-five-medical"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI"
+  }
 }
