@@ -286,6 +286,12 @@ export default function QuickIntakePage() {
   const [custody, setCustody] =
     useState("rescue");
 
+  const [placement, setPlacement] =
+    useState("");
+
+  const [urgency, setUrgency] =
+    useState("normal");
+
   const [intakeDate, setIntakeDate] =
     useState(() =>
       new Date()
@@ -748,6 +754,8 @@ export default function QuickIntakePage() {
                 temporaryName,
                 source,
                 custody,
+                placement,
+                urgency,
                 intakeDate,
 
                 /*
@@ -1663,6 +1671,116 @@ export default function QuickIntakePage() {
               Other active responsibility
             </option>
           </select>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div>
+            <label
+              style={
+                labelStyle
+              }
+            >
+              Placement
+            </label>
+
+            <select
+              value={
+                placement
+              }
+              onChange={(e) =>
+                setPlacement(
+                  e.target.value
+                )
+              }
+              style={
+                inputStyle
+              }
+            >
+              <option value="">
+                Not recorded
+              </option>
+
+              <option value="in_foster">
+                In Foster
+              </option>
+
+              <option value="in_facility">
+                In Facility
+              </option>
+
+              <option value="medical_hold">
+                Medical Hold
+              </option>
+
+              <option value="adoption_ready">
+                Adoption Ready
+              </option>
+
+              <option value="adoption_pending">
+                Adoption Pending
+              </option>
+
+              <option value="temporary_care">
+                Temporary Care
+              </option>
+
+              <option value="other">
+                Other
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              style={
+                labelStyle
+              }
+            >
+              Urgency
+            </label>
+
+            <select
+              value={
+                urgency
+              }
+              onChange={(e) =>
+                setUrgency(
+                  e.target.value
+                )
+              }
+              style={
+                inputStyle
+              }
+            >
+              <option value="normal">
+                Normal
+              </option>
+
+              <option value="monitor">
+                Monitor
+              </option>
+
+              <option value="priority">
+                Priority
+              </option>
+
+              <option value="urgent">
+                Urgent
+              </option>
+
+              <option value="critical">
+                Critical
+              </option>
+            </select>
+          </div>
         </div>
 
         <div
