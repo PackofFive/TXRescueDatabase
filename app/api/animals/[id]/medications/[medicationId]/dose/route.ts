@@ -127,25 +127,33 @@ export async function POST(
         medication.frequency
       );
 
-    let nextDueAt:
-      | string
-      | null = null;
+    /*
+      If the schedule is recognized, the dose just given
+      becomes the new scheduling anchor.
 
-    if (
-      intervalHours !==
-      null
-    ) {
-      nextDueAt =
-        new Date(
-          administeredAt.getTime() +
-            intervalHours *
-              60 *
-              60 *
-              1000
-        ).toISOString();
-    }
+      Any old manually-entered next_due_at is deliberately
+      replaced.
 
-    const adminRows =
+      If the frequency cannot be interpreted safely,
+      preserve the existing next_due_at instead of clearing it.
+    */
+
+    const nextDueAt =
+      intervalHours !== null
+        ? new Date(
+            administeredAt.getTime() +
+              intervalHours *
+                60 *
+                60 *
+                1000
+          ).toISOString()
+        : medication.next_due_at
+        ? new Date(
+            medication.next_due_at
+          ).toISOString()
+        : null;
+
+    const administrationRows =
       await sql`
         insert into animal_medication_administrations (
           medication_id,
@@ -216,13 +224,15 @@ export async function POST(
               medication.medication_name,
             administeredAt:
               administeredAt.toISOString(),
+            previousNextDueAt:
+              medication.next_due_at,
             nextDueAt,
+            automaticNextDue:
+              intervalHours !== null,
           })}
         )
       `;
-    } catch (
-      auditError
-    ) {
+    } catch (auditError) {
       console.error(
         "Medication administration audit failed:",
         auditError
@@ -231,19 +241,17 @@ export async function POST(
 
     return NextResponse.json({
       administration:
-        adminRows[0],
+        administrationRows[0],
 
       medication:
         medicationRows[0],
 
       nextDueCalculated:
-        intervalHours !==
-        null,
+        intervalHours !== null,
     });
   } catch (err) {
     if (
-      err instanceof
-      AuthError
+      err instanceof AuthError
     ) {
       return NextResponse.json(
         {
@@ -291,28 +299,6 @@ function cleanText(
 
   return text || null;
 }
-
-/*
-  Supports common medication-frequency formats.
-
-  Examples:
-  daily
-  once daily
-  every 24 hours
-  q24h
-  twice daily
-  every 12 hours
-  q12h
-  three times daily
-  every 8 hours
-  q8h
-  every 6 hours
-  q6h
-
-  If we cannot safely interpret the frequency,
-  we record the dose but leave next_due_at blank
-  rather than guessing.
-*/
 
 function frequencyToHours(
   frequency:
@@ -389,9 +375,7 @@ function frequencyToHours(
       /every\s+(\d+(?:\.\d+)?)\s*(?:hours|hour|hrs|hr)/
     );
 
-  if (
-    everyHours
-  ) {
+  if (everyHours) {
     const hours =
       Number(
         everyHours[1]
@@ -412,9 +396,7 @@ function frequencyToHours(
       /^q(\d+(?:\.\d+)?)h$/
     );
 
-  if (
-    qHours
-  ) {
+  if (qHours) {
     const hours =
       Number(
         qHours[1]
