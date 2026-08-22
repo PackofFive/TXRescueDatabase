@@ -105,6 +105,10 @@ export default function MedicalPage() {
 
   const [uploadingDocument, setUploadingDocument] =
     useState(false);
+  const [
+  showMedicationHistory,
+  setShowMedicationHistory,
+] = useState(false);
 
   /* =====================================================
      DOSE GIVEN
