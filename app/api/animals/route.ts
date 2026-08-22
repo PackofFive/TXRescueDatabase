@@ -57,6 +57,11 @@ export async function GET(
         "sort"
       ) || "newest";
 
+    const caseStatus =
+      searchParams.get(
+        "caseStatus"
+      ) || "active";
+
     const rows = await sql`
       select
         a.id,
@@ -73,6 +78,8 @@ export async function GET(
         a.placement,
         a.public_share_enabled,
         a.external_listing_url,
+        a.outcome_status,
+        a.outcome_date,
         a.created_at,
 
         (
@@ -153,6 +160,20 @@ export async function GET(
         and (
           ${placement}::text is null
           or a.placement = ${placement}
+        )
+
+        and (
+          ${caseStatus} = 'all'
+
+          or (
+            ${caseStatus} = 'active'
+            and a.outcome_status is null
+          )
+
+          or (
+            ${caseStatus} = 'closed'
+            and a.outcome_status is not null
+          )
         )
 
       order by
@@ -281,11 +302,14 @@ export async function GET(
 
           return {
             ...row,
+
             reminders:
-              reminders.slice(
-                0,
-                2
-              ),
+              row.outcome_status
+                ? []
+                : reminders.slice(
+                    0,
+                    2
+                  ),
           };
         })
         .filter(
