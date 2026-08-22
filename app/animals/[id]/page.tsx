@@ -1047,8 +1047,11 @@ export default function AnimalRecordPage() {
                 />
 
                 <FileMenuItem
-                  label="Documents & Photos"
-                  disabled
+  label="Documents & Photos"
+  href={`/animals/${encodeURIComponent(
+    animal.id
+  )}/documents`}
+/>
                 />
 
                 <FileMenuItem
