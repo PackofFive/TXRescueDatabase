@@ -12,10 +12,6 @@ import {
 
 export const runtime = "edge";
 
-/* =========================================================
-   VERIFY ANIMAL ACCESS
-========================================================= */
-
 async function requireAnimalAccess(
   animalId: string
 ) {
@@ -46,10 +42,6 @@ async function requireAnimalAccess(
     orgId,
   };
 }
-
-/* =========================================================
-   GET MEDICATIONS
-========================================================= */
 
 export async function GET(
   _req: NextRequest,
@@ -135,10 +127,6 @@ export async function GET(
     );
   }
 }
-
-/* =========================================================
-   ADD MEDICATION
-========================================================= */
 
 export async function POST(
   req: NextRequest,
@@ -257,7 +245,9 @@ export async function POST(
           ${medicationName}
         )
       `;
-    } catch (auditErr) {
+    } catch (
+      auditErr
+    ) {
       console.error(
         "Medication audit failed:",
         auditErr
@@ -305,10 +295,6 @@ export async function POST(
     );
   }
 }
-
-/* =========================================================
-   EDIT MEDICATION
-========================================================= */
 
 export async function PATCH(
   req: NextRequest,
@@ -503,8 +489,7 @@ export async function PATCH(
               body.active ===
               undefined
                 ? current.active
-                : body.active ===
-                  true
+                : body.active === true
             },
 
           updated_at =
@@ -535,7 +520,9 @@ export async function PATCH(
           ${medicationName}
         )
       `;
-    } catch (auditErr) {
+    } catch (
+      auditErr
+    ) {
       console.error(
         "Medication update audit failed:",
         auditErr
@@ -579,10 +566,6 @@ export async function PATCH(
   }
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
-
 function cleanText(
   value: unknown
 ) {
@@ -596,8 +579,7 @@ function cleanText(
   const text =
     String(value).trim();
 
-  return text ||
-    null;
+  return text || null;
 }
 
 function cleanDateTime(
