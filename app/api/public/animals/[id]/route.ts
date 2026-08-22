@@ -7,23 +7,6 @@ import { sql } from "@/lib/db";
 
 export const runtime = "edge";
 
-/* =========================================================
-   PUBLIC ANIMAL PROFILE
-
-   IMPORTANT:
-
-   This route NEVER returns the private animal Overview.
-
-   It only returns:
-   - explicitly approved public_* identity fields
-   - public summary / need
-   - public outcome information
-   - public media
-   - managing organization's public information
-
-   The animal must have public_share_enabled = true.
-========================================================= */
-
 export async function GET(
   _req: NextRequest,
   {
@@ -38,10 +21,6 @@ export async function GET(
     const {
       id: animalId,
     } = await params;
-
-    /* -----------------------------------------------------
-       PUBLIC ANIMAL
-    ----------------------------------------------------- */
 
     const animalRows = await sql`
       select
@@ -79,12 +58,8 @@ export async function GET(
 
       where
         a.id = ${animalId}
-
-        and
-        a.public_share_enabled = true
-
-        and
-        o.archived_at is null
+        and a.public_share_enabled = true
+        and o.archived_at is null
 
       limit 1
     `;
@@ -103,18 +78,6 @@ export async function GET(
         }
       );
     }
-
-    /* -----------------------------------------------------
-       PUBLIC PHOTO
-
-       Prefer media explicitly marked public.
-
-       For older existing records, allow the latest animal
-       image if no public-marked media record exists yet.
-
-       We can tighten this further once the media upload
-       workflow is upgraded.
-    ----------------------------------------------------- */
 
     const mediaRows = await sql`
       select
@@ -140,14 +103,6 @@ export async function GET(
       limit 1
     `;
 
-    /* -----------------------------------------------------
-       HELP OFFER COUNT
-
-       Do NOT expose contact information.
-
-       This is only useful for future public indicators.
-    ----------------------------------------------------- */
-
     const helpRows = await sql`
       select
         count(*)::int as count
@@ -167,8 +122,7 @@ export async function GET(
 
     return NextResponse.json({
       animal: {
-        id:
-          animal.id,
+        id: animal.id,
 
         name:
           animal.public_name,
@@ -210,13 +164,11 @@ export async function GET(
           animal.show_on_success_wall,
 
         photo:
-          mediaRows[0] ??
-          null,
+          mediaRows[0] ?? null,
 
         active_help_offer_count:
           Number(
-            helpRows[0]?.count ??
-              0
+            helpRows[0]?.count ?? 0
           ),
 
         organization: {
