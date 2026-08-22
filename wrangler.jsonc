@@ -2,5 +2,11 @@
   "name": "txrescuedatabase",
   "pages_build_output_dir": ".vercel/output/static",
   "compatibility_date": "2026-08-18",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [
+    {
+      "binding": "MEDICAL_FILES",
+      "bucket_name": "pack-of-five-medical"
+    }
+  ]
 }
