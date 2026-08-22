@@ -22,47 +22,49 @@ export async function GET(
       id: animalId,
     } = await params;
 
-    const animalRows = await sql`
-      select
-        a.id,
+    const animalRows =
+      await sql`
+        select
+          a.id,
 
-        a.public_name,
-        a.public_species,
-        a.public_breed_or_type,
-        a.public_birth_date,
-        a.public_sex,
-        a.public_weight_lbs,
+          a.public_name,
+          a.public_species,
+          a.public_breed_or_type,
+          a.public_birth_date,
+          a.public_sex,
+          a.public_weight_lbs,
 
-        a.public_summary,
-        a.public_need,
-        a.external_listing_url,
+          a.public_summary,
+          a.public_need,
+          a.external_listing_url,
 
-        a.outcome_status,
-        a.outcome_date,
-        a.public_outcome_message,
-        a.show_on_success_wall,
+          a.outcome_status,
+          a.outcome_date,
+          a.public_outcome_message,
+          a.show_on_success_wall,
 
-        a.current_org_id,
+          a.current_org_id,
+          a.primary_photo_document_id,
 
-        o.name as organization_name,
-        o.city as organization_city,
-        o.state as organization_state,
-        o.website as organization_website,
-        o.public_email as organization_email,
-        o.public_phone as organization_phone
+          o.name as organization_name,
+          o.city as organization_city,
+          o.state as organization_state,
+          o.website as organization_website,
+          o.public_email as organization_email,
+          o.public_phone as organization_phone
 
-      from animals a
+        from animals a
 
-      join organizations o
-        on o.id = a.current_org_id
+        join organizations o
+          on o.id = a.current_org_id
 
-      where
-        a.id = ${animalId}
-        and a.public_share_enabled = true
-        and o.archived_at is null
+        where
+          a.id = ${animalId}
+          and a.public_share_enabled = true
+          and o.archived_at is null
 
-      limit 1
-    `;
+        limit 1
+      `;
 
     const animal =
       animalRows[0];
@@ -79,50 +81,112 @@ export async function GET(
       );
     }
 
-    const mediaRows = await sql`
-      select
-        id,
-        url,
-        source,
-        visibility
+    /*
+      Public photo rule:
 
-      from media
+      The rescue may use one image internally as the animal's
+      profile photo while keeping it private.
 
-      where
-        owner_type = 'animal'
-        and owner_id = ${animalId}
+      The public profile only receives that same selected image
+      when the underlying document is explicitly marked public.
+    */
 
-      order by
-        case
-          when visibility = 'public'
-            then 0
-          else 1
-        end,
-        created_at desc
+    let photo:
+      | {
+          id: string;
+          url: string;
+          source: string | null;
+          visibility: string | null;
+        }
+      | null = null;
 
-      limit 1
-    `;
+    if (
+      animal.primary_photo_document_id
+    ) {
+      const photoRows =
+        await sql`
+          select
+            ad.id,
+            ad.source,
+            ad.visibility,
+            ad.content_type
 
-    const helpRows = await sql`
-      select
-        count(*)::int as count
+          from animal_documents ad
 
-      from animal_help_offers
+          where
+            ad.id =
+              ${animal.primary_photo_document_id}
 
-      where
-        animal_id = ${animalId}
+            and
+            ad.animal_id =
+              ${animalId}
 
-        and status in (
-          'new',
-          'reviewing',
-          'contacted',
-          'accepted'
+            and
+            ad.org_id =
+              ${animal.current_org_id}
+
+            and
+            ad.visibility =
+              'public'
+
+          limit 1
+        `;
+
+      const selectedPhoto =
+        photoRows[0];
+
+      if (
+        selectedPhoto &&
+        String(
+          selectedPhoto.content_type
+        ).startsWith(
+          "image/"
         )
-    `;
+      ) {
+        photo = {
+          id:
+            String(
+              selectedPhoto.id
+            ),
+
+          url:
+            `/api/public/animals/${encodeURIComponent(
+              animalId
+            )}/photo`,
+
+          source:
+            selectedPhoto.source ??
+            "animal_document",
+
+          visibility:
+            "public",
+        };
+      }
+    }
+
+    const helpRows =
+      await sql`
+        select
+          count(*)::int as count
+
+        from animal_help_offers
+
+        where
+          animal_id =
+            ${animalId}
+
+          and status in (
+            'new',
+            'reviewing',
+            'contacted',
+            'accepted'
+          )
+      `;
 
     return NextResponse.json({
       animal: {
-        id: animal.id,
+        id:
+          animal.id,
 
         name:
           animal.public_name,
@@ -163,8 +227,7 @@ export async function GET(
         show_on_success_wall:
           animal.show_on_success_wall,
 
-        photo:
-          mediaRows[0] ?? null,
+        photo,
 
         active_help_offer_count:
           Number(
