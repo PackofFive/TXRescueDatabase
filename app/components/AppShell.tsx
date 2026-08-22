@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -20,13 +20,16 @@ type TestOrg = {
 } | null;
 
 const COLORS = {
-  navy: "#17233C",
-  coral: "#E8634A",
-  text: "#1C1B19",
-  muted: "#6B6862",
-  border: "#E7E5E1",
+  navy: "#1E3A5F",
+  coral: "#E85C56",
+  peach: "#F2A48D",
+  mint: "#A9DCC9",
+  pink: "#F2D6DC",
+  text: "#1E3A5F",
+  muted: "#4A5D75",
+  border: "#E9E5E3",
   surface: "#FFFFFF",
-  background: "#FAFAF9",
+  background: "#FFFDFC",
 };
 
 async function signOut() {
@@ -79,19 +82,28 @@ export default function AppShell({
     );
   }
 
+  const isHomePage =
+    pathname === "/";
+
   return (
     <>
-      <PublicHeader user={user} />
+      {!isHomePage && (
+        <PublicHeader user={user} />
+      )}
 
-      <main
-        style={{
-          padding: "28px 24px",
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}
-      >
-        {children}
-      </main>
+      {isHomePage ? (
+        children
+      ) : (
+        <main
+          style={{
+            padding: "28px 24px",
+            maxWidth: 1180,
+            margin: "0 auto",
+          }}
+        >
+          {children}
+        </main>
+      )}
     </>
   );
 }
@@ -111,7 +123,7 @@ function PublicHeader({
       : user?.role === "org" &&
         user.status === "approved"
       ? "/portal"
-      : "/login";
+      : "/portal";
 
   const accountLabel =
     user?.role === "admin"
@@ -119,13 +131,12 @@ function PublicHeader({
       : user?.role === "org" &&
         user.status === "approved"
       ? "Rescue Manager"
-      : "Sign In";
+      : "Portal Login";
 
   return (
     <header
       style={{
         background: COLORS.surface,
-        borderBottom: `1px solid ${COLORS.border}`,
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -134,25 +145,40 @@ function PublicHeader({
       <div
         style={{
           maxWidth: 1180,
+          minHeight: 72,
           margin: "0 auto",
-          padding: "12px 20px",
+          padding: "0 24px",
           display: "flex",
           alignItems: "center",
-          gap: 18,
+          justifyContent: "space-between",
+          gap: 22,
           flexWrap: "wrap",
         }}
       >
         <a
           href="/"
+          aria-label="Pack of Five home"
           style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
             color: COLORS.navy,
-            fontWeight: 800,
             textDecoration: "none",
-            fontSize: 19,
-            marginRight: "auto",
           }}
         >
-          PACK OF FIVE
+          <PawMark />
+
+          <span
+            style={{
+              fontFamily:
+                '"Space Grotesk", Arial, sans-serif',
+              fontWeight: 700,
+              fontSize: 19,
+              letterSpacing: ".035em",
+            }}
+          >
+            PACK OF FIVE
+          </span>
         </a>
 
         <nav
@@ -160,67 +186,110 @@ function PublicHeader({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 18,
+            gap: 20,
             flexWrap: "wrap",
           }}
         >
-          <a
-            href="/organizations"
-            style={publicLinkStyle}
-          >
-            Organizations
+          <a href="/organizations" style={publicLinkStyle}>
+            Directory
           </a>
 
-          <a
-            href="/adoptable"
-            style={publicLinkStyle}
-          >
+          <a href="/adoptable" style={publicLinkStyle}>
             Adoptable Pets
           </a>
 
-          <a
-            href="/resources"
-            style={publicLinkStyle}
-          >
+          <a href="/resources" style={publicLinkStyle}>
             Resources
           </a>
 
-          <a
-            href="/request-organization"
-            style={publicLinkStyle}
-          >
-            Request Organization
-          </a>
-
-          <a
-            href="/support"
-            style={{
-              ...publicLinkStyle,
-              color: COLORS.coral,
-              fontWeight: 700,
-            }}
-          >
+          <a href="/support" style={publicLinkStyle}>
             Support
           </a>
-        </nav>
 
-        <a
-          href={accountHref}
-          style={{
-            textDecoration: "none",
-            background: COLORS.navy,
-            color: "#fff",
-            borderRadius: 8,
-            padding: "9px 14px",
-            fontSize: 14,
-            fontWeight: 700,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {accountLabel}
-        </a>
+          <a
+            href={accountHref}
+            style={{
+              textDecoration: "none",
+              background: COLORS.navy,
+              color: "#fff",
+              padding: "9px 14px",
+              fontSize: 13,
+              fontWeight: 800,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {accountLabel}
+          </a>
+        </nav>
       </div>
     </header>
+  );
+}
+
+function PawMark() {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        position: "relative",
+        display: "inline-block",
+        width: 32,
+        height: 30,
+        flex: "0 0 auto",
+      }}
+    >
+      <span
+        style={{
+          ...pawToeStyle,
+          left: 1,
+          top: 6,
+          background: COLORS.coral,
+          transform: "rotate(-24deg)",
+        }}
+      />
+
+      <span
+        style={{
+          ...pawToeStyle,
+          left: 8,
+          top: 0,
+          background: COLORS.peach,
+          transform: "rotate(-8deg)",
+        }}
+      />
+
+      <span
+        style={{
+          ...pawToeStyle,
+          right: 7,
+          top: 0,
+          background: COLORS.mint,
+          transform: "rotate(8deg)",
+        }}
+      />
+
+      <span
+        style={{
+          ...pawToeStyle,
+          right: 0,
+          top: 6,
+          background: COLORS.pink,
+          transform: "rotate(24deg)",
+        }}
+      />
+
+      <span
+        style={{
+          position: "absolute",
+          left: 7,
+          bottom: 0,
+          width: 19,
+          height: 17,
+          borderRadius: "50% 50% 45% 45%",
+          background: COLORS.navy,
+        }}
+      />
+    </span>
   );
 }
 
@@ -754,10 +823,18 @@ function ManagerLink({
    SHARED STYLES
 ========================================================= */
 
+const pawToeStyle: CSSProperties = {
+  position: "absolute",
+  width: 8,
+  height: 11,
+  borderRadius: "50%",
+};
+
 const publicLinkStyle = {
   textDecoration: "none",
-  color: COLORS.text,
-  fontSize: 14,
+  color: COLORS.navy,
+  fontSize: 13.5,
+  fontWeight: 700,
   whiteSpace: "nowrap",
 } as const;
 
