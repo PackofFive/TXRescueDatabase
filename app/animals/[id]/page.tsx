@@ -1054,7 +1054,6 @@ export default function AnimalRecordPage() {
     animal.id
   )}/documents`}
 />
-                />
 
                 <FileMenuItem
                   label="Timeline"
