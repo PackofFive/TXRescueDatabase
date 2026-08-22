@@ -449,6 +449,31 @@ export default function QuickIntakePage() {
       existingAnimals,
     ]);
 
+  const duplicateNameAnimal =
+    useMemo(() => {
+      const enteredName =
+        normalizeName(name);
+
+      if (!enteredName) {
+        return null;
+      }
+
+      return (
+        existingAnimals.find(
+          (animal) =>
+            normalizeName(
+              animal.name ?? ""
+            ) === enteredName ||
+            normalizeName(
+              animal.temporary_name ?? ""
+            ) === enteredName
+        ) ?? null
+      );
+    }, [
+      name,
+      existingAnimals,
+    ]);
+
   function generateNames() {
     setNameMessage(null);
 
@@ -1147,6 +1172,28 @@ export default function QuickIntakePage() {
                 inputStyle
               }
             />
+
+            {duplicateNameAnimal && (
+              <div
+                style={{
+                  marginTop: 7,
+                  padding: "8px 9px",
+                  border: "1px solid #E7C8A3",
+                  borderRadius: 7,
+                  background: "#FFF8EF",
+                  color: "#85571F",
+                  fontSize: 11.5,
+                  lineHeight: 1.45,
+                }}
+              >
+                <strong>
+                  Name already in use.
+                </strong>{" "}
+                {name.trim()} is already used by an animal
+                in this organization. You can still use the
+                name if it is intentional.
+              </div>
+            )}
 
             {nameSuggestions.length >
               0 && (
