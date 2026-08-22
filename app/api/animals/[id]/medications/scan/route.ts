@@ -16,10 +16,6 @@ import {
 
 export const runtime = "edge";
 
-/* =========================================================
-   TYPES
-========================================================= */
-
 type AIResponse = {
   response?: unknown;
 };
@@ -29,7 +25,9 @@ type AIBinding = {
     model: string,
     input: {
       messages: {
-        role: "system" | "user";
+        role:
+          | "system"
+          | "user";
         content: string;
       }[];
       image: string;
@@ -53,12 +51,11 @@ type MedicationScanResult = {
   pharmacy: string;
   quantity: string;
   rawDirections: string;
-  confidence: "high" | "medium" | "low";
+  confidence:
+    | "high"
+    | "medium"
+    | "low";
 };
-
-/* =========================================================
-   CONFIG
-========================================================= */
 
 const MAX_FILE_SIZE =
   8 * 1024 * 1024;
@@ -70,10 +67,6 @@ const ALLOWED_TYPES =
     "image/webp",
   ]);
 
-/* =========================================================
-   ACCESS CHECK
-========================================================= */
-
 async function requireAnimalAccess(
   animalId: string
 ) {
@@ -82,14 +75,21 @@ async function requireAnimalAccess(
   } =
     await requireEffectiveOrg();
 
-  const rows = await sql`
-    select id
-    from animals
-    where
-      id = ${animalId}
-      and current_org_id = ${orgId}
-    limit 1
-  `;
+  const rows =
+    await sql`
+      select id
+
+      from animals
+
+      where
+        id = ${animalId}
+
+        and
+        current_org_id =
+          ${orgId}
+
+      limit 1
+    `;
 
   if (!rows[0]) {
     throw new AuthError(
@@ -98,10 +98,6 @@ async function requireAnimalAccess(
     );
   }
 }
-
-/* =========================================================
-   SCAN MEDICATION LABEL
-========================================================= */
 
 export async function POST(
   req: NextRequest,
@@ -116,7 +112,8 @@ export async function POST(
   try {
     const {
       id: animalId,
-    } = await params;
+    } =
+      await params;
 
     await requireAnimalAccess(
       animalId
@@ -126,11 +123,9 @@ export async function POST(
       await req.formData();
 
     const file =
-      formData.get("file");
-
-    /* -----------------------------------------------------
-       FILE VALIDATION
-    ----------------------------------------------------- */
+      formData.get(
+        "file"
+      );
 
     if (
       !(file instanceof File)
@@ -177,10 +172,6 @@ export async function POST(
       );
     }
 
-    /* -----------------------------------------------------
-       WORKERS AI
-    ----------------------------------------------------- */
-
     const context =
       getRequestContext();
 
@@ -216,33 +207,33 @@ export async function POST(
         {
           messages: [
             {
-              role: "system",
+              role:
+                "system",
 
               content:
                 `You are reading a veterinary prescription or medication label.
 
-Your job is to extract visible information into structured fields for HUMAN REVIEW.
+Extract only information that is visible.
 
-Important rules:
-- Do not diagnose.
-- Do not recommend medication.
-- Do not calculate a new prescription.
-- Do not invent information.
-- If a field is unclear or absent, return an empty string.
-- Preserve the prescription directions as written whenever possible.
-- Return one JSON object only.
-- Do not include Markdown.
-- Do not include code fences.
-- Do not add commentary before or after the JSON.`,
+Do not diagnose.
+Do not recommend medication.
+Do not invent missing information.
+Do not calculate a new prescription.
+
+Return one JSON object only.
+Do not use Markdown.
+Do not use code fences.
+Do not add commentary.`,
             },
 
             {
-              role: "user",
+              role:
+                "user",
 
               content:
-                `Read the medication label in the attached image.
+                `Read this veterinary medication label.
 
-Return this JSON structure:
+Return:
 
 {
   "medicationName": "",
@@ -257,57 +248,78 @@ Return this JSON structure:
   "confidence": "high"
 }
 
-FIELD RULES:
+Rules:
 
 medicationName:
-Drug or medication name only.
+Medication/drug name.
 
 strength:
-Medication strength printed on the bottle or prescription.
-Examples:
-"100 mg"
-"50 mg/mL"
+Printed medication strength.
+Example: "100 mg"
 
 doseGiven:
-Amount the directions instruct to administer, when clearly stated.
+Amount instructed to administer.
 Examples:
 "1 tablet"
 "1/2 tablet"
 "2 mL"
-Do not calculate mg from tablet fractions unless explicitly printed.
 
 frequency:
-Normalize only when clearly supported by the directions.
-Examples:
-"daily"
-"every 12 hours"
-"every 8 hours"
-"as needed"
-If unclear, use an empty string.
+Return the frequency indicated by the label.
+
+Recognize common equivalents including:
+- once daily
+- daily
+- 1x daily
+- twice daily
+- twice a day
+- 2x daily
+- 2 times a day
+- morning and evening
+- BID
+- three times daily
+- 3x daily
+- TID
+- four times daily
+- 4x daily
+- QID
+- every 4 hours
+- every 6 hours
+- every 8 hours
+- every 12 hours
+- every 24 hours
+- q4h
+- q6h
+- q8h
+- q12h
+- q24h
+- every other day
+- weekly
+- PRN
+- as needed
+
+Do not simplify a changing/tapered schedule into a single frequency.
 
 instructions:
-Useful administration instructions besides frequency.
-Examples:
-"Give by mouth"
-"Give with food"
-"Use as needed for anxiety"
+Administration details besides the frequency.
 
 prescribingVet:
-Veterinarian name if visible.
+Veterinarian if visible.
 
 pharmacy:
-Pharmacy, veterinary clinic, or dispensing provider if visible.
+Clinic/pharmacy/dispensing provider if visible.
 
 quantity:
 Prescription quantity if visible.
 
 rawDirections:
-Copy the prescription directions as closely as possible.
+Preserve the directions as closely as possible.
 
 confidence:
-Use exactly one:
+Exactly:
 "high"
 "medium"
+or
 "low"
 
 Return JSON only.`,
@@ -316,15 +328,13 @@ Return JSON only.`,
 
           image,
 
-          max_tokens: 900,
+          max_tokens:
+            900,
 
-          temperature: 0,
+          temperature:
+            0,
         }
       );
-
-    /* -----------------------------------------------------
-       GET RAW MODEL OUTPUT
-    ----------------------------------------------------- */
 
     const raw =
       extractResponseText(
@@ -343,22 +353,10 @@ Return JSON only.`,
       );
     }
 
-    /*
-      Keep this in Cloudflare logs while we are testing.
-
-      It does NOT go back to the browser.
-
-      Once scanning is stable, we can remove it.
-    */
-
     console.log(
       "Medication scan raw AI response:",
       raw
     );
-
-    /* -----------------------------------------------------
-       PARSE RESULT
-    ----------------------------------------------------- */
 
     const extracted =
       parseMedicationResponse(
@@ -376,12 +374,6 @@ Return JSON only.`,
         }
       );
     }
-
-    /*
-      Don't reject a result merely because several fields
-      are empty. A partial scan is still useful because the
-      human must review it before saving.
-    */
 
     const hasUsefulData =
       Boolean(
@@ -446,27 +438,20 @@ Return JSON only.`,
   }
 }
 
-/* =========================================================
-   RESPONSE EXTRACTION
-
-   Cloudflare/model responses may sometimes be:
-   - a plain string
-   - an object
-   - an object containing text
-========================================================= */
-
 function extractResponseText(
   value: unknown
 ): string {
   if (
-    typeof value === "string"
+    typeof value ===
+    "string"
   ) {
     return value.trim();
   }
 
   if (
     value &&
-    typeof value === "object"
+    typeof value ===
+      "object"
   ) {
     const record =
       value as Record<
@@ -483,7 +468,8 @@ function extractResponseText(
     ];
 
     for (
-      const candidate of candidates
+      const candidate of
+        candidates
     ) {
       if (
         typeof candidate ===
@@ -492,11 +478,6 @@ function extractResponseText(
         return candidate.trim();
       }
     }
-
-    /*
-      If Workers AI already returned structured JSON,
-      stringify it so our normal parser can handle it.
-    */
 
     try {
       return JSON.stringify(
@@ -510,10 +491,6 @@ function extractResponseText(
   return "";
 }
 
-/* =========================================================
-   MEDICATION RESPONSE PARSER
-========================================================= */
-
 function parseMedicationResponse(
   raw: string
 ): MedicationScanResult | null {
@@ -525,14 +502,6 @@ function parseMedicationResponse(
   if (!parsed) {
     return null;
   }
-
-  /*
-    Accept several likely field-name variations.
-
-    This prevents a good scan from failing merely because
-    the model returned "medication_name" instead of
-    "medicationName", for example.
-  */
 
   const medicationName =
     pickString(
@@ -666,20 +635,186 @@ function parseMedicationResponse(
   };
 }
 
-/* =========================================================
-   JSON PARSING
+function normalizeFrequency(
+  value: string
+) {
+  if (!value) {
+    return "";
+  }
 
-   Handles:
-   - clean JSON
-   - ```json ... ```
-   - prose before JSON
-   - prose after JSON
-========================================================= */
+  const original =
+    value.trim();
+
+  const text =
+    original
+      .toLowerCase()
+      .replace(
+        /[.,]/g,
+        ""
+      )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+  if (
+    text === "prn" ||
+    text.includes(
+      "as needed"
+    )
+  ) {
+    return "as needed";
+  }
+
+  if (
+    [
+      "daily",
+      "once daily",
+      "once a day",
+      "1x daily",
+      "1x a day",
+      "qd",
+      "q24h",
+      "q 24 h",
+      "every 24 hours",
+    ].includes(
+      text
+    )
+  ) {
+    return "daily";
+  }
+
+  if (
+    [
+      "twice daily",
+      "twice a day",
+      "2x daily",
+      "2x a day",
+      "2 x daily",
+      "2 x a day",
+      "2 times daily",
+      "2 times a day",
+      "two times daily",
+      "two times a day",
+      "morning and evening",
+      "morning & evening",
+      "am and pm",
+      "am & pm",
+      "bid",
+      "q12h",
+      "q 12 h",
+      "every 12 hours",
+    ].includes(
+      text
+    )
+  ) {
+    return "every 12 hours";
+  }
+
+  if (
+    [
+      "three times daily",
+      "three times a day",
+      "3x daily",
+      "3x a day",
+      "3 times daily",
+      "3 times a day",
+      "tid",
+      "q8h",
+      "q 8 h",
+      "every 8 hours",
+    ].includes(
+      text
+    )
+  ) {
+    return "every 8 hours";
+  }
+
+  if (
+    [
+      "four times daily",
+      "four times a day",
+      "4x daily",
+      "4x a day",
+      "4 times daily",
+      "4 times a day",
+      "qid",
+      "q6h",
+      "q 6 h",
+      "every 6 hours",
+    ].includes(
+      text
+    )
+  ) {
+    return "every 6 hours";
+  }
+
+  if (
+    [
+      "every other day",
+      "every 2 days",
+      "q48h",
+      "q 48 h",
+    ].includes(
+      text
+    )
+  ) {
+    return "every 48 hours";
+  }
+
+  if (
+    [
+      "weekly",
+      "once weekly",
+      "once a week",
+      "every week",
+      "every 7 days",
+    ].includes(
+      text
+    )
+  ) {
+    return "every 7 days";
+  }
+
+  const everyHours =
+    text.match(
+      /every\s+(\d+(?:\.\d+)?)\s*(?:hours|hour|hrs|hr)\b/
+    );
+
+  if (
+    everyHours
+  ) {
+    return `every ${everyHours[1]} hours`;
+  }
+
+  const qHours =
+    text.match(
+      /^q\s*(\d+(?:\.\d+)?)\s*h$/
+    );
+
+  if (
+    qHours
+  ) {
+    return `every ${qHours[1]} hours`;
+  }
+
+  /*
+    Complex or unfamiliar instructions remain unchanged.
+
+    Human review is required before saving anyway.
+  */
+
+  return original;
+}
 
 function parseAnyJsonObject(
   raw: string
 ):
-  | Record<string, unknown>
+  | Record<
+      string,
+      unknown
+    >
   | null {
   const cleaned =
     raw
@@ -693,11 +828,6 @@ function parseAnyJsonObject(
         ""
       )
       .trim();
-
-  /*
-    Attempt #1:
-    response is already valid JSON.
-  */
 
   const direct =
     safeJsonParse(
@@ -718,36 +848,28 @@ function parseAnyJsonObject(
     >;
   }
 
-  /*
-    Attempt #2:
-    find the first complete-looking JSON object.
-
-    Vision models sometimes produce:
-
-    "Here is the information:
-     { ... }"
-
-    We don't want that extra text to kill the scan.
-  */
-
   const firstBrace =
-    cleaned.indexOf("{");
+    cleaned.indexOf(
+      "{"
+    );
 
   const lastBrace =
-    cleaned.lastIndexOf("}");
+    cleaned.lastIndexOf(
+      "}"
+    );
 
   if (
     firstBrace !== -1 &&
     lastBrace >
       firstBrace
   ) {
-    const objectText =
+    let objectText =
       cleaned.slice(
         firstBrace,
         lastBrace + 1
       );
 
-    const extracted =
+    let extracted =
       safeJsonParse(
         objectText
       );
@@ -765,37 +887,13 @@ function parseAnyJsonObject(
         unknown
       >;
     }
-  }
-
-  /*
-    Attempt #3:
-    repair a couple of common model formatting mistakes.
-  */
-
-  if (
-    firstBrace !== -1 &&
-    lastBrace >
-      firstBrace
-  ) {
-    let objectText =
-      cleaned.slice(
-        firstBrace,
-        lastBrace + 1
-      );
 
     objectText =
       objectText
-        /*
-          Remove trailing commas before } or ].
-        */
         .replace(
           /,\s*([}\]])/g,
           "$1"
         )
-
-        /*
-          Replace smart quotes that occasionally appear.
-        */
         .replace(
           /[\u201C\u201D]/g,
           '"'
@@ -805,20 +903,20 @@ function parseAnyJsonObject(
           "'"
         );
 
-    const repaired =
+    extracted =
       safeJsonParse(
         objectText
       );
 
     if (
-      repaired &&
-      typeof repaired ===
+      extracted &&
+      typeof extracted ===
         "object" &&
       !Array.isArray(
-        repaired
+        extracted
       )
     ) {
-      return repaired as Record<
+      return extracted as Record<
         string,
         unknown
       >;
@@ -840,13 +938,12 @@ function safeJsonParse(
   }
 }
 
-/* =========================================================
-   FIELD HELPERS
-========================================================= */
-
 function pickString(
   source:
-    Record<string, unknown>,
+    Record<
+      string,
+      unknown
+    >,
   keys: string[]
 ) {
   for (
@@ -869,7 +966,7 @@ function pickString(
 
     if (
       typeof value ===
-        "number"
+      "number"
     ) {
       return String(
         value
@@ -912,106 +1009,6 @@ function normalizeConfidence(
 
   return "low";
 }
-
-/* =========================================================
-   FREQUENCY NORMALIZATION
-
-   We normalize common wording because the dose scheduler
-   already understands these values.
-========================================================= */
-
-function normalizeFrequency(
-  value: string
-) {
-  if (!value) {
-    return "";
-  }
-
-  const text =
-    value
-      .trim()
-      .toLowerCase();
-
-  if (
-    [
-      "once daily",
-      "once a day",
-      "every day",
-      "daily",
-      "q24h",
-      "every 24 hours",
-      "every 24 hrs",
-    ].includes(text)
-  ) {
-    return "daily";
-  }
-
-  if (
-    [
-      "twice daily",
-      "twice a day",
-      "2 times daily",
-      "2x daily",
-      "bid",
-      "q12h",
-      "every 12 hours",
-      "every 12 hrs",
-    ].includes(text)
-  ) {
-    return "every 12 hours";
-  }
-
-  if (
-    [
-      "three times daily",
-      "three times a day",
-      "3 times daily",
-      "3x daily",
-      "tid",
-      "q8h",
-      "every 8 hours",
-      "every 8 hrs",
-    ].includes(text)
-  ) {
-    return "every 8 hours";
-  }
-
-  if (
-    [
-      "four times daily",
-      "four times a day",
-      "4 times daily",
-      "4x daily",
-      "qid",
-      "q6h",
-      "every 6 hours",
-      "every 6 hrs",
-    ].includes(text)
-  ) {
-    return "every 6 hours";
-  }
-
-  if (
-    text === "prn" ||
-    text.includes(
-      "as needed"
-    )
-  ) {
-    return "as needed";
-  }
-
-  /*
-    Keep unknown wording instead of deleting it.
-
-    A human will review the medication before saving.
-  */
-
-  return value.trim();
-}
-
-/* =========================================================
-   BASE64
-========================================================= */
 
 function arrayBufferToBase64(
   buffer: ArrayBuffer
