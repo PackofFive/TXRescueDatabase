@@ -248,10 +248,36 @@ export async function GET(
       if (
         mediaRows[0]
       ) {
+        const legacyPhoto =
+          mediaRows[0];
+
         photo = {
-          ...mediaRows[0],
+          id:
+            String(
+              legacyPhoto.id
+            ),
+
           document_id:
             null,
+
+          url:
+            String(
+              legacyPhoto.url
+            ),
+
+          source:
+            legacyPhoto.source != null
+              ? String(
+                  legacyPhoto.source
+                )
+              : null,
+
+          visibility:
+            legacyPhoto.visibility != null
+              ? String(
+                  legacyPhoto.visibility
+                )
+              : null,
         };
       }
     }
