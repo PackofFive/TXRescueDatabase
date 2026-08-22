@@ -34,6 +34,13 @@ type AnimalSummary = {
   temporary_name: string | null;
 };
 
+type OrganizationOption = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+};
+
 type OutcomeDraft = {
   outcomeType: OutcomeType | "";
   outcomeDate: string;
@@ -156,6 +163,21 @@ export default function OutcomePage() {
       null
     );
 
+  const [
+    organizations,
+    setOrganizations,
+  ] = useState<OrganizationOption[]>([]);
+
+  const [
+    orgSearch,
+    setOrgSearch,
+  ] = useState("");
+
+  const [
+    loadingOrganizations,
+    setLoadingOrganizations,
+  ] = useState(false);
+
   useEffect(() => {
     if (!animalId) {
       return;
@@ -227,6 +249,115 @@ export default function OutcomePage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (
+      draft.outcomeType !==
+      "transferred"
+    ) {
+      return;
+    }
+
+    const timer =
+      window.setTimeout(
+        () => {
+          void loadOrganizations(
+            orgSearch
+          );
+        },
+        250
+      );
+
+    return () =>
+      window.clearTimeout(
+        timer
+      );
+  }, [
+    draft.outcomeType,
+    orgSearch,
+  ]);
+
+  async function loadOrganizations(
+    search: string
+  ) {
+    setLoadingOrganizations(
+      true
+    );
+
+    try {
+      const params =
+        new URLSearchParams();
+
+      if (search.trim()) {
+        params.set(
+          "search",
+          search.trim()
+        );
+      }
+
+      const res =
+        await fetch(
+          `/api/organizations?${params.toString()}`,
+          {
+            cache: "no-store",
+            credentials:
+              "same-origin",
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't load organizations."
+        );
+      }
+
+      const rows =
+        Array.isArray(
+          data.organizations
+        )
+          ? data.organizations
+          : Array.isArray(data)
+          ? data
+          : [];
+
+      setOrganizations(
+        rows.map(
+          (row: any) => ({
+            id:
+              String(
+                row.id ?? ""
+              ),
+            name:
+              String(
+                row.name ?? ""
+              ),
+            city:
+              row.city ??
+              null,
+            state:
+              row.state ??
+              null,
+          })
+        ).filter(
+          (
+            row: OrganizationOption
+          ) =>
+            row.id &&
+            row.name
+        )
+      );
+    } catch {
+      setOrganizations([]);
+    } finally {
+      setLoadingOrganizations(
+        false
+      );
     }
   }
 
@@ -756,28 +887,210 @@ export default function OutcomePage() {
           "transferred" ? (
             <div
               style={{
-                marginTop: 12,
+                marginTop: 16,
+                padding: 14,
+                border:
+                  "1px solid #E7E5E1",
+                borderRadius: 9,
+                background:
+                  "#FAFAF9",
               }}
             >
+              <strong
+                style={{
+                  display: "block",
+                  marginBottom: 4,
+                  color:
+                    "#17233C",
+                  fontSize: 13,
+                }}
+              >
+                Transfer Destination
+              </strong>
+
+              <p
+                style={{
+                  margin:
+                    "0 0 12px",
+                  color:
+                    "#6B6862",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                }}
+              >
+                Search Pack of Five
+                organizations first.
+                If the destination
+                is not listed, enter
+                it manually above.
+              </p>
+
               <Field
-                label="Destination Organization ID"
+                label="Search Organizations"
               >
                 <input
                   value={
-                    draft.destinationOrgId
+                    orgSearch
                   }
                   onChange={(e) =>
-                    updateDraft(
-                      "destinationOrgId",
+                    setOrgSearch(
                       e.target.value
                     )
                   }
-                  placeholder="Optional"
+                  placeholder="Search rescue or shelter name"
                   style={
                     inputStyle
                   }
                 />
               </Field>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "grid",
+                  gap: 6,
+                  maxHeight: 210,
+                  overflowY: "auto",
+                }}
+              >
+                {loadingOrganizations ? (
+                  <div
+                    style={{
+                      color:
+                        "#77736D",
+                      fontSize: 12,
+                    }}
+                  >
+                    Searching…
+                  </div>
+                ) : organizations.length >
+                  0 ? (
+                  organizations.map(
+                    (org) => {
+                      const selected =
+                        draft.destinationOrgId ===
+                        org.id;
+
+                      return (
+                        <button
+                          key={
+                            org.id
+                          }
+                          type="button"
+                          onClick={() => {
+                            updateDraft(
+                              "destinationOrgId",
+                              org.id
+                            );
+
+                            updateDraft(
+                              "destinationName",
+                              org.name
+                            );
+                          }}
+                          style={{
+                            textAlign:
+                              "left",
+                            padding:
+                              "9px 10px",
+                            borderRadius:
+                              7,
+                            border:
+                              selected
+                                ? "1px solid #17233C"
+                                : "1px solid #DDDAD5",
+                            background:
+                              selected
+                                ? "#EEF1F5"
+                                : "#fff",
+                            cursor:
+                              "pointer",
+                            fontFamily:
+                              "inherit",
+                          }}
+                        >
+                          <div
+                            style={{
+                              color:
+                                "#17233C",
+                              fontSize:
+                                12.5,
+                              fontWeight:
+                                700,
+                            }}
+                          >
+                            {
+                              org.name
+                            }
+                          </div>
+
+                          {(org.city ||
+                            org.state) && (
+                            <div
+                              style={{
+                                marginTop:
+                                  2,
+                                color:
+                                  "#77736D",
+                                fontSize:
+                                  11,
+                              }}
+                            >
+                              {[
+                                org.city,
+                                org.state,
+                              ]
+                                .filter(
+                                  Boolean
+                                )
+                                .join(
+                                  ", "
+                                )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    }
+                  )
+                ) : (
+                  <div
+                    style={{
+                      color:
+                        "#77736D",
+                      fontSize: 12,
+                    }}
+                  >
+                    No matching Pack
+                    of Five
+                    organizations.
+                    You can enter the
+                    destination
+                    manually above.
+                  </div>
+                )}
+              </div>
+
+              {draft.destinationOrgId ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateDraft(
+                      "destinationOrgId",
+                      ""
+                    );
+                  }}
+                  style={{
+                    ...secondaryButton,
+                    marginTop: 9,
+                    padding:
+                      "6px 9px",
+                    fontSize: 11.5,
+                  }}
+                >
+                  Clear Organization
+                  Selection
+                </button>
+              ) : null}
             </div>
           ) : null}
 
