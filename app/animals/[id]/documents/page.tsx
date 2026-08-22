@@ -844,6 +844,66 @@ export default function DocumentsPage() {
     }
   }
 
+  async function removeProfilePhoto() {
+    const confirmed =
+      window.confirm(
+        "Remove the current profile photo? The uploaded image will remain in Documents & Photos."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSettingProfilePhotoId(
+      "__remove__"
+    );
+
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res =
+        await fetch(
+          `/api/animals/${encodeURIComponent(
+            animalId
+          )}/documents/profile-photo`,
+          {
+            method:
+              "DELETE",
+
+            credentials:
+              "same-origin",
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't remove profile photo."
+        );
+      }
+
+      setMessage(
+        "Profile photo removed."
+      );
+
+      await loadPage();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't remove profile photo."
+      );
+    } finally {
+      setSettingProfilePhotoId(
+        null
+      );
+    }
+  }
+
   /* =====================================================
      DELETE
   ===================================================== */
@@ -1681,6 +1741,16 @@ export default function DocumentsPage() {
                     document.id
                   }
 
+                  currentProfilePhotoUrl={
+                    animal?.photo?.url ??
+                    null
+                  }
+
+                  removingProfilePhoto={
+                    settingProfilePhotoId ===
+                    "__remove__"
+                  }
+
                   onBeginEdit={() =>
                     beginEdit(
                       document
@@ -1699,6 +1769,10 @@ export default function DocumentsPage() {
                     setProfilePhoto(
                       document
                     )
+                  }
+
+                  onRemoveProfilePhoto={
+                    removeProfilePhoto
                   }
 
                   onDelete={() =>
@@ -1729,10 +1803,13 @@ function DocumentCard({
   savingEdit,
   deleting,
   settingProfilePhoto,
+  currentProfilePhotoUrl,
+  removingProfilePhoto,
   onBeginEdit,
   onCancelEdit,
   onSaveEdit,
   onSetProfilePhoto,
+  onRemoveProfilePhoto,
   onDelete,
 }: {
   document:
@@ -1761,6 +1838,13 @@ function DocumentCard({
   settingProfilePhoto:
     boolean;
 
+  currentProfilePhotoUrl:
+    | string
+    | null;
+
+  removingProfilePhoto:
+    boolean;
+
   onBeginEdit:
     () => void;
 
@@ -1771,6 +1855,9 @@ function DocumentCard({
     () => void;
 
   onSetProfilePhoto:
+    () => void;
+
+  onRemoveProfilePhoto:
     () => void;
 
   onDelete:
@@ -1796,6 +1883,10 @@ function DocumentCard({
     document.content_type.startsWith(
       "image/"
     );
+
+  const isCurrentProfilePhoto =
+    currentProfilePhotoUrl ===
+    openUrl;
 
   return (
     <article
@@ -2180,14 +2271,25 @@ function DocumentCard({
                         type="button"
 
                         disabled={
-                          settingProfilePhoto
+                          settingProfilePhoto ||
+                          removingProfilePhoto
                         }
 
                         onClick={
-                          onSetProfilePhoto
+                          isCurrentProfilePhoto
+                            ? onRemoveProfilePhoto
+                            : onSetProfilePhoto
                         }
 
-                        aria-label="Set as profile photo"
+                        aria-label={
+                          isCurrentProfilePhoto
+                            ? "Remove profile photo"
+                            : "Set as profile photo"
+                        }
+
+                        aria-pressed={
+                          isCurrentProfilePhoto
+                        }
 
                         style={{
                           position:
@@ -2206,12 +2308,13 @@ function DocumentCard({
                             999,
 
                           background:
-                            settingProfilePhoto
-                              ? "#A9C8B5"
+                            isCurrentProfilePhoto
+                              ? "#2F6F4E"
                               : "#D8DCE1",
 
                           cursor:
-                            settingProfilePhoto
+                            settingProfilePhoto ||
+                            removingProfilePhoto
                               ? "wait"
                               : "pointer",
 
@@ -2231,7 +2334,9 @@ function DocumentCard({
                               3,
 
                             left:
-                              3,
+                              isCurrentProfilePhoto
+                                ? 23
+                                : 3,
 
                             width:
                               20,
@@ -2247,6 +2352,9 @@ function DocumentCard({
 
                             boxShadow:
                               "0 1px 2px rgba(0,0,0,.18)",
+
+                            transition:
+                              "left .15s ease",
                           }}
                         />
                       </button>
@@ -2266,6 +2374,11 @@ function DocumentCard({
                     >
                       {settingProfilePhoto
                         ? "Setting profile photo…"
+                        : removingProfilePhoto &&
+                          isCurrentProfilePhoto
+                        ? "Removing profile photo…"
+                        : isCurrentProfilePhoto
+                        ? "This is the current profile photo. Turn off to remove it."
                         : "Turn on to set this image as the profile photo."}
                     </div>
                   </div>
