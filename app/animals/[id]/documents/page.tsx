@@ -1792,6 +1792,11 @@ function DocumentCard({
   const downloadUrl =
     `${openUrl}&download=true`;
 
+  const isImage =
+    document.content_type.startsWith(
+      "image/"
+    );
+
   return (
     <article
       style={{
@@ -2028,6 +2033,245 @@ function DocumentCard({
             </>
           ) : (
             <>
+              {isImage && (
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    gap:
+                      14,
+
+                    alignItems:
+                      "flex-start",
+
+                    flexWrap:
+                      "wrap",
+
+                    marginBottom:
+                      14,
+                  }}
+                >
+                  <a
+                    href={
+                      openUrl
+                    }
+
+                    target="_blank"
+
+                    rel="noreferrer"
+
+                    style={{
+                      display:
+                        "inline-block",
+
+                      textDecoration:
+                        "none",
+                    }}
+                  >
+                    <img
+                      src={
+                        openUrl
+                      }
+
+                      alt={
+                        document.title
+                      }
+
+                      style={{
+                        width:
+                          140,
+
+                        height:
+                          105,
+
+                        objectFit:
+                          "cover",
+
+                        borderRadius:
+                          8,
+
+                        border:
+                          "1px solid #E7E5E1",
+
+                        background:
+                          "#F2F2F0",
+                      }}
+                    />
+                  </a>
+
+                  <div
+                    style={{
+                      flex:
+                        1,
+
+                      minWidth:
+                        220,
+
+                      border:
+                        "1px solid #E0E3E7",
+
+                      borderRadius:
+                        8,
+
+                      padding:
+                        11,
+
+                      background:
+                        "#F8F9FA",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display:
+                          "flex",
+
+                        justifyContent:
+                          "space-between",
+
+                        gap:
+                          12,
+
+                        alignItems:
+                          "center",
+
+                        flexWrap:
+                          "wrap",
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{
+                            display:
+                              "block",
+
+                            color:
+                              "#17233C",
+
+                            fontSize:
+                              12.5,
+                          }}
+                        >
+                          Profile Photo
+                        </strong>
+
+                        <div
+                          style={{
+                            marginTop:
+                              3,
+
+                            color:
+                              "#6B6862",
+
+                            fontSize:
+                              11.5,
+
+                            lineHeight:
+                              1.4,
+                          }}
+                        >
+                          Use this image as the
+                          animal&apos;s primary
+                          profile photo.
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+
+                        disabled={
+                          settingProfilePhoto
+                        }
+
+                        onClick={
+                          onSetProfilePhoto
+                        }
+
+                        aria-label="Set as profile photo"
+
+                        style={{
+                          position:
+                            "relative",
+
+                          width:
+                            46,
+
+                          height:
+                            26,
+
+                          border:
+                            "none",
+
+                          borderRadius:
+                            999,
+
+                          background:
+                            settingProfilePhoto
+                              ? "#A9C8B5"
+                              : "#D8DCE1",
+
+                          cursor:
+                            settingProfilePhoto
+                              ? "wait"
+                              : "pointer",
+
+                          padding:
+                            0,
+
+                          flexShrink:
+                            0,
+                        }}
+                      >
+                        <span
+                          style={{
+                            position:
+                              "absolute",
+
+                            top:
+                              3,
+
+                            left:
+                              3,
+
+                            width:
+                              20,
+
+                            height:
+                              20,
+
+                            borderRadius:
+                              "50%",
+
+                            background:
+                              "#fff",
+
+                            boxShadow:
+                              "0 1px 2px rgba(0,0,0,.18)",
+                          }}
+                        />
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop:
+                          7,
+
+                        fontSize:
+                          11,
+
+                        color:
+                          "#8A8782",
+                      }}
+                    >
+                      {settingProfilePhoto
+                        ? "Setting profile photo…"
+                        : "Turn on to set this image as the profile photo."}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <DetailRow
                 label="Original file"
                 value={
@@ -2167,30 +2411,6 @@ function DocumentCard({
                 >
                   Download
                 </a>
-
-                {document.content_type.startsWith(
-                  "image/"
-                ) && (
-                  <button
-                    type="button"
-
-                    disabled={
-                      settingProfilePhoto
-                    }
-
-                    onClick={
-                      onSetProfilePhoto
-                    }
-
-                    style={
-                      primaryButton
-                    }
-                  >
-                    {settingProfilePhoto
-                      ? "Setting…"
-                      : "Set as Profile Photo"}
-                  </button>
-                )}
 
                 <button
                   type="button"
