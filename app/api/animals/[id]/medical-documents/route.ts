@@ -16,8 +16,25 @@ import {
 
 export const runtime = "edge";
 
+type MedicalFilesBucket = {
+  put: (
+    key: string,
+    value: ArrayBuffer,
+    options?: {
+      httpMetadata?: {
+        contentType?: string;
+      };
+      customMetadata?: Record<string, string>;
+    }
+  ) => Promise<unknown>;
+
+  delete: (
+    key: string
+  ) => Promise<void>;
+};
+
 type Env = {
-  MEDICAL_FILES: R2Bucket;
+  MEDICAL_FILES: MedicalFilesBucket;
 };
 
 const MAX_FILE_SIZE =
