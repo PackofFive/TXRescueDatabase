@@ -414,6 +414,8 @@ export async function POST(
       temporaryName,
       source,
       custody,
+      placement,
+      urgency,
       intakeDate,
       photoUrl,
       notes,
@@ -512,6 +514,42 @@ export async function POST(
         ? source.trim()
         : null;
 
+    const validPlacements = [
+      "in_foster",
+      "in_facility",
+      "medical_hold",
+      "adoption_ready",
+      "adoption_pending",
+      "temporary_care",
+      "other",
+    ];
+
+    const cleanPlacement =
+      typeof placement ===
+        "string" &&
+      validPlacements.includes(
+        placement
+      )
+        ? placement
+        : null;
+
+    const validUrgencies = [
+      "normal",
+      "monitor",
+      "priority",
+      "urgent",
+      "critical",
+    ];
+
+    const cleanUrgency =
+      typeof urgency ===
+        "string" &&
+      validUrgencies.includes(
+        urgency
+      )
+        ? urgency
+        : null;
+
     const cleanNotes =
       typeof notes ===
         "string" &&
@@ -532,6 +570,8 @@ export async function POST(
           source,
           current_org_id,
           custody,
+          placement,
+          urgency,
           notes,
           created_by
         )
@@ -543,6 +583,8 @@ export async function POST(
           ${cleanSource},
           ${orgId},
           ${custodyValue},
+          ${cleanPlacement},
+          ${cleanUrgency},
           ${cleanNotes},
           ${session.id}
         )
@@ -554,6 +596,8 @@ export async function POST(
           species,
           source,
           custody,
+          placement,
+          urgency,
           created_at
       `;
 
@@ -640,6 +684,12 @@ export async function POST(
 
           custody:
             custodyValue,
+
+          placement:
+            cleanPlacement,
+
+          urgency:
+            cleanUrgency,
 
           actingOrgId:
             orgId,
