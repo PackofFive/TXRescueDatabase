@@ -1685,55 +1685,116 @@ export default function MedicalPage() {
           MEDICATION HISTORY
       ================================================ */}
 
-      <section>
-        <div style={sectionHeading}>
-          <h2 style={sectionTitleStyle}>
-            Medication History
-          </h2>
+     <section>
+  <button
+    type="button"
+    onClick={() =>
+      setShowMedicationHistory(
+        (current) =>
+          !current
+      )
+    }
+    style={{
+      width: "100%",
+      display: "flex",
+      justifyContent:
+        "space-between",
+      alignItems:
+        "center",
+      gap: 12,
+      background: "#fff",
+      border:
+        "1px solid #E7E5E1",
+      borderRadius: 9,
+      padding:
+        "13px 15px",
+      cursor: "pointer",
+      textAlign: "left",
+    }}
+  >
+    <div>
+      <strong
+        style={{
+          display: "block",
+          color: "#17233C",
+          fontSize: 15,
+        }}
+      >
+        Medication History
+      </strong>
 
-          <span style={countStyle}>
-            {medicationHistory.length}
-          </span>
-        </div>
+      <span
+        style={{
+          color:
+            "#6B6862",
+          fontSize: 12,
+        }}
+      >
+        {
+          medicationHistory.length
+        }{" "}
+        inactive medication
+        {medicationHistory.length ===
+        1
+          ? ""
+          : "s"}
+      </span>
+    </div>
 
-        {medicationHistory.length === 0 && (
-          <EmptyState>
-            No medication history yet.
-          </EmptyState>
-        )}
+    <span
+      style={{
+        color:
+          "#17233C",
+        fontSize: 20,
+        lineHeight: 1,
+      }}
+    >
+      {showMedicationHistory
+        ? "⌃"
+        : "⌄"}
+    </span>
+  </button>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 10,
-          }}
-        >
-          {medicationHistory.map(
-            (medication) => (
-              <MedicationCard
-                key={
-                  medication.id
-                }
-                medication={
-                  medication
-                }
-                onEdit={
-                  beginEditMedication
-                }
-                onReactivate={() =>
-                  setMedicationActive(
-                    medication,
-                    true
-                  )
-                }
-              />
-            )
-          )}
-        </div>
-      </section>
-    </section>
-  );
-}
+  {showMedicationHistory && (
+    <div
+      style={{
+        display: "grid",
+        gap: 10,
+        marginTop: 10,
+      }}
+    >
+      {medicationHistory.length ===
+        0 && (
+        <EmptyState>
+          No medication history
+          yet.
+        </EmptyState>
+      )}
+
+      {medicationHistory.map(
+        (medication) => (
+          <MedicationCard
+            key={
+              medication.id
+            }
+            medication={
+              medication
+            }
+            onEdit={
+              beginEditMedication
+            }
+            onReactivate={() =>
+              setMedicationActive(
+                medication,
+                true
+              )
+            }
+          />
+        )
+      )}
+    </div>
+  )}
+</section>
 
 /* =========================================================
    MEDICATION CARD
