@@ -268,6 +268,15 @@ const NAME_POOLS: Record<string, string[]> = {
   Other: GENERAL_NAMES,
 };
 
+const PHOTO_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+const MAX_PHOTO_SIZE =
+  15 * 1024 * 1024;
+
 export default function QuickIntakePage() {
   const [species, setSpecies] = useState("");
   const [name, setName] = useState("");
@@ -284,8 +293,11 @@ export default function QuickIntakePage() {
         .slice(0, 10)
     );
 
-  const [photoUrl, setPhotoUrl] =
-    useState("");
+  const [photoFile, setPhotoFile] =
+    useState<File | null>(null);
+
+  const [photoPreviewUrl, setPhotoPreviewUrl] =
+    useState<string | null>(null);
 
   const [notes, setNotes] =
     useState("");
@@ -297,6 +309,9 @@ export default function QuickIntakePage() {
     useState(false);
 
   const [savedId, setSavedId] =
+    useState<string | null>(null);
+
+  const [saveWarning, setSaveWarning] =
     useState<string | null>(null);
 
   const [
@@ -374,6 +389,31 @@ export default function QuickIntakePage() {
     void loadExistingNames();
   }, []);
 
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl(
+        null
+      );
+
+      return;
+    }
+
+    const url =
+      URL.createObjectURL(
+        photoFile
+      );
+
+    setPhotoPreviewUrl(
+      url
+    );
+
+    return () => {
+      URL.revokeObjectURL(
+        url
+      );
+    };
+  }, [photoFile]);
+
   const usedNames =
     useMemo(() => {
       const names =
@@ -418,12 +458,6 @@ export default function QuickIntakePage() {
           "Other"
       ] ??
       GENERAL_NAMES;
-
-    /*
-      Combine the species list with the general list so the
-      generator has enough variety while still prioritizing
-      species-appropriate names.
-    */
 
     const combined =
       [
@@ -494,12 +528,176 @@ export default function QuickIntakePage() {
     );
   }
 
+  function handlePhotoSelection(
+    file:
+      | File
+      | null
+  ) {
+    setError(null);
+
+    if (!file) {
+      setPhotoFile(
+        null
+      );
+
+      return;
+    }
+
+    if (
+      !PHOTO_TYPES.has(
+        file.type
+      )
+    ) {
+      setError(
+        "Photo must be a JPG, PNG, or WebP image."
+      );
+
+      return;
+    }
+
+    if (
+      file.size >
+      MAX_PHOTO_SIZE
+    ) {
+      setError(
+        "Photo must be 15 MB or smaller."
+      );
+
+      return;
+    }
+
+    setPhotoFile(
+      file
+    );
+  }
+
+  async function uploadIntakePhoto(
+    animalId: string,
+    file: File
+  ) {
+    const formData =
+      new FormData();
+
+    formData.set(
+      "file",
+      file
+    );
+
+    formData.set(
+      "title",
+      `${name.trim() ||
+        temporaryName.trim() ||
+        "Animal"} - Intake Photo`
+    );
+
+    formData.set(
+      "category",
+      "other"
+    );
+
+    formData.set(
+      "documentDate",
+      intakeDate
+    );
+
+    formData.set(
+      "source",
+      "Quick Intake"
+    );
+
+    formData.set(
+      "notes",
+      "Uploaded during Quick Animal Intake."
+    );
+
+    /*
+      Keep intake photos private by default.
+      Public use must be approved later.
+    */
+    formData.set(
+      "visibility",
+      "private"
+    );
+
+    const uploadRes =
+      await fetch(
+        `/api/animals/${encodeURIComponent(
+          animalId
+        )}/documents`,
+        {
+          method:
+            "POST",
+
+          credentials:
+            "same-origin",
+
+          body:
+            formData,
+        }
+      );
+
+    const uploadData =
+      await uploadRes.json();
+
+    if (!uploadRes.ok) {
+      throw new Error(
+        uploadData.error ??
+          "The animal was created, but the photo could not be uploaded."
+      );
+    }
+
+    const documentId =
+      uploadData.document
+        ?.id;
+
+    if (!documentId) {
+      throw new Error(
+        "The animal was created and the photo uploaded, but the profile photo could not be set."
+      );
+    }
+
+    const profileRes =
+      await fetch(
+        `/api/animals/${encodeURIComponent(
+          animalId
+        )}/documents/profile-photo`,
+        {
+          method:
+            "POST",
+
+          credentials:
+            "same-origin",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              documentId,
+            }),
+        }
+      );
+
+    const profileData =
+      await profileRes.json();
+
+    if (!profileRes.ok) {
+      throw new Error(
+        profileData.error ??
+          "The photo uploaded, but it could not be set as the profile photo."
+      );
+    }
+  }
+
   async function handleSubmit(
     e: React.FormEvent
   ) {
     e.preventDefault();
 
     setError(null);
+    setSaveWarning(null);
     setSaving(true);
 
     try {
@@ -507,11 +705,17 @@ export default function QuickIntakePage() {
         await fetch(
           "/api/animals",
           {
-            method: "POST",
+            method:
+              "POST",
+
+            credentials:
+              "same-origin",
+
             headers: {
               "Content-Type":
                 "application/json",
             },
+
             body:
               JSON.stringify({
                 species,
@@ -520,7 +724,15 @@ export default function QuickIntakePage() {
                 source,
                 custody,
                 intakeDate,
-                photoUrl,
+
+                /*
+                  Photo URL is intentionally no longer used.
+                  Intake photos now upload after the animal is
+                  created so they can be stored securely in R2.
+                */
+                photoUrl:
+                  "",
+
                 notes,
               }),
           }
@@ -536,8 +748,30 @@ export default function QuickIntakePage() {
         );
       }
 
+      const animalId =
+        String(
+          data.animal.id
+        );
+
+      if (
+        photoFile
+      ) {
+        try {
+          await uploadIntakePhoto(
+            animalId,
+            photoFile
+          );
+        } catch (photoError) {
+          setSaveWarning(
+            photoError instanceof Error
+              ? photoError.message
+              : "The animal was created, but there was a problem adding the photo."
+          );
+        }
+      }
+
       setSavedId(
-        data.animal.id
+        animalId
       );
     } catch (err) {
       setError(
@@ -591,14 +825,50 @@ export default function QuickIntakePage() {
         >
           The animal is now in
           your organization&apos;s
-          records. Medical,
-          behavior, foster,
-          identification, expense,
-          photos, documents, and
-          outcome information can
-          be added to the animal&apos;s
-          full record.
+          records.
+          {photoFile &&
+          !saveWarning
+            ? " The intake photo was uploaded and set as the profile photo."
+            : ""}
         </p>
+
+        {saveWarning && (
+          <div
+            style={{
+              marginBottom:
+                16,
+
+              padding:
+                11,
+
+              borderRadius:
+                8,
+
+              background:
+                "#FFF8F5",
+
+              border:
+                "1px solid #F0D3C9",
+
+              color:
+                "#85571F",
+
+              fontSize:
+                13,
+
+              lineHeight:
+                1.5,
+            }}
+          >
+            <strong>
+              Intake saved.
+            </strong>{" "}
+            {saveWarning}
+            {" "}
+            You can add or set the photo
+            from Documents & Photos.
+          </div>
+        )}
 
         <div
           style={{
@@ -1037,6 +1307,219 @@ export default function QuickIntakePage() {
               labelStyle
             }
           >
+            Photo
+          </label>
+
+          <div
+            style={{
+              border:
+                "1px solid #E7E5E1",
+
+              borderRadius:
+                8,
+
+              padding:
+                11,
+
+              background:
+                "#FAFAF9",
+            }}
+          >
+            <input
+              type="file"
+
+              accept="image/jpeg,image/png,image/webp"
+
+              onChange={(e) =>
+                handlePhotoSelection(
+                  e.target
+                    .files?.[0] ??
+                    null
+                )
+              }
+
+              style={{
+                width:
+                  "100%",
+
+                fontSize:
+                  12.5,
+
+                fontFamily:
+                  "inherit",
+              }}
+            />
+
+            {photoFile &&
+            photoPreviewUrl ? (
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  gap:
+                    12,
+
+                  alignItems:
+                    "center",
+
+                  marginTop:
+                    11,
+
+                  flexWrap:
+                    "wrap",
+                }}
+              >
+                <img
+                  src={
+                    photoPreviewUrl
+                  }
+
+                  alt="Intake photo preview"
+
+                  style={{
+                    width:
+                      110,
+
+                    height:
+                      90,
+
+                    objectFit:
+                      "cover",
+
+                    borderRadius:
+                      8,
+
+                    border:
+                      "1px solid #E7E5E1",
+
+                    background:
+                      "#F1F1EF",
+                  }}
+                />
+
+                <div
+                  style={{
+                    flex:
+                      1,
+
+                    minWidth:
+                      180,
+                  }}
+                >
+                  <strong
+                    style={{
+                      display:
+                        "block",
+
+                      color:
+                        "#17233C",
+
+                      fontSize:
+                        12.5,
+
+                      overflowWrap:
+                        "anywhere",
+                    }}
+                  >
+                    {
+                      photoFile.name
+                    }
+                  </strong>
+
+                  <div
+                    style={{
+                      marginTop:
+                        4,
+
+                      color:
+                        "#6B6862",
+
+                      fontSize:
+                        11.5,
+                    }}
+                  >
+                    {formatFileSize(
+                      photoFile.size
+                    )}
+                    {" · "}
+                    This will become the
+                    animal&apos;s profile
+                    photo.
+                  </div>
+
+                  <button
+                    type="button"
+
+                    onClick={() =>
+                      setPhotoFile(
+                        null
+                      )
+                    }
+
+                    style={{
+                      border:
+                        "none",
+
+                      background:
+                        "transparent",
+
+                      color:
+                        "#B23B2E",
+
+                      padding:
+                        "7px 0 0",
+
+                      fontSize:
+                        11.5,
+
+                      fontWeight:
+                        700,
+
+                      cursor:
+                        "pointer",
+                    }}
+                  >
+                    Remove photo
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginTop:
+                    7,
+
+                  color:
+                    "#6B6862",
+
+                  fontSize:
+                    11.5,
+
+                  lineHeight:
+                    1.4,
+                }}
+              >
+                Optional. JPG, PNG, or WebP,
+                up to 15 MB. The photo is
+                stored privately and set as
+                the profile photo after the
+                intake is created.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginBottom: 14,
+          }}
+        >
+          <label
+            style={
+              labelStyle
+            }
+          >
             Source
           </label>
 
@@ -1168,33 +1651,6 @@ export default function QuickIntakePage() {
 
         <div
           style={{
-            marginBottom: 14,
-          }}
-        >
-          <label
-            style={
-              labelStyle
-            }
-          >
-            Photo URL
-          </label>
-
-          <input
-            value={photoUrl}
-            onChange={(e) =>
-              setPhotoUrl(
-                e.target.value
-              )
-            }
-            placeholder="Optional for now — direct upload will be added later"
-            style={
-              inputStyle
-            }
-          />
-        </div>
-
-        <div
-          style={{
             marginBottom: 18,
           }}
         >
@@ -1244,7 +1700,9 @@ export default function QuickIntakePage() {
           }}
         >
           {saving
-            ? "Recording…"
+            ? photoFile
+              ? "Recording & Uploading…"
+              : "Recording…"
             : "Record Intake"}
         </button>
 
@@ -1303,4 +1761,38 @@ function shuffle<T>(
   }
 
   return result;
+}
+
+function formatFileSize(
+  bytes: number
+) {
+  if (
+    bytes <
+    1024
+  ) {
+    return `${bytes} B`;
+  }
+
+  if (
+    bytes <
+    1024 *
+      1024
+  ) {
+    return `${(
+      bytes /
+      1024
+    ).toFixed(
+      1
+    )} KB`;
+  }
+
+  return `${(
+    bytes /
+    (
+      1024 *
+      1024
+    )
+  ).toFixed(
+    1
+  )} MB`;
 }
