@@ -110,7 +110,8 @@ export async function GET(
           a.show_on_success_wall,
 
           a.created_at,
-          a.current_org_id
+          a.current_org_id,
+          a.primary_photo_document_id
 
         from animals a
 
@@ -137,23 +138,123 @@ export async function GET(
 
     /* -----------------------------------------------------
        PHOTO
+
+       Primary profile photos are linked directly to an
+       animal_document record. This makes the selected photo
+       deterministic instead of relying on the newest media row.
     ----------------------------------------------------- */
 
-    const mediaRows =
-      await sql`
-        select
-          id,
-          url,
-          source,
-          visibility
-        from media
-        where
-          owner_type = 'animal'
-          and owner_id = ${animalId}
-        order by
-          created_at desc
-        limit 1
-      `;
+    let photo:
+      | {
+          id: string;
+          document_id: string | null;
+          url: string;
+          source: string | null;
+          visibility: string | null;
+        }
+      | null = null;
+
+    if (
+      animal.primary_photo_document_id
+    ) {
+      const primaryPhotoRows =
+        await sql`
+          select
+            ad.id,
+            ad.source,
+            ad.visibility,
+            ad.content_type
+
+          from animal_documents ad
+
+          where
+            ad.id =
+              ${animal.primary_photo_document_id}
+
+            and
+            ad.animal_id =
+              ${animalId}
+
+          limit 1
+        `;
+
+      const primaryPhoto =
+        primaryPhotoRows[0];
+
+      if (
+        primaryPhoto &&
+        String(
+          primaryPhoto.content_type
+        ).startsWith(
+          'image/'
+        )
+      ) {
+        photo = {
+          id:
+            String(
+              primaryPhoto.id
+            ),
+
+          document_id:
+            String(
+              primaryPhoto.id
+            ),
+
+          url:
+            `/api/animals/${encodeURIComponent(
+              animalId
+            )}/documents?documentId=${encodeURIComponent(
+              String(
+                primaryPhoto.id
+              )
+            )}`,
+
+          source:
+            primaryPhoto.source ??
+            'animal_document',
+
+          visibility:
+            primaryPhoto.visibility ??
+            'private',
+        };
+      }
+    }
+
+    /*
+      Legacy fallback for any existing media-based animal photo.
+    */
+
+    if (!photo) {
+      const mediaRows =
+        await sql`
+          select
+            id,
+            url,
+            source,
+            visibility
+
+          from media
+
+          where
+            owner_type = 'animal'
+            and owner_id = ${animalId}
+
+          order by
+            created_at desc
+
+          limit 1
+        `;
+
+      if (
+        mediaRows[0]
+      ) {
+        photo = {
+          ...mediaRows[0],
+          document_id:
+            null,
+        };
+      }
+    }
 
     /* -----------------------------------------------------
        TIMELINE
@@ -209,9 +310,7 @@ export async function GET(
       animal: {
         ...animal,
 
-        photo:
-          mediaRows[0] ??
-          null,
+        photo,
 
         timeline:
           timelineRows ??
