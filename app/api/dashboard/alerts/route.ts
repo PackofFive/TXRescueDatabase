@@ -300,6 +300,7 @@ export async function GET(
           select
             am.id,
             am.animal_id,
+            am.medication_name,
 
             coalesce(
               a.name,
@@ -352,6 +353,10 @@ export async function GET(
             "high";
         }
 
+        const medicationName =
+          row.medication_name ||
+          "Medication";
+
         alerts.push({
           id:
             `medication-${row.id}`,
@@ -367,10 +372,10 @@ export async function GET(
 
           title:
             diffDays < 0
-              ? "Medication overdue"
+              ? `${medicationName} overdue`
               : diffDays === 0
-              ? "Medication due today"
-              : "Medication due soon",
+              ? `${medicationName} due today`
+              : `${medicationName} due soon`,
 
           due_at:
             row.next_due_at,
@@ -478,21 +483,6 @@ export async function GET(
 
     /* =====================================================
        CUSTOM RESCUE REMINDERS
-
-       These are deliberately different from the automated
-       alert categories above.
-
-       The rescue chooses:
-       - title
-       - due date
-       - priority
-
-       Overdue reminders automatically escalate to Critical.
-       Reminders due today/tomorrow automatically escalate
-       to High.
-
-       Completed/cancelled reminders disappear from the
-       dashboard but remain in the animal's history.
     ===================================================== */
 
     const reminderRows =
@@ -598,16 +588,6 @@ export async function GET(
 
     /* =====================================================
        SORT ALL ALERTS
-
-       1. Critical
-       2. High
-       3. Normal
-       4. Informational
-
-       Within a priority:
-       - due dates first
-       - earliest due date first
-       - otherwise newest activity first
     ===================================================== */
 
     alerts.sort(
