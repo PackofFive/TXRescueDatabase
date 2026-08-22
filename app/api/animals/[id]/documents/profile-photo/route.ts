@@ -30,11 +30,16 @@ async function requireAnimalAccess(
 
   const rows =
     await sql`
-      select id
+      select
+        id,
+        primary_photo_document_id
+
       from animals
+
       where
         id = ${animalId}
         and current_org_id = ${orgId}
+
       limit 1
     `;
 
@@ -48,6 +53,8 @@ async function requireAnimalAccess(
   return {
     session,
     orgId,
+    animal:
+      rows[0],
   };
 }
 
@@ -77,7 +84,9 @@ export async function POST(
     const body =
       await req
         .json()
-        .catch(() => null);
+        .catch(
+          () => null
+        );
 
     const documentId =
       typeof body?.documentId ===
@@ -148,45 +157,24 @@ export async function POST(
       );
     }
 
-    const photoUrl =
-      `/api/animals/${encodeURIComponent(
-        animalId
-      )}/documents?documentId=${encodeURIComponent(
-        documentId
-      )}`;
-
-    await sql`
-      delete from media
-      where
-        owner_type = 'animal'
-        and owner_id = ${animalId}
-        and source =
-          'animal_document_profile_photo'
-    `;
-
-    const mediaRows =
+    const rows =
       await sql`
-        insert into media (
-          owner_type,
-          owner_id,
-          url,
-          source,
-          visibility
-        )
+        update animals
 
-        values (
-          'animal',
-          ${animalId},
-          ${photoUrl},
-          'animal_document_profile_photo',
-          ${document.visibility}
-        )
+        set
+          primary_photo_document_id =
+            ${documentId},
+
+          updated_at =
+            now()
+
+        where
+          id = ${animalId}
+          and current_org_id = ${orgId}
 
         returning
           id,
-          url,
-          source,
-          visibility
+          primary_photo_document_id
       `;
 
     try {
@@ -221,8 +209,10 @@ export async function POST(
     }
 
     return NextResponse.json({
-      photo:
-        mediaRows[0],
+      primaryPhotoDocumentId:
+        rows[0]
+          ?.primary_photo_document_id ??
+        documentId,
     });
   } catch (err) {
     if (
@@ -276,25 +266,27 @@ export async function DELETE(
 
     const {
       session,
+      orgId,
+      animal,
     } =
       await requireAnimalAccess(
         animalId
       );
 
-    const rows =
-      await sql`
-        delete from media
+    await sql`
+      update animals
 
-        where
-          owner_type = 'animal'
-          and owner_id = ${animalId}
-          and source =
-            'animal_document_profile_photo'
+      set
+        primary_photo_document_id =
+          null,
 
-        returning
-          id,
-          url
-      `;
+        updated_at =
+          now()
+
+      where
+        id = ${animalId}
+        and current_org_id = ${orgId}
+    `;
 
     try {
       await sql`
@@ -312,8 +304,9 @@ export async function DELETE(
           ${session.id},
           'profile_photo_removed',
           ${JSON.stringify({
-            removed:
-              rows.length > 0,
+            previousDocumentId:
+              animal.primary_photo_document_id ??
+              null,
           })}
         )
       `;
@@ -327,8 +320,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({
-      removed:
-        rows.length > 0,
+      removed: true,
     });
   } catch (err) {
     if (
