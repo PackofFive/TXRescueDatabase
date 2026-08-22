@@ -1061,10 +1061,12 @@ export default function AnimalRecordPage() {
                   href="#timeline"
                 />
 
-                <FileMenuItem
-                  label="Outcome"
-                  disabled
-                />
+               <FileMenuItem
+  label="Outcome"
+  href={`/animals/${encodeURIComponent(
+    animal.id
+  )}/outcome`}
+/>
               </div>
             )}
           </div>
