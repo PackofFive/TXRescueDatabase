@@ -270,11 +270,6 @@ export default function AnimalsListPage() {
           );
         }
 
-        /*
-          Admin Test Mode uses the
-          selected test organization.
-        */
-
         if (
           user?.role ===
           "admin"
@@ -374,12 +369,6 @@ export default function AnimalsListPage() {
           );
         }
 
-        /*
-          Needs Attention sorting
-          is done client-side after
-          the API returns the records.
-        */
-
         params.set(
           "sort",
           sort ===
@@ -446,12 +435,6 @@ export default function AnimalsListPage() {
         );
       }
     }
-
-    /*
-      Small delay keeps typing in
-      search from firing a request
-      for every keystroke.
-    */
 
     const timer =
       window.setTimeout(
@@ -706,10 +689,6 @@ export default function AnimalsListPage() {
 
   return (
     <section>
-      {/* ===============================================
-          HEADER
-      ================================================ */}
-
       <div
         style={{
           display: "flex",
@@ -1287,10 +1266,7 @@ function AnimalCard({
     );
 
   return (
-    <a
-      href={`/animals/${encodeURIComponent(
-        animal.id
-      )}`}
+    <article
       style={{
         display: "block",
         background: "#fff",
@@ -1298,204 +1274,215 @@ function AnimalCard({
           "1px solid #E7E5E1",
         borderRadius: 11,
         overflow: "hidden",
-        textDecoration: "none",
         color: "inherit",
         minWidth: 0,
       }}
     >
       {/* ===============================================
-          IDENTITY
+          MAIN ANIMAL RECORD LINK
       ================================================ */}
 
-      <div
+      <a
+        href={`/animals/${encodeURIComponent(
+          animal.id
+        )}`}
         style={{
-          display: "flex",
-          gap: 14,
-          padding: 15,
+          display: "block",
+          color: "inherit",
+          textDecoration:
+            "none",
         }}
       >
-        {animal.photo_url ? (
-          <img
-            src={
-              animal.photo_url
-            }
-            alt={
-              displayName
-            }
-            style={{
-              width: 105,
-              height: 105,
-              borderRadius: 9,
-              objectFit:
-                "cover",
-              flexShrink: 0,
-              background:
-                "#F1F1EF",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 105,
-              height: 105,
-              borderRadius: 9,
-              background:
-                "#F1F1EF",
-              display: "grid",
-              placeItems:
-                "center",
-              color:
-                "#8A8782",
-              fontSize: 12,
-              textAlign:
-                "center",
-              flexShrink: 0,
-              padding: 8,
-              boxSizing:
-                "border-box",
-            }}
-          >
-            No photo
-          </div>
-        )}
-
         <div
           style={{
-            flex: 1,
-            minWidth: 0,
+            display: "flex",
+            gap: 14,
+            padding: 15,
           }}
         >
+          {animal.photo_url ? (
+            <img
+              src={
+                animal.photo_url
+              }
+              alt={
+                displayName
+              }
+              style={{
+                width: 105,
+                height: 105,
+                borderRadius: 9,
+                objectFit:
+                  "cover",
+                flexShrink: 0,
+                background:
+                  "#F1F1EF",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 105,
+                height: 105,
+                borderRadius: 9,
+                background:
+                  "#F1F1EF",
+                display: "grid",
+                placeItems:
+                  "center",
+                color:
+                  "#8A8782",
+                fontSize: 12,
+                textAlign:
+                  "center",
+                flexShrink: 0,
+                padding: 8,
+                boxSizing:
+                  "border-box",
+              }}
+            >
+              No photo
+            </div>
+          )}
+
           <div
             style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              alignItems:
-                "flex-start",
-              gap: 8,
+              flex: 1,
+              minWidth: 0,
             }}
           >
             <div
               style={{
-                minWidth: 0,
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "flex-start",
+                gap: 8,
               }}
             >
-              <h2
-                style={{
-                  fontSize: 18,
-                  color:
-                    "#17233C",
-                  margin:
-                    "0 0 4px",
-                  lineHeight: 1.25,
-                  overflowWrap:
-                    "anywhere",
-                }}
-              >
-                {
-                  displayName
-                }
-              </h2>
-
               <div
                 style={{
-                  color:
-                    "#6B6862",
-                  fontSize: 13,
-                  lineHeight: 1.45,
+                  minWidth: 0,
                 }}
               >
-                {[
-                  age,
-                  breed,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+                <h2
+                  style={{
+                    fontSize: 18,
+                    color:
+                      "#17233C",
+                    margin:
+                      "0 0 4px",
+                    lineHeight: 1.25,
+                    overflowWrap:
+                      "anywhere",
+                  }}
+                >
+                  {
+                    displayName
+                  }
+                </h2>
+
+                <div
+                  style={{
+                    color:
+                      "#6B6862",
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {[
+                    age,
+                    breed,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
               </div>
+
+              <span
+                aria-hidden="true"
+                style={{
+                  color:
+                    "#17233C",
+                  fontSize: 22,
+                  lineHeight: 1,
+                }}
+              >
+                ›
+              </span>
             </div>
 
-            <span
-              aria-hidden="true"
+            {/* ===============================================
+                OPTIONAL FIELDS
+            ================================================ */}
+
+            <div
               style={{
-                color:
-                  "#17233C",
-                fontSize: 22,
-                lineHeight: 1,
+                marginTop: 9,
+                display: "flex",
+                flexWrap:
+                  "wrap",
+                gap: 5,
               }}
             >
-              ›
-            </span>
-          </div>
+              {cardFields.includes(
+                "placement"
+              ) &&
+                animal.placement && (
+                  <SmallBadge
+                    label={formatValue(
+                      animal.placement
+                    )}
+                  />
+                )}
 
-          {/* ===============================================
-              OPTIONAL FIELDS
-          ================================================ */}
+              {cardFields.includes(
+                "sex"
+              ) &&
+                animal.sex && (
+                  <SmallBadge
+                    label={formatValue(
+                      animal.sex
+                    )}
+                  />
+                )}
 
-          <div
-            style={{
-              marginTop: 9,
-              display: "flex",
-              flexWrap:
-                "wrap",
-              gap: 5,
-            }}
-          >
-            {cardFields.includes(
-              "placement"
-            ) &&
-              animal.placement && (
-                <SmallBadge
-                  label={formatValue(
-                    animal.placement
-                  )}
-                />
-              )}
+              {cardFields.includes(
+                "weight"
+              ) &&
+                animal.weight_lbs && (
+                  <SmallBadge
+                    label={`${animal.weight_lbs} lb`}
+                  />
+                )}
 
-            {cardFields.includes(
-              "sex"
-            ) &&
-              animal.sex && (
-                <SmallBadge
-                  label={formatValue(
-                    animal.sex
-                  )}
-                />
-              )}
+              {cardFields.includes(
+                "source"
+              ) &&
+                animal.source && (
+                  <SmallBadge
+                    label={
+                      animal.source
+                    }
+                  />
+                )}
 
-            {cardFields.includes(
-              "weight"
-            ) &&
-              animal.weight_lbs && (
-                <SmallBadge
-                  label={`${animal.weight_lbs} lb`}
-                />
-              )}
-
-            {cardFields.includes(
-              "source"
-            ) &&
-              animal.source && (
+              {cardFields.includes(
+                "public_status"
+              ) && (
                 <SmallBadge
                   label={
-                    animal.source
+                    animal.public_share_enabled
+                      ? "Public Profile On"
+                      : "Private"
                   }
                 />
               )}
-
-            {cardFields.includes(
-              "public_status"
-            ) && (
-              <SmallBadge
-                label={
-                  animal.public_share_enabled
-                    ? "Public Profile On"
-                    : "Private"
-                }
-              />
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      </a>
 
       {/* ===============================================
           REMINDERS
@@ -1508,9 +1495,8 @@ function AnimalCard({
             borderTop:
               "1px solid #F0EFED",
             padding:
-              "10px 15px",
+              "6px 0",
             display: "grid",
-            gap: 6,
           }}
         >
           {animal.reminders.map(
@@ -1522,6 +1508,9 @@ function AnimalCard({
                 key={`${reminder.kind}-${index}`}
                 reminder={
                   reminder
+                }
+                animalId={
+                  animal.id
                 }
               />
             )
@@ -1574,7 +1563,10 @@ function AnimalCard({
         ) &&
           helpOffers >
             0 && (
-            <span
+            <a
+              href={`/animals/${encodeURIComponent(
+                animal.id
+              )}/offers`}
               style={{
                 display:
                   "inline-block",
@@ -1592,6 +1584,8 @@ function AnimalCard({
                   11.5,
                 fontWeight:
                   700,
+                textDecoration:
+                  "none",
               }}
             >
               {helpOffers}{" "}
@@ -1600,10 +1594,10 @@ function AnimalCard({
               1
                 ? ""
                 : "s"}
-            </span>
+            </a>
           )}
       </div>
-    </a>
+    </article>
   );
 }
 
@@ -1613,11 +1607,26 @@ function AnimalCard({
 
 function ReminderRow({
   reminder,
+  animalId,
 }: {
   reminder: Reminder;
+  animalId: string;
 }) {
+  const destination =
+    reminder.kind ===
+      "medical" ||
+    reminder.kind ===
+      "medication"
+      ? `/animals/${encodeURIComponent(
+          animalId
+        )}/medical`
+      : `/animals/${encodeURIComponent(
+          animalId
+        )}`;
+
   return (
-    <div
+    <a
+      href={destination}
       style={{
         display: "flex",
         justifyContent:
@@ -1626,6 +1635,16 @@ function ReminderRow({
           "center",
         gap: 10,
         fontSize: 12.5,
+        textDecoration:
+          "none",
+        padding:
+          "7px 15px",
+        color:
+          "inherit",
+        background:
+          reminder.overdue
+            ? "#FFF8F6"
+            : "transparent",
       }}
     >
       <span
@@ -1636,6 +1655,10 @@ function ReminderRow({
             reminder.overdue
               ? "#B23B2E"
               : "#85571F",
+
+          minWidth: 0,
+          overflowWrap:
+            "anywhere",
         }}
       >
         {reminder.overdue
@@ -1654,13 +1677,16 @@ function ReminderRow({
 
           whiteSpace:
             "nowrap",
+
+          flexShrink: 0,
         }}
       >
         {formatDateTime(
           reminder.dueAt
         )}
+        {" ›"}
       </span>
-    </div>
+    </a>
   );
 }
 
