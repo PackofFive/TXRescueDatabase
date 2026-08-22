@@ -10,14 +10,13 @@ export const runtime = "edge";
 /* =========================================================
    PUBLIC ADOPTABLE ANIMALS FOR ONE ORGANIZATION
 
-   No login is required.
+   No login required.
 
-   Only animals deliberately published by the managing
-   organization are returned.
+   IMPORTANT:
+   This route only returns explicitly approved public
+   animal fields.
 
-   Adopted animals are not shown on the active adoptable
-   list. Their permanent public profiles can remain
-   accessible separately.
+   Private Overview fields are never exposed here.
 ========================================================= */
 
 export async function GET(
@@ -72,26 +71,28 @@ export async function GET(
     /* -----------------------------------------------------
        PUBLIC ANIMALS
 
-       Important:
-       public_share_enabled must be TRUE.
+       Animals only appear here when:
+       - public_share_enabled = true
+       - animal has not been adopted
 
-       Animals begin private and only appear here after the
-       rescue/shelter explicitly publishes them.
+       Only public_* identity fields are returned.
     ----------------------------------------------------- */
 
     const animals = await sql`
       select
         a.id,
-        a.name,
-        a.temporary_name,
-        a.species,
-        a.breed_or_type,
-        a.birth_date,
-        a.sex,
-        a.weight_lbs,
+
+        a.public_name as name,
+        a.public_species as species,
+        a.public_breed_or_type as breed_or_type,
+        a.public_birth_date as birth_date,
+        a.public_sex as sex,
+        a.public_weight_lbs as weight_lbs,
+
         a.public_summary,
         a.public_need,
         a.external_listing_url,
+
         a.outcome_status,
         a.created_at,
 
@@ -102,6 +103,11 @@ export async function GET(
             m.owner_type = 'animal'
             and m.owner_id = a.id
           order by
+            case
+              when m.visibility = 'public'
+                then 0
+              else 1
+            end,
             m.created_at desc
           limit 1
         ) as photo_url
