@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -20,11 +24,254 @@ const labelStyle: React.CSSProperties = {
   color: "#3F3D39",
 };
 
+const secondaryButton: React.CSSProperties = {
+  background: "#fff",
+  color: "#17233C",
+  border: "1px solid #D8D6D2",
+  borderRadius: 7,
+  padding: "8px 11px",
+  fontWeight: 700,
+  fontSize: 12.5,
+  cursor: "pointer",
+};
+
+type ExistingAnimal = {
+  id: string;
+  name: string | null;
+  temporary_name: string | null;
+  species: string | null;
+};
+
+const GENERAL_NAMES = [
+  "Mabel",
+  "Poppy",
+  "Juniper",
+  "Tilly",
+  "Waffles",
+  "Maple",
+  "Nellie",
+  "Otis",
+  "Winnie",
+  "Piper",
+  "Milo",
+  "Louie",
+  "Millie",
+  "Hazel",
+  "Archie",
+  "Birdie",
+  "Clover",
+  "Scout",
+  "Remy",
+  "Frankie",
+  "Dottie",
+  "Theo",
+  "Maisie",
+  "Benny",
+  "Olive",
+  "Murphy",
+  "Josie",
+  "Finn",
+  "Roscoe",
+  "Pearl",
+  "Mochi",
+  "Sunny",
+  "Beans",
+  "Noodle",
+  "Pickles",
+  "Biscuit",
+  "Pepper",
+  "Honey",
+  "Rory",
+  "Juno",
+  "Blue",
+  "Cosmo",
+  "Ziggy",
+  "Freddie",
+  "Lola",
+  "Ruby",
+  "Gus",
+  "Ivy",
+  "Cleo",
+  "Tucker",
+  "Minnie",
+  "Harvey",
+  "Sage",
+  "Daisy",
+  "Hugo",
+  "Bonnie",
+  "Marley",
+  "Opal",
+  "Rufus",
+  "Georgia",
+];
+
+const DOG_NAMES = [
+  "Banjo",
+  "Ranger",
+  "Maggie",
+  "Hank",
+  "Duke",
+  "Sadie",
+  "Cooper",
+  "Beau",
+  "Gertie",
+  "Walter",
+  "Teddy",
+  "Millie",
+  "Cash",
+  "June",
+  "Winston",
+  "Dolly",
+  "Bear",
+  "Murray",
+  "Penny",
+  "Ollie",
+  "Roo",
+  "Baxter",
+  "Lulu",
+  "Moose",
+  "Daphne",
+  "Marty",
+  "Fiona",
+  "Howie",
+  "Mavis",
+  "Franklin",
+];
+
+const CAT_NAMES = [
+  "Fig",
+  "Miso",
+  "Cleo",
+  "Nori",
+  "Minnie",
+  "Felix",
+  "Poe",
+  "Luna",
+  "Toast",
+  "Salem",
+  "Mochi",
+  "Ivy",
+  "Theo",
+  "Olive",
+  "Bean",
+  "Pip",
+  "Suki",
+  "Basil",
+  "Tuna",
+  "Mabel",
+  "Cosmo",
+  "Poppy",
+  "Sage",
+  "Juno",
+  "Winnie",
+  "Marmalade",
+];
+
+const RABBIT_NAMES = [
+  "Clover",
+  "Thumper",
+  "Bunty",
+  "Pip",
+  "Hazel",
+  "Mochi",
+  "Biscuit",
+  "Maple",
+  "Peaches",
+  "Bean",
+  "Dottie",
+  "Poppy",
+  "Fig",
+  "Nibbles",
+  "Juniper",
+];
+
+const BIRD_NAMES = [
+  "Sunny",
+  "Kiwi",
+  "Pip",
+  "Blue",
+  "Peaches",
+  "Mango",
+  "Rio",
+  "Skye",
+  "Pepper",
+  "Coco",
+  "Birdie",
+  "Fig",
+  "Juno",
+  "Basil",
+  "Poppy",
+];
+
+const EQUINE_NAMES = [
+  "Willow",
+  "Scout",
+  "Dakota",
+  "Clover",
+  "June",
+  "Cash",
+  "Blue",
+  "Sage",
+  "River",
+  "Sunny",
+  "Pearl",
+  "Dolly",
+  "Ranger",
+  "Georgia",
+  "Mabel",
+];
+
+const FARM_NAMES = [
+  "Dottie",
+  "Biscuit",
+  "Maple",
+  "Poppy",
+  "Pickles",
+  "Waffles",
+  "Beans",
+  "Dolly",
+  "Mabel",
+  "Pearl",
+  "Peaches",
+  "Clover",
+  "Gertie",
+  "Honey",
+  "Mochi",
+];
+
+const WILDLIFE_NAMES = [
+  "Fern",
+  "River",
+  "Sage",
+  "Cedar",
+  "Juniper",
+  "Willow",
+  "Ash",
+  "Clover",
+  "Sunny",
+  "Maple",
+  "Briar",
+  "Meadow",
+  "Sky",
+  "Ember",
+  "Pine",
+];
+
+const NAME_POOLS: Record<string, string[]> = {
+  Dog: DOG_NAMES,
+  Cat: CAT_NAMES,
+  Rabbit: RABBIT_NAMES,
+  Bird: BIRD_NAMES,
+  Equine: EQUINE_NAMES,
+  "Farm Animal": FARM_NAMES,
+  Wildlife: WILDLIFE_NAMES,
+  Other: GENERAL_NAMES,
+};
+
 export default function QuickIntakePage() {
   const [species, setSpecies] = useState("");
   const [name, setName] = useState("");
   const [temporaryName, setTemporaryName] = useState("");
-
   const [source, setSource] = useState("");
 
   const [custody, setCustody] =
@@ -52,6 +299,201 @@ export default function QuickIntakePage() {
   const [savedId, setSavedId] =
     useState<string | null>(null);
 
+  const [
+    existingAnimals,
+    setExistingAnimals,
+  ] =
+    useState<ExistingAnimal[]>([]);
+
+  const [
+    loadingNames,
+    setLoadingNames,
+  ] =
+    useState(true);
+
+  const [
+    nameSuggestions,
+    setNameSuggestions,
+  ] =
+    useState<string[]>([]);
+
+  const [
+    nameMessage,
+    setNameMessage,
+  ] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadExistingNames() {
+      setLoadingNames(true);
+
+      try {
+        const res =
+          await fetch(
+            "/api/animals?sort=name",
+            {
+              cache:
+                "no-store",
+
+              credentials:
+                "same-origin",
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.error ??
+              "Couldn't load existing animal names."
+          );
+        }
+
+        setExistingAnimals(
+          Array.isArray(
+            data.animals
+          )
+            ? data.animals
+            : []
+        );
+      } catch (err) {
+        console.error(
+          "Quick Intake name exclusion load failed:",
+          err
+        );
+
+        setNameMessage(
+          "Name suggestions are available, but existing-name checking could not be loaded."
+        );
+      } finally {
+        setLoadingNames(false);
+      }
+    }
+
+    void loadExistingNames();
+  }, []);
+
+  const usedNames =
+    useMemo(() => {
+      const names =
+        new Set<string>();
+
+      for (
+        const animal of
+        existingAnimals
+      ) {
+        if (
+          animal.name?.trim()
+        ) {
+          names.add(
+            normalizeName(
+              animal.name
+            )
+          );
+        }
+
+        if (
+          animal.temporary_name?.trim()
+        ) {
+          names.add(
+            normalizeName(
+              animal.temporary_name
+            )
+          );
+        }
+      }
+
+      return names;
+    }, [
+      existingAnimals,
+    ]);
+
+  function generateNames() {
+    setNameMessage(null);
+
+    const speciesPool =
+      NAME_POOLS[
+        species ||
+          "Other"
+      ] ??
+      GENERAL_NAMES;
+
+    /*
+      Combine the species list with the general list so the
+      generator has enough variety while still prioritizing
+      species-appropriate names.
+    */
+
+    const combined =
+      [
+        ...speciesPool,
+        ...GENERAL_NAMES,
+      ];
+
+    const available =
+      Array.from(
+        new Set(
+          combined
+        )
+      ).filter(
+        (candidate) =>
+          !usedNames.has(
+            normalizeName(
+              candidate
+            )
+          ) &&
+          normalizeName(
+            candidate
+          ) !==
+            normalizeName(
+              name
+            ) &&
+          normalizeName(
+            candidate
+          ) !==
+            normalizeName(
+              temporaryName
+            )
+      );
+
+    const shuffled =
+      shuffle(
+        available
+      );
+
+    const suggestions =
+      shuffled.slice(
+        0,
+        5
+      );
+
+    setNameSuggestions(
+      suggestions
+    );
+
+    if (
+      suggestions.length ===
+      0
+    ) {
+      setNameMessage(
+        "No unused names were available in the current name library."
+      );
+    }
+  }
+
+  function chooseSuggestedName(
+    suggestion: string
+  ) {
+    setName(
+      suggestion
+    );
+
+    setNameMessage(
+      `${suggestion} selected.`
+    );
+  }
+
   async function handleSubmit(
     e: React.FormEvent
   ) {
@@ -61,26 +503,28 @@ export default function QuickIntakePage() {
     setSaving(true);
 
     try {
-      const res = await fetch(
-        "/api/animals",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            species,
-            name,
-            temporaryName,
-            source,
-            custody,
-            intakeDate,
-            photoUrl,
-            notes,
-          }),
-        }
-      );
+      const res =
+        await fetch(
+          "/api/animals",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                species,
+                name,
+                temporaryName,
+                source,
+                custody,
+                intakeDate,
+                photoUrl,
+                notes,
+              }),
+          }
+        );
 
       const data =
         await res.json();
@@ -220,7 +664,8 @@ export default function QuickIntakePage() {
         style={{
           fontSize: 12.5,
           color: "#C05621",
-          textDecoration: "none",
+          textDecoration:
+            "none",
         }}
       >
         ← Back to Animals
@@ -306,20 +751,32 @@ export default function QuickIntakePage() {
           }}
         >
           <label
-            style={labelStyle}
+            style={
+              labelStyle
+            }
           >
             Species *
           </label>
 
           <select
             value={species}
-            onChange={(e) =>
+            onChange={(e) => {
               setSpecies(
                 e.target.value
-              )
-            }
+              );
+
+              setNameSuggestions(
+                []
+              );
+
+              setNameMessage(
+                null
+              );
+            }}
             required
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           >
             <option value="">
               Select…
@@ -361,13 +818,52 @@ export default function QuickIntakePage() {
           }}
         >
           <div>
-            <label
-              style={
-                labelStyle
-              }
+            <div
+              style={{
+                display:
+                  "flex",
+                justifyContent:
+                  "space-between",
+                gap: 8,
+                alignItems:
+                  "center",
+                marginBottom: 5,
+              }}
             >
-              Name
-            </label>
+              <label
+                style={{
+                  ...labelStyle,
+                  marginBottom: 0,
+                }}
+              >
+                Name
+              </label>
+
+              <button
+                type="button"
+                disabled={
+                  loadingNames
+                }
+                onClick={
+                  generateNames
+                }
+                style={{
+                  ...secondaryButton,
+                  opacity:
+                    loadingNames
+                      ? 0.6
+                      : 1,
+                  cursor:
+                    loadingNames
+                      ? "default"
+                      : "pointer",
+                }}
+              >
+                {loadingNames
+                  ? "Loading names…"
+                  : "Generate Names"}
+              </button>
+            </div>
 
             <input
               value={name}
@@ -381,6 +877,128 @@ export default function QuickIntakePage() {
                 inputStyle
               }
             />
+
+            {nameSuggestions.length >
+              0 && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 9,
+                  border:
+                    "1px solid #E7E5E1",
+                  borderRadius: 7,
+                  background:
+                    "#FAFAF9",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color:
+                      "#6B6862",
+                    marginBottom: 7,
+                  }}
+                >
+                  Suggestions not currently
+                  used by this organization:
+                </div>
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+                    gap: 6,
+                    flexWrap:
+                      "wrap",
+                  }}
+                >
+                  {nameSuggestions.map(
+                    (suggestion) => (
+                      <button
+                        key={
+                          suggestion
+                        }
+                        type="button"
+                        onClick={() =>
+                          chooseSuggestedName(
+                            suggestion
+                          )
+                        }
+                        style={{
+                          border:
+                            "1px solid #D8D6D2",
+                          background:
+                            name ===
+                            suggestion
+                              ? "#EEF1F5"
+                              : "#fff",
+                          color:
+                            "#17233C",
+                          borderRadius:
+                            20,
+                          padding:
+                            "5px 9px",
+                          fontSize:
+                            12,
+                          fontWeight:
+                            name ===
+                            suggestion
+                              ? 700
+                              : 600,
+                          cursor:
+                            "pointer",
+                        }}
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    generateNames
+                  }
+                  style={{
+                    border:
+                      "none",
+                    background:
+                      "transparent",
+                    color:
+                      "#C05621",
+                    fontSize:
+                      11.5,
+                    fontWeight:
+                      700,
+                    padding:
+                      "8px 0 0",
+                    cursor:
+                      "pointer",
+                  }}
+                >
+                  Show different names
+                </button>
+              </div>
+            )}
+
+            {nameMessage && (
+              <div
+                style={{
+                  marginTop: 6,
+                  color:
+                    nameMessage.endsWith(
+                      "selected."
+                    )
+                      ? "#2F6F4E"
+                      : "#85571F",
+                  fontSize: 11.5,
+                  lineHeight: 1.4,
+                }}
+              >
+                {nameMessage}
+              </div>
+            )}
           </div>
 
           <div>
@@ -415,7 +1033,9 @@ export default function QuickIntakePage() {
           }}
         >
           <label
-            style={labelStyle}
+            style={
+              labelStyle
+            }
           >
             Source
           </label>
@@ -427,7 +1047,9 @@ export default function QuickIntakePage() {
                 e.target.value
               )
             }
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           >
             <option value="">
               Select if known…
@@ -446,8 +1068,7 @@ export default function QuickIntakePage() {
             </option>
 
             <option value="Rescue Transfer">
-              Transfer from
-              another rescue
+              Transfer from another rescue
             </option>
 
             <option value="Cruelty / Neglect">
@@ -463,8 +1084,7 @@ export default function QuickIntakePage() {
             </option>
 
             <option value="Public Assistance">
-              Public assistance
-              case
+              Public assistance case
             </option>
 
             <option value="Other">
@@ -479,7 +1099,9 @@ export default function QuickIntakePage() {
           }}
         >
           <label
-            style={labelStyle}
+            style={
+              labelStyle
+            }
           >
             Current care /
             custody *
@@ -493,22 +1115,22 @@ export default function QuickIntakePage() {
               )
             }
             required
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           >
             <option value="rescue">
-              In organization
-              care
+              In organization care
             </option>
 
             <option value="owner">
               Still with owner —
-              organization is
-              actively assisting
+              organization is actively
+              assisting
             </option>
 
             <option value="other">
-              Other active
-              responsibility
+              Other active responsibility
             </option>
           </select>
         </div>
@@ -519,7 +1141,9 @@ export default function QuickIntakePage() {
           }}
         >
           <label
-            style={labelStyle}
+            style={
+              labelStyle
+            }
           >
             Intake / responsibility
             date *
@@ -527,14 +1151,18 @@ export default function QuickIntakePage() {
 
           <input
             type="date"
-            value={intakeDate}
+            value={
+              intakeDate
+            }
             onChange={(e) =>
               setIntakeDate(
                 e.target.value
               )
             }
             required
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
         </div>
 
@@ -544,7 +1172,9 @@ export default function QuickIntakePage() {
           }}
         >
           <label
-            style={labelStyle}
+            style={
+              labelStyle
+            }
           >
             Photo URL
           </label>
@@ -557,7 +1187,9 @@ export default function QuickIntakePage() {
               )
             }
             placeholder="Optional for now — direct upload will be added later"
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
         </div>
 
@@ -567,7 +1199,9 @@ export default function QuickIntakePage() {
           }}
         >
           <label
-            style={labelStyle}
+            style={
+              labelStyle
+            }
           >
             Quick notes
           </label>
@@ -581,7 +1215,9 @@ export default function QuickIntakePage() {
               )
             }
             placeholder="Anything important that should follow this animal into the record."
-            style={inputStyle}
+            style={
+              inputStyle
+            }
           />
         </div>
 
@@ -597,9 +1233,10 @@ export default function QuickIntakePage() {
             border: "none",
             borderRadius: 7,
             fontWeight: 700,
-            cursor: saving
-              ? "default"
-              : "pointer",
+            cursor:
+              saving
+                ? "default"
+                : "pointer",
             opacity:
               saving
                 ? 0.6
@@ -626,4 +1263,44 @@ export default function QuickIntakePage() {
       </form>
     </section>
   );
+}
+
+function normalizeName(
+  value: string
+) {
+  return value
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function shuffle<T>(
+  items: T[]
+) {
+  const result = [
+    ...items,
+  ];
+
+  for (
+    let i =
+      result.length -
+      1;
+    i > 0;
+    i--
+  ) {
+    const j =
+      Math.floor(
+        Math.random() *
+          (i + 1)
+      );
+
+    [
+      result[i],
+      result[j],
+    ] = [
+      result[j],
+      result[i],
+    ];
+  }
+
+  return result;
 }
