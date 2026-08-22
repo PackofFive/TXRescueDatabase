@@ -19,6 +19,38 @@ const IMAGE_TYPES =
     "image/webp",
   ]);
 
+async function requireAnimalAccess(
+  animalId: string
+) {
+  const {
+    session,
+    orgId,
+  } =
+    await requireEffectiveOrg();
+
+  const rows =
+    await sql`
+      select id
+      from animals
+      where
+        id = ${animalId}
+        and current_org_id = ${orgId}
+      limit 1
+    `;
+
+  if (!rows[0]) {
+    throw new AuthError(
+      "Animal not found or you do not have access to this record.",
+      404
+    );
+  }
+
+  return {
+    session,
+    orgId,
+  };
+}
+
 export async function POST(
   req: NextRequest,
   {
@@ -38,29 +70,9 @@ export async function POST(
       session,
       orgId,
     } =
-      await requireEffectiveOrg();
-
-    /*
-      Verify animal belongs to
-      the effective organization.
-    */
-
-    const animalRows =
-      await sql`
-        select id
-        from animals
-        where
-          id = ${animalId}
-          and current_org_id = ${orgId}
-        limit 1
-      `;
-
-    if (!animalRows[0]) {
-      throw new AuthError(
-        "Animal not found or you do not have access to this record.",
-        404
+      await requireAnimalAccess(
+        animalId
       );
-    }
 
     const body =
       await req
@@ -85,19 +97,11 @@ export async function POST(
       );
     }
 
-    /*
-      Verify the document belongs
-      to this animal and organization.
-    */
-
     const documentRows =
       await sql`
         select
           id,
-          animal_id,
-          org_id,
           title,
-          source,
           content_type,
           visibility
 
@@ -144,17 +148,6 @@ export async function POST(
       );
     }
 
-    /*
-      The existing Documents GET
-      endpoint already securely
-      serves the stored R2 file.
-
-      We can therefore use that
-      authenticated endpoint as
-      the media URL rather than
-      duplicating the image.
-    */
-
     const photoUrl =
       `/api/animals/${encodeURIComponent(
         animalId
@@ -162,35 +155,14 @@ export async function POST(
         documentId
       )}`;
 
-    /*
-      Remove the previous primary
-      media record.
-
-      The current animal API treats
-      the newest media row as the
-      primary photo. Keeping one
-      profile-photo record makes
-      that behavior predictable.
-
-      We only remove records created
-      by this Documents feature.
-      Other media records are left
-      untouched.
-    */
-
     await sql`
       delete from media
-
       where
         owner_type = 'animal'
         and owner_id = ${animalId}
         and source =
           'animal_document_profile_photo'
     `;
-
-    /*
-      Create the new profile photo.
-    */
 
     const mediaRows =
       await sql`
@@ -216,10 +188,6 @@ export async function POST(
           source,
           visibility
       `;
-
-    /*
-      Audit trail.
-    */
 
     try {
       await sql`
@@ -283,6 +251,112 @@ export async function POST(
           err instanceof Error
             ? err.message
             : "Couldn't set profile photo.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{
+      id: string;
+    }>;
+  }
+) {
+  try {
+    const {
+      id: animalId,
+    } = await params;
+
+    const {
+      session,
+    } =
+      await requireAnimalAccess(
+        animalId
+      );
+
+    const rows =
+      await sql`
+        delete from media
+
+        where
+          owner_type = 'animal'
+          and owner_id = ${animalId}
+          and source =
+            'animal_document_profile_photo'
+
+        returning
+          id,
+          url
+      `;
+
+    try {
+      await sql`
+        insert into audit_log (
+          entity_type,
+          entity_id,
+          changed_by,
+          field_name,
+          new_value
+        )
+
+        values (
+          'animal',
+          ${animalId},
+          ${session.id},
+          'profile_photo_removed',
+          ${JSON.stringify({
+            removed:
+              rows.length > 0,
+          })}
+        )
+      `;
+    } catch (
+      auditError
+    ) {
+      console.error(
+        "Profile photo removal audit failed:",
+        auditError
+      );
+    }
+
+    return NextResponse.json({
+      removed:
+        rows.length > 0,
+    });
+  } catch (err) {
+    if (
+      err instanceof AuthError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            err.message,
+        },
+        {
+          status:
+            err.status,
+        }
+      );
+    }
+
+    console.error(
+      "DELETE profile photo failed:",
+      err
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Couldn't remove profile photo.",
       },
       {
         status: 500,
