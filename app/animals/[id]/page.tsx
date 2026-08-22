@@ -345,17 +345,6 @@ export default function AnimalRecordPage() {
     );
   }
 
-  /* =====================================================
-     SAVE OVERVIEW
-
-     If public-eligible fields changed and the profile is
-     currently published, ask which should also update the
-     public profile.
-
-     Private-only fields never appear in the public-sync
-     confirmation.
-  ===================================================== */
-
   async function requestOverviewSave() {
     if (
       !animal ||
@@ -369,14 +358,6 @@ export default function AnimalRecordPage() {
         animal,
         overviewDraft
       );
-
-    /*
-      If the animal is published and one or more shareable
-      fields changed, ask the rescue which public copies
-      should update.
-
-      If private, save immediately. Nothing is exposed.
-    */
 
     if (
       animal.public_share_enabled &&
@@ -811,10 +792,6 @@ export default function AnimalRecordPage() {
       animal.id
     )}`;
 
-  /* =====================================================
-     PAGE
-  ===================================================== */
-
   return (
     <section>
       <a
@@ -823,10 +800,6 @@ export default function AnimalRecordPage() {
       >
         ← Back to Animals
       </a>
-
-      {/* ===============================================
-          HEADER
-      ================================================ */}
 
       <div
         style={{
@@ -994,10 +967,6 @@ export default function AnimalRecordPage() {
             </span>
           </div>
 
-          {/* ===========================================
-              COMPACT FILE NAVIGATION
-          ============================================ */}
-
           <div
             style={{
               position:
@@ -1067,7 +1036,9 @@ export default function AnimalRecordPage() {
 
                 <FileMenuItem
                   label="Behavior"
-                  disabled
+                  href={`/animals/${encodeURIComponent(
+                    animal.id
+                  )}/behavior`}
                 />
 
                 <FileMenuItem
@@ -1094,10 +1065,6 @@ export default function AnimalRecordPage() {
           </div>
         </div>
       </div>
-
-      {/* ===============================================
-          ACTIVE ALERTS
-      ================================================ */}
 
       {(openHelpOffers > 0 ||
         openReminders >
@@ -1170,10 +1137,6 @@ export default function AnimalRecordPage() {
           )}
         </div>
       )}
-
-      {/* ===============================================
-          OVERVIEW
-      ================================================ */}
 
       <Panel
         title="Overview"
@@ -1671,10 +1634,6 @@ export default function AnimalRecordPage() {
         )}
       </Panel>
 
-      {/* ===============================================
-          PUBLIC SYNC CONFIRMATION
-      ================================================ */}
-
       {syncOptions.length >
         0 &&
         pendingOverviewSave && (
@@ -1868,10 +1827,6 @@ export default function AnimalRecordPage() {
           </Panel>
         )}
 
-      {/* ===============================================
-          PUBLIC PROFILE
-      ================================================ */}
-
       <Panel title="Public Profile & Sharing">
         <div
           style={{
@@ -1918,8 +1873,6 @@ export default function AnimalRecordPage() {
               : "You can prepare public information while this animal is private. Nothing becomes publicly visible until Publish Public Profile is selected."}
           </p>
         </div>
-
-        {/* PUBLIC APPROVED DETAILS */}
 
         <div
           style={{
@@ -2172,10 +2125,6 @@ export default function AnimalRecordPage() {
         )}
       </Panel>
 
-      {/* ===============================================
-          TIMELINE
-      ================================================ */}
-
       <div id="timeline">
         <Panel title="Timeline">
           {animal.timeline.length ===
@@ -2246,10 +2195,6 @@ export default function AnimalRecordPage() {
     </section>
   );
 }
-
-/* =========================================================
-   OVERVIEW HELPERS
-========================================================= */
 
 function createOverviewDraft(
   animal: Animal
@@ -2425,17 +2370,9 @@ function addCandidate(
     newValue:
       nextPrivate,
 
-    /*
-      Preselect by default because these are explicitly
-      public-safe fields, but the rescue still chooses.
-    */
     selected: true,
   });
 }
-
-/* =========================================================
-   UI COMPONENTS
-========================================================= */
 
 function Panel({
   title,
@@ -2733,10 +2670,6 @@ function FieldHeading({
   );
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
-
 function normalizeDisplay(
   value:
     | string
@@ -2862,10 +2795,6 @@ function formatDate(
 
   return date.toLocaleDateString();
 }
-
-/* =========================================================
-   STYLES
-========================================================= */
 
 const inputStyle:
   React.CSSProperties =
