@@ -6,6 +6,10 @@ import {
   useState,
 } from "react";
 
+import {
+  useParams,
+} from "next/navigation";
+
 type BehaviorProfile = {
   animal_id: string;
   summary: string | null;
@@ -24,21 +28,35 @@ type BehaviorEntry = {
   id: string;
   observed_at: string;
   behavior_type: string | null;
+
   severity:
     | "low"
     | "moderate"
     | "high"
     | "critical"
     | null;
+
   trigger: string | null;
+
   observation: string;
-  response_taken: string | null;
-  outcome: string | null;
+
+  response_taken:
+    | string
+    | null;
+
+  outcome:
+    | string
+    | null;
+
   status:
     | "current"
     | "monitoring"
     | "resolved";
-  recorded_by_email: string | null;
+
+  recorded_by_email:
+    | string
+    | null;
+
   created_at: string;
   updated_at: string;
 };
@@ -63,7 +81,10 @@ type EntryDraft = {
   observation: string;
   responseTaken: string;
   outcome: string;
-  status: string;
+  status:
+    | "current"
+    | "monitoring"
+    | "resolved";
 };
 
 const EMPTY_PROFILE: ProfileDraft = {
@@ -76,17 +97,6 @@ const EMPTY_PROFILE: ProfileDraft = {
   childCompatibility: "",
   strangerCompatibility: "",
   homeEnvironmentNotes: "",
-};
-
-const EMPTY_ENTRY: EntryDraft = {
-  observedAt: "",
-  behaviorType: "",
-  severity: "",
-  trigger: "",
-  observation: "",
-  responseTaken: "",
-  outcome: "",
-  status: "current",
 };
 
 const BEHAVIOR_TYPES = [
@@ -116,17 +126,12 @@ const COMPATIBILITY_OPTIONS = [
   "Needs Further Evaluation",
 ];
 
-export default function BehaviorPage({
-  params,
-}: {
-  params: Promise<{
-    id: string;
-  }>;
-}) {
-  const [
-    animalId,
-    setAnimalId,
-  ] = useState("");
+export default function BehaviorPage() {
+  const params =
+    useParams();
+
+  const animalId =
+    params?.id as string;
 
   const [
     profile,
@@ -153,7 +158,8 @@ export default function BehaviorPage({
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     error,
@@ -174,52 +180,54 @@ export default function BehaviorPage({
   const [
     editingProfile,
     setEditingProfile,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     savingProfile,
     setSavingProfile,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     showAddEntry,
     setShowAddEntry,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     savingEntry,
     setSavingEntry,
-  ] = useState(false);
+  ] =
+    useState(false);
+
+  const [
+    editingEntryId,
+    setEditingEntryId,
+  ] =
+    useState<string | null>(
+      null
+    );
 
   const [
     entryDraft,
     setEntryDraft,
   ] =
     useState<EntryDraft>(
-      EMPTY_ENTRY
+      emptyEntryDraft()
     );
 
   const [
     statusFilter,
     setStatusFilter,
-  ] = useState("active");
+  ] =
+    useState("active");
 
   const [
     historyExpanded,
     setHistoryExpanded,
-  ] = useState(false);
-
-  /* =====================================================
-     RESOLVE PARAM
-  ===================================================== */
-
-  useEffect(() => {
-    params.then(
-      ({ id }) => {
-        setAnimalId(id);
-      }
-    );
-  }, [params]);
+  ] =
+    useState(false);
 
   /* =====================================================
      LOAD
@@ -244,7 +252,9 @@ export default function BehaviorPage({
             animalId
           )}/behavior`,
           {
-            cache: "no-store",
+            cache:
+              "no-store",
+
             credentials:
               "same-origin",
           }
@@ -293,7 +303,7 @@ export default function BehaviorPage({
   }
 
   /* =====================================================
-     FILTERED ENTRIES
+     FILTERING
   ===================================================== */
 
   const activeEntries =
@@ -358,11 +368,14 @@ export default function BehaviorPage({
     ]);
 
   /* =====================================================
-     SAVE PROFILE
+     PROFILE
   ===================================================== */
 
   async function saveProfile() {
-    setSavingProfile(true);
+    setSavingProfile(
+      true
+    );
+
     setError(null);
     setMessage(null);
 
@@ -373,15 +386,16 @@ export default function BehaviorPage({
             animalId
           )}/behavior`,
           {
-            method: "PATCH",
+            method:
+              "PATCH",
+
+            credentials:
+              "same-origin",
 
             headers: {
               "Content-Type":
                 "application/json",
             },
-
-            credentials:
-              "same-origin",
 
             body:
               JSON.stringify({
@@ -434,70 +448,151 @@ export default function BehaviorPage({
   }
 
   /* =====================================================
-     ADD ENTRY
+     ADD OBSERVATION
   ===================================================== */
 
-  async function addEntry() {
+  function beginAddEntry() {
+    setEditingEntryId(
+      null
+    );
+
+    setEntryDraft(
+      emptyEntryDraft()
+    );
+
+    setShowAddEntry(
+      true
+    );
+
+    setError(null);
+    setMessage(null);
+  }
+
+  function cancelEntryForm() {
+    setShowAddEntry(
+      false
+    );
+
+    setEditingEntryId(
+      null
+    );
+
+    setEntryDraft(
+      emptyEntryDraft()
+    );
+  }
+
+  async function saveEntry() {
     if (
       !entryDraft.observation.trim()
     ) {
       setError(
         "Observation is required."
       );
+
       return;
     }
 
-    setSavingEntry(true);
+    setSavingEntry(
+      true
+    );
+
     setError(null);
     setMessage(null);
 
     try {
+      const isEditing =
+        Boolean(
+          editingEntryId
+        );
+
       const res =
         await fetch(
           `/api/animals/${encodeURIComponent(
             animalId
           )}/behavior`,
           {
-            method: "POST",
+            method:
+              isEditing
+                ? "PATCH"
+                : "POST",
+
+            credentials:
+              "same-origin",
 
             headers: {
               "Content-Type":
                 "application/json",
             },
 
-            credentials:
-              "same-origin",
-
             body:
-              JSON.stringify({
-                observedAt:
-                  entryDraft.observedAt
-                    ? new Date(
+              JSON.stringify(
+                isEditing
+                  ? {
+                      action:
+                        "update_entry",
+
+                      entryId:
+                        editingEntryId,
+
+                      observedAt:
                         entryDraft.observedAt
-                      ).toISOString()
-                    : null,
+                          ? new Date(
+                              entryDraft.observedAt
+                            ).toISOString()
+                          : undefined,
 
-                behaviorType:
-                  entryDraft.behaviorType,
+                      behaviorType:
+                        entryDraft.behaviorType,
 
-                severity:
-                  entryDraft.severity,
+                      severity:
+                        entryDraft.severity,
 
-                trigger:
-                  entryDraft.trigger,
+                      trigger:
+                        entryDraft.trigger,
 
-                observation:
-                  entryDraft.observation,
+                      observation:
+                        entryDraft.observation,
 
-                responseTaken:
-                  entryDraft.responseTaken,
+                      responseTaken:
+                        entryDraft.responseTaken,
 
-                outcome:
-                  entryDraft.outcome,
+                      outcome:
+                        entryDraft.outcome,
 
-                status:
-                  entryDraft.status,
-              }),
+                      status:
+                        entryDraft.status,
+                    }
+                  : {
+                      observedAt:
+                        entryDraft.observedAt
+                          ? new Date(
+                              entryDraft.observedAt
+                            ).toISOString()
+                          : null,
+
+                      behaviorType:
+                        entryDraft.behaviorType,
+
+                      severity:
+                        entryDraft.severity,
+
+                      trigger:
+                        entryDraft.trigger,
+
+                      observation:
+                        entryDraft.observation,
+
+                      responseTaken:
+                        entryDraft.responseTaken,
+
+                      outcome:
+                        entryDraft.outcome,
+
+                      status:
+                        entryDraft.status,
+                    }
+              ),
           }
         );
 
@@ -507,37 +602,72 @@ export default function BehaviorPage({
       if (!res.ok) {
         throw new Error(
           data.error ??
-            "Couldn't add behavior observation."
+            "Couldn't save behavior observation."
         );
       }
 
-      setEntries(
-        (current) => [
-          {
-            ...data.entry,
-            recorded_by_email:
-              null,
-          },
-          ...current,
-        ]
-      );
+      if (
+        isEditing
+      ) {
+        setEntries(
+          (current) =>
+            current.map(
+              (entry) =>
+                entry.id ===
+                editingEntryId
+                  ? {
+                      ...entry,
+                      ...data.entry,
+                    }
+                  : entry
+            )
+        );
 
-      setEntryDraft(
-        EMPTY_ENTRY
-      );
+        setMessage(
+          "Behavior observation updated."
+        );
+      } else {
+        setEntries(
+          (current) => [
+            {
+              ...data.entry,
+
+              recorded_by_email:
+                null,
+            },
+
+            ...current,
+          ]
+        );
+
+        setMessage(
+          "Behavior observation added."
+        );
+      }
 
       setShowAddEntry(
         false
       );
 
-      setMessage(
-        "Behavior observation added."
+      setEditingEntryId(
+        null
       );
+
+      setEntryDraft(
+        emptyEntryDraft()
+      );
+
+      /*
+        Reload so recorded_by_email
+        and all server values are current.
+      */
+
+      await loadBehavior();
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Couldn't add behavior observation."
+          : "Couldn't save behavior observation."
       );
     } finally {
       setSavingEntry(
@@ -547,7 +677,81 @@ export default function BehaviorPage({
   }
 
   /* =====================================================
-     UPDATE STATUS
+     EDIT OBSERVATION
+  ===================================================== */
+
+  function beginEditEntry(
+    entry: BehaviorEntry
+  ) {
+    setEditingEntryId(
+      entry.id
+    );
+
+    setEntryDraft({
+      observedAt:
+        toLocalDateTimeInput(
+          entry.observed_at
+        ),
+
+      behaviorType:
+        entry.behavior_type ??
+        "",
+
+      severity:
+        entry.severity ??
+        "",
+
+      trigger:
+        entry.trigger ??
+        "",
+
+      observation:
+        entry.observation ??
+        "",
+
+      responseTaken:
+        entry.response_taken ??
+        "",
+
+      outcome:
+        entry.outcome ??
+        "",
+
+      status:
+        entry.status,
+    });
+
+    setShowAddEntry(
+      true
+    );
+
+    setError(null);
+    setMessage(null);
+
+    /*
+      Bring the form into view.
+    */
+
+    window.setTimeout(
+      () => {
+        document
+          .getElementById(
+            "behavior-entry-form"
+          )
+          ?.scrollIntoView({
+            behavior:
+              "smooth",
+
+            block:
+              "start",
+          });
+      },
+      50
+    );
+  }
+
+  /* =====================================================
+     QUICK STATUS
   ===================================================== */
 
   async function updateEntryStatus(
@@ -567,15 +771,16 @@ export default function BehaviorPage({
             animalId
           )}/behavior`,
           {
-            method: "PATCH",
+            method:
+              "PATCH",
+
+            credentials:
+              "same-origin",
 
             headers: {
               "Content-Type":
                 "application/json",
             },
-
-            credentials:
-              "same-origin",
 
             body:
               JSON.stringify({
@@ -647,46 +852,60 @@ export default function BehaviorPage({
   return (
     <section
       style={{
-        maxWidth: 1000,
+        maxWidth:
+          1000,
       }}
     >
       <a
         href={`/animals/${encodeURIComponent(
           animalId
         )}`}
-        style={{
-          color: "#52627A",
-          fontSize: 13,
-          fontWeight: 700,
-          textDecoration:
-            "none",
-        }}
+        style={
+          backLink
+        }
       >
         ← Back to Animal
       </a>
 
       <div
         style={{
-          display: "flex",
+          display:
+            "flex",
+
           justifyContent:
             "space-between",
+
           alignItems:
             "flex-start",
-          gap: 16,
+
+          gap:
+            16,
+
           margin:
             "14px 0 20px",
-          flexWrap: "wrap",
+
+          flexWrap:
+            "wrap",
         }}
       >
         <div>
           <p
             style={{
-              margin: 0,
-              fontSize: 11.5,
-              fontWeight: 800,
+              margin:
+                0,
+
+              fontSize:
+                11.5,
+
+              fontWeight:
+                800,
+
               letterSpacing:
                 ".08em",
-              color: "#6B6862",
+
+              color:
+                "#6B6862",
+
               textTransform:
                 "uppercase",
             }}
@@ -696,10 +915,14 @@ export default function BehaviorPage({
 
           <h1
             style={{
-              fontSize: 28,
+              fontSize:
+                28,
+
               margin:
                 "5px 0 6px",
-              color: "#17233C",
+
+              color:
+                "#17233C",
             }}
           >
             Behavior
@@ -707,38 +930,44 @@ export default function BehaviorPage({
 
           <p
             style={{
-              margin: 0,
-              color: "#6B6862",
-              fontSize: 13.5,
-              lineHeight: 1.5,
-              maxWidth: 720,
+              margin:
+                0,
+
+              color:
+                "#6B6862",
+
+              fontSize:
+                13.5,
+
+              lineHeight:
+                1.5,
+
+              maxWidth:
+                720,
             }}
           >
-            Maintain the
-            animal&apos;s current
-            behavior picture and
-            record observations,
+            Maintain the animal&apos;s
+            current behavior picture
+            and record observations,
             incidents, triggers,
-            responses, and
-            progress over time.
+            responses, and progress
+            over time.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            setShowAddEntry(
-              (value) =>
-                !value
-            );
-
-            setError(null);
-            setMessage(null);
-          }}
-          style={primaryButton}
+          onClick={
+            showAddEntry
+              ? cancelEntryForm
+              : beginAddEntry
+          }
+          style={
+            primaryButton
+          }
         >
           {showAddEntry
-            ? "Cancel"
+            ? "Close Form"
             : "+ Add Observation"}
         </button>
       </div>
@@ -746,51 +975,65 @@ export default function BehaviorPage({
       {error && (
         <Notice
           type="error"
-          text={error}
-        />
+        >
+          {error}
+        </Notice>
       )}
 
       {message && (
         <Notice
           type="success"
-          text={message}
-        />
+        >
+          {message}
+        </Notice>
       )}
 
       {/* ===============================================
           CURRENT PROFILE
       ================================================ */}
 
-      <div
-        style={cardStyle}
+      <section
+        style={
+          cardStyle
+        }
       >
         <div
           style={{
-            display: "flex",
+            display:
+              "flex",
+
             justifyContent:
               "space-between",
-            gap: 12,
+
+            gap:
+              12,
+
             alignItems:
               "flex-start",
-            flexWrap: "wrap",
+
+            flexWrap:
+              "wrap",
           }}
         >
           <div>
             <h2
-              style={sectionTitle}
+              style={
+                sectionTitle
+              }
             >
               Current Behavior
               Profile
             </h2>
 
             <p
-              style={sectionHelp}
+              style={
+                sectionHelp
+              }
             >
               The working summary
               staff and approved
-              caregivers should
-              know about this
-              animal now.
+              caregivers should know
+              about this animal now.
             </p>
           </div>
 
@@ -808,8 +1051,13 @@ export default function BehaviorPage({
                   true
                 );
 
-                setError(null);
-                setMessage(null);
+                setError(
+                  null
+                );
+
+                setMessage(
+                  null
+                );
               }}
               style={
                 secondaryButton
@@ -823,10 +1071,11 @@ export default function BehaviorPage({
         {editingProfile ? (
           <div
             style={{
-              marginTop: 18,
+              marginTop:
+                18,
             }}
           >
-            <FieldLabel
+            <Field
               label="Current behavior summary"
             >
               <textarea
@@ -844,12 +1093,13 @@ export default function BehaviorPage({
                 style={
                   textareaStyle
                 }
-                placeholder="Overall current behavior, temperament, important patterns, and major considerations."
               />
-            </FieldLabel>
+            </Field>
 
             <div
-              style={twoColumnGrid}
+              style={
+                twoColumnGrid
+              }
             >
               <CompatibilityField
                 label="Dogs"
@@ -916,7 +1166,7 @@ export default function BehaviorPage({
               />
             </div>
 
-            <FieldLabel
+            <Field
               label="Handling notes"
             >
               <textarea
@@ -934,11 +1184,10 @@ export default function BehaviorPage({
                 style={
                   textareaStyle
                 }
-                placeholder="Leash handling, touch sensitivities, restraint, grooming, feeding, crate handling, etc."
               />
-            </FieldLabel>
+            </Field>
 
-            <FieldLabel
+            <Field
               label="Restrictions / safety notes"
             >
               <textarea
@@ -956,11 +1205,10 @@ export default function BehaviorPage({
                 style={
                   textareaStyle
                 }
-                placeholder="Current restrictions, separation requirements, bite precautions, flight-risk precautions, or other safety information."
               />
-            </FieldLabel>
+            </Field>
 
-            <FieldLabel
+            <Field
               label="Training / behavior plan"
             >
               <textarea
@@ -978,11 +1226,10 @@ export default function BehaviorPage({
                 style={
                   textareaStyle
                 }
-                placeholder="Current training plan, behavior modification work, goals, or professional recommendations."
               />
-            </FieldLabel>
+            </Field>
 
-            <FieldLabel
+            <Field
               label="Home environment notes"
             >
               <textarea
@@ -1000,17 +1247,13 @@ export default function BehaviorPage({
                 style={
                   textareaStyle
                 }
-                placeholder="Environment where this animal is most successful or situations that should be avoided."
               />
-            </FieldLabel>
+            </Field>
 
             <div
-              style={{
-                display: "flex",
-                gap: 9,
-                flexWrap: "wrap",
-                marginTop: 14,
-              }}
+              style={
+                formActions
+              }
             >
               <button
                 type="button"
@@ -1055,53 +1298,96 @@ export default function BehaviorPage({
           </div>
         ) : (
           <BehaviorProfileView
-            profile={profile}
+            profile={
+              profile
+            }
           />
         )}
-      </div>
+      </section>
 
       {/* ===============================================
-          ADD OBSERVATION
+          ADD / EDIT OBSERVATION
       ================================================ */}
 
       {showAddEntry && (
-        <div
+        <section
+          id="behavior-entry-form"
           style={{
             ...cardStyle,
-            marginTop: 16,
+            marginTop:
+              16,
           }}
         >
-          <h2
-            style={sectionTitle}
-          >
-            Add Behavior
-            Observation
-          </h2>
+          <div
+            style={{
+              display:
+                "flex",
 
-          <p
-            style={sectionHelp}
+              justifyContent:
+                "space-between",
+
+              alignItems:
+                "flex-start",
+
+              gap:
+                12,
+
+              flexWrap:
+                "wrap",
+            }}
           >
-            Record what was
-            actually observed.
-            Avoid assumptions
-            when the cause or
-            trigger is unknown.
-          </p>
+            <div>
+              <h2
+                style={
+                  sectionTitle
+                }
+              >
+                {editingEntryId
+                  ? "Edit Behavior Observation"
+                  : "Add Behavior Observation"}
+              </h2>
+
+              <p
+                style={
+                  sectionHelp
+                }
+              >
+                {editingEntryId
+                  ? "Update this existing behavior record. Changes will preserve the same observation in the animal's history."
+                  : "Record what was actually observed. Avoid assumptions when the cause or trigger is unknown."}
+              </p>
+            </div>
+
+            {editingEntryId && (
+              <span
+                style={
+                  editingBadge
+                }
+              >
+                Editing Existing
+                Observation
+              </span>
+            )}
+          </div>
 
           <div
             style={{
               ...twoColumnGrid,
-              marginTop: 16,
+
+              marginTop:
+                16,
             }}
           >
-            <FieldLabel
+            <Field
               label="Observed date & time"
             >
               <input
                 type="datetime-local"
+
                 value={
                   entryDraft.observedAt
                 }
+
                 onChange={(e) =>
                   updateEntryDraft(
                     setEntryDraft,
@@ -1109,19 +1395,21 @@ export default function BehaviorPage({
                     e.target.value
                   )
                 }
+
                 style={
                   inputStyle
                 }
               />
-            </FieldLabel>
+            </Field>
 
-            <FieldLabel
+            <Field
               label="Behavior type"
             >
               <select
                 value={
                   entryDraft.behaviorType
                 }
+
                 onChange={(e) =>
                   updateEntryDraft(
                     setEntryDraft,
@@ -1129,6 +1417,7 @@ export default function BehaviorPage({
                     e.target.value
                   )
                 }
+
                 style={
                   inputStyle
                 }
@@ -1148,15 +1437,16 @@ export default function BehaviorPage({
                   )
                 )}
               </select>
-            </FieldLabel>
+            </Field>
 
-            <FieldLabel
+            <Field
               label="Severity"
             >
               <select
                 value={
                   entryDraft.severity
                 }
+
                 onChange={(e) =>
                   updateEntryDraft(
                     setEntryDraft,
@@ -1164,6 +1454,7 @@ export default function BehaviorPage({
                     e.target.value
                   )
                 }
+
                 style={
                   inputStyle
                 }
@@ -1171,35 +1462,42 @@ export default function BehaviorPage({
                 <option value="">
                   Not rated
                 </option>
+
                 <option value="low">
                   Low
                 </option>
+
                 <option value="moderate">
                   Moderate
                 </option>
+
                 <option value="high">
                   High
                 </option>
+
                 <option value="critical">
                   Critical
                 </option>
               </select>
-            </FieldLabel>
+            </Field>
 
-            <FieldLabel
+            <Field
               label="Status"
             >
               <select
                 value={
                   entryDraft.status
                 }
+
                 onChange={(e) =>
                   updateEntryDraft(
                     setEntryDraft,
                     "status",
-                    e.target.value
+                    e.target
+                      .value as EntryDraft["status"]
                   )
                 }
+
                 style={
                   inputStyle
                 }
@@ -1207,23 +1505,26 @@ export default function BehaviorPage({
                 <option value="current">
                   Current
                 </option>
+
                 <option value="monitoring">
                   Monitoring
                 </option>
+
                 <option value="resolved">
                   Resolved
                 </option>
               </select>
-            </FieldLabel>
+            </Field>
           </div>
 
-          <FieldLabel
+          <Field
             label="Known or suspected trigger"
           >
             <input
               value={
                 entryDraft.trigger
               }
+
               onChange={(e) =>
                 updateEntryDraft(
                   setEntryDraft,
@@ -1231,19 +1532,23 @@ export default function BehaviorPage({
                   e.target.value
                 )
               }
-              style={inputStyle}
-              placeholder="Example: another dog approached food bowl"
-            />
-          </FieldLabel>
 
-          <FieldLabel
-            label="Observation"
-            required
+              placeholder="Example: vet visit, another dog approaching food, loud noise"
+
+              style={
+                inputStyle
+              }
+            />
+          </Field>
+
+          <Field
+            label="Observation *"
           >
             <textarea
               value={
                 entryDraft.observation
               }
+
               onChange={(e) =>
                 updateEntryDraft(
                   setEntryDraft,
@@ -1251,21 +1556,25 @@ export default function BehaviorPage({
                   e.target.value
                 )
               }
+
               rows={4}
+
+              placeholder="Describe exactly what happened or what behavior was observed."
+
               style={
                 textareaStyle
               }
-              placeholder="Describe exactly what happened or what behavior was observed."
             />
-          </FieldLabel>
+          </Field>
 
-          <FieldLabel
+          <Field
             label="Response taken"
           >
             <textarea
               value={
                 entryDraft.responseTaken
               }
+
               onChange={(e) =>
                 updateEntryDraft(
                   setEntryDraft,
@@ -1273,21 +1582,25 @@ export default function BehaviorPage({
                   e.target.value
                 )
               }
+
               rows={3}
+
+              placeholder="What did the caregiver, foster, trainer, or staff member do in response?"
+
               style={
                 textareaStyle
               }
-              placeholder="What did the caregiver, foster, trainer, or staff member do in response?"
             />
-          </FieldLabel>
+          </Field>
 
-          <FieldLabel
+          <Field
             label="Outcome / follow-up"
           >
             <textarea
               value={
                 entryDraft.outcome
               }
+
               onChange={(e) =>
                 updateEntryDraft(
                   setEntryDraft,
@@ -1295,64 +1608,107 @@ export default function BehaviorPage({
                   e.target.value
                 )
               }
+
               rows={3}
+
+              placeholder="Result, recommended follow-up, or changes to the care plan."
+
               style={
                 textareaStyle
               }
-              placeholder="Result, recommended follow-up, or changes to the care plan."
             />
-          </FieldLabel>
+          </Field>
 
-          <button
-            type="button"
-            disabled={
-              savingEntry
-            }
-            onClick={addEntry}
+          <div
             style={
-              primaryButton
+              formActions
             }
           >
-            {savingEntry
-              ? "Saving…"
-              : "Save Observation"}
-          </button>
-        </div>
+            <button
+              type="button"
+              disabled={
+                savingEntry
+              }
+              onClick={
+                saveEntry
+              }
+              style={
+                primaryButton
+              }
+            >
+              {savingEntry
+                ? "Saving…"
+                : editingEntryId
+                ? "Save Changes"
+                : "Save Observation"}
+            </button>
+
+            <button
+              type="button"
+              disabled={
+                savingEntry
+              }
+              onClick={
+                cancelEntryForm
+              }
+              style={
+                secondaryButton
+              }
+            >
+              Cancel
+            </button>
+          </div>
+        </section>
       )}
 
       {/* ===============================================
           OBSERVATIONS
       ================================================ */}
 
-      <div
+      <section
         style={{
           ...cardStyle,
-          marginTop: 16,
+
+          marginTop:
+            16,
         }}
       >
         <div
           style={{
-            display: "flex",
+            display:
+              "flex",
+
             justifyContent:
               "space-between",
+
             alignItems:
               "flex-start",
-            gap: 12,
-            flexWrap: "wrap",
+
+            gap:
+              12,
+
+            flexWrap:
+              "wrap",
           }}
         >
           <div>
             <h2
-              style={sectionTitle}
+              style={
+                sectionTitle
+              }
             >
               Behavior
               Observations
             </h2>
 
             <p
-              style={sectionHelp}
+              style={
+                sectionHelp
+              }
             >
-              {activeEntries.length}{" "}
+              {
+                activeEntries.length
+              }{" "}
               active or monitoring
               observation
               {activeEntries.length ===
@@ -1367,15 +1723,21 @@ export default function BehaviorPage({
             value={
               statusFilter
             }
+
             onChange={(e) =>
               setStatusFilter(
                 e.target.value
               )
             }
+
             style={{
               ...inputStyle,
-              width: "auto",
-              minWidth: 170,
+
+              width:
+                "auto",
+
+              minWidth:
+                180,
             }}
           >
             <option value="active">
@@ -1400,7 +1762,9 @@ export default function BehaviorPage({
         {filteredEntries.length ===
         0 ? (
           <div
-            style={emptyStyle}
+            style={
+              emptyStyle
+            }
           >
             No behavior
             observations in this
@@ -1409,16 +1773,33 @@ export default function BehaviorPage({
         ) : (
           <div
             style={{
-              display: "grid",
-              gap: 10,
-              marginTop: 16,
+              display:
+                "grid",
+
+              gap:
+                10,
+
+              marginTop:
+                16,
             }}
           >
             {filteredEntries.map(
               (entry) => (
                 <BehaviorEntryCard
-                  key={entry.id}
-                  entry={entry}
+                  key={
+                    entry.id
+                  }
+
+                  entry={
+                    entry
+                  }
+
+                  onEdit={() =>
+                    beginEditEntry(
+                      entry
+                    )
+                  }
+
                   onStatusChange={
                     updateEntryStatus
                   }
@@ -1427,49 +1808,37 @@ export default function BehaviorPage({
             )}
           </div>
         )}
-      </div>
+      </section>
 
       {/* ===============================================
-          COLLAPSED RESOLVED HISTORY
+          RESOLVED HISTORY
       ================================================ */}
 
       {statusFilter !==
         "resolved" &&
         resolvedEntries.length >
           0 && (
-          <div
+          <section
             style={{
               ...cardStyle,
-              marginTop: 16,
+
+              marginTop:
+                16,
             }}
           >
             <button
               type="button"
+
               onClick={() =>
                 setHistoryExpanded(
                   (value) =>
                     !value
                 )
               }
-              style={{
-                width: "100%",
-                border: "none",
-                background:
-                  "transparent",
-                padding: 0,
-                cursor: "pointer",
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems:
-                  "center",
-                gap: 10,
-                color:
-                  "#17233C",
-                fontFamily:
-                  "inherit",
-                textAlign: "left",
-              }}
+
+              style={
+                historyToggle
+              }
             >
               <strong>
                 Resolved Behavior
@@ -1490,9 +1859,14 @@ export default function BehaviorPage({
             {historyExpanded && (
               <div
                 style={{
-                  display: "grid",
-                  gap: 10,
-                  marginTop: 16,
+                  display:
+                    "grid",
+
+                  gap:
+                    10,
+
+                  marginTop:
+                    16,
                 }}
               >
                 {resolvedEntries.map(
@@ -1501,9 +1875,17 @@ export default function BehaviorPage({
                       key={
                         entry.id
                       }
+
                       entry={
                         entry
                       }
+
+                      onEdit={() =>
+                        beginEditEntry(
+                          entry
+                        )
+                      }
+
                       onStatusChange={
                         updateEntryStatus
                       }
@@ -1512,14 +1894,14 @@ export default function BehaviorPage({
                 )}
               </div>
             )}
-          </div>
+          </section>
         )}
     </section>
   );
 }
 
 /* =========================================================
-   PROFILE VIEW
+   BEHAVIOR PROFILE VIEW
 ========================================================= */
 
 function BehaviorProfileView({
@@ -1532,7 +1914,9 @@ function BehaviorProfileView({
   if (!profile) {
     return (
       <div
-        style={emptyStyle}
+        style={
+          emptyStyle
+        }
       >
         No current behavior
         profile has been added
@@ -1544,7 +1928,8 @@ function BehaviorProfileView({
   return (
     <div
       style={{
-        marginTop: 16,
+        marginTop:
+          16,
       }}
     >
       {profile.summary ? (
@@ -1552,9 +1937,16 @@ function BehaviorProfileView({
           style={{
             margin:
               "0 0 16px",
-            color: "#35332F",
-            fontSize: 14,
-            lineHeight: 1.6,
+
+            color:
+              "#35332F",
+
+            fontSize:
+              14,
+
+            lineHeight:
+              1.6,
+
             whiteSpace:
               "pre-wrap",
           }}
@@ -1564,8 +1956,11 @@ function BehaviorProfileView({
       ) : (
         <p
           style={{
-            color: "#77736D",
-            fontSize: 13,
+            color:
+              "#77736D",
+
+            fontSize:
+              13,
           }}
         >
           No current summary.
@@ -1573,7 +1968,9 @@ function BehaviorProfileView({
       )}
 
       <div
-        style={twoColumnGrid}
+        style={
+          twoColumnGrid
+        }
       >
         <InfoItem
           label="Dogs"
@@ -1634,9 +2031,14 @@ function BehaviorProfileView({
 
       <div
         style={{
-          fontSize: 11.5,
-          color: "#8A8782",
-          marginTop: 14,
+          fontSize:
+            11.5,
+
+          color:
+            "#8A8782",
+
+          marginTop:
+            14,
         }}
       >
         Last updated{" "}
@@ -1649,17 +2051,24 @@ function BehaviorProfileView({
 }
 
 /* =========================================================
-   ENTRY CARD
+   BEHAVIOR ENTRY CARD
 ========================================================= */
 
 function BehaviorEntryCard({
   entry,
+  onEdit,
   onStatusChange,
 }: {
-  entry: BehaviorEntry;
+  entry:
+    BehaviorEntry;
+
+  onEdit:
+    () => void;
 
   onStatusChange: (
-    entry: BehaviorEntry,
+    entry:
+      BehaviorEntry,
+
     status:
       | "current"
       | "monitoring"
@@ -1669,10 +2078,11 @@ function BehaviorEntryCard({
   const [
     expanded,
     setExpanded,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   return (
-    <div
+    <article
       style={{
         border:
           entry.severity ===
@@ -1682,22 +2092,33 @@ function BehaviorEntryCard({
             ? "1px solid #E4B9B3"
             : "1px solid #E7E5E1",
 
-        borderRadius: 9,
-        overflow: "hidden",
-        background: "#fff",
+        borderRadius:
+          9,
+
+        overflow:
+          "hidden",
+
+        background:
+          "#fff",
       }}
     >
       <button
         type="button"
+
         onClick={() =>
           setExpanded(
             (value) =>
               !value
           )
         }
+
         style={{
-          width: "100%",
-          border: "none",
+          width:
+            "100%",
+
+          border:
+            "none",
+
           background:
             entry.severity ===
               "critical"
@@ -1706,43 +2127,66 @@ function BehaviorEntryCard({
                 "high"
               ? "#FFF8F6"
               : "#fff",
-          padding: 13,
-          cursor: "pointer",
-          textAlign: "left",
+
+          padding:
+            13,
+
+          cursor:
+            "pointer",
+
+          textAlign:
+            "left",
+
           fontFamily:
             "inherit",
         }}
       >
         <div
           style={{
-            display: "flex",
+            display:
+              "flex",
+
             justifyContent:
               "space-between",
-            gap: 12,
+
+            gap:
+              12,
+
             alignItems:
               "flex-start",
           }}
         >
           <div
             style={{
-              minWidth: 0,
+              minWidth:
+                0,
             }}
           >
             <div
               style={{
-                display: "flex",
-                gap: 6,
-                flexWrap: "wrap",
+                display:
+                  "flex",
+
+                gap:
+                  6,
+
+                flexWrap:
+                  "wrap",
+
                 alignItems:
                   "center",
-                marginBottom: 5,
+
+                marginBottom:
+                  5,
               }}
             >
               <strong
                 style={{
                   color:
                     "#17233C",
-                  fontSize: 13.5,
+
+                  fontSize:
+                    13.5,
                 }}
               >
                 {entry.behavior_type ||
@@ -1766,7 +2210,9 @@ function BehaviorEntryCard({
 
             <div
               style={{
-                fontSize: 12,
+                fontSize:
+                  12,
+
                 color:
                   "#6B6862",
               }}
@@ -1780,13 +2226,20 @@ function BehaviorEntryCard({
               style={{
                 margin:
                   "7px 0 0",
-                fontSize: 13,
-                lineHeight: 1.5,
+
+                fontSize:
+                  13,
+
+                lineHeight:
+                  1.5,
+
                 color:
                   "#35332F",
               }}
             >
-              {entry.observation}
+              {
+                entry.observation
+              }
             </p>
           </div>
 
@@ -1794,7 +2247,9 @@ function BehaviorEntryCard({
             style={{
               color:
                 "#6B6862",
-              flexShrink: 0,
+
+              flexShrink:
+                0,
             }}
           >
             {expanded
@@ -1809,7 +2264,9 @@ function BehaviorEntryCard({
           style={{
             borderTop:
               "1px solid #EEECE8",
-            padding: 13,
+
+            padding:
+              13,
           }}
         >
           <LongInfoItem
@@ -1836,10 +2293,14 @@ function BehaviorEntryCard({
           {entry.recorded_by_email && (
             <div
               style={{
-                fontSize: 12,
+                fontSize:
+                  12,
+
                 color:
                   "#6B6862",
-                marginBottom: 12,
+
+                marginTop:
+                  12,
               }}
             >
               Recorded by{" "}
@@ -1851,21 +2312,51 @@ function BehaviorEntryCard({
 
           <div
             style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
+              display:
+                "flex",
+
+              gap:
+                8,
+
+              flexWrap:
+                "wrap",
+
+              marginTop:
+                14,
+
+              paddingTop:
+                12,
+
+              borderTop:
+                "1px solid #EEECE8",
             }}
           >
+            <button
+              type="button"
+
+              onClick={
+                onEdit
+              }
+
+              style={
+                editButton
+              }
+            >
+              Edit Observation
+            </button>
+
             {entry.status !==
               "current" && (
               <button
                 type="button"
+
                 onClick={() =>
                   onStatusChange(
                     entry,
                     "current"
                   )
                 }
+
                 style={
                   smallButton
                 }
@@ -1878,12 +2369,14 @@ function BehaviorEntryCard({
               "monitoring" && (
               <button
                 type="button"
+
                 onClick={() =>
                   onStatusChange(
                     entry,
                     "monitoring"
                   )
                 }
+
                 style={
                   smallButton
                 }
@@ -1896,12 +2389,14 @@ function BehaviorEntryCard({
               "resolved" && (
               <button
                 type="button"
+
                 onClick={() =>
                   onStatusChange(
                     entry,
                     "resolved"
                   )
                 }
+
                 style={
                   smallButton
                 }
@@ -1912,12 +2407,12 @@ function BehaviorEntryCard({
           </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
 /* =========================================================
-   SMALL COMPONENTS
+   COMPONENTS
 ========================================================= */
 
 function CompatibilityField({
@@ -1925,24 +2420,37 @@ function CompatibilityField({
   value,
   onChange,
 }: {
-  label: string;
-  value: string;
+  label:
+    string;
+
+  value:
+    string;
+
   onChange: (
-    value: string
+    value:
+      string
   ) => void;
 }) {
   return (
-    <FieldLabel
-      label={label}
+    <Field
+      label={
+        label
+      }
     >
       <select
-        value={value}
+        value={
+          value
+        }
+
         onChange={(e) =>
           onChange(
             e.target.value
           )
         }
-        style={inputStyle}
+
+        style={
+          inputStyle
+        }
       >
         {COMPATIBILITY_OPTIONS.map(
           (option) => (
@@ -1951,7 +2459,10 @@ function CompatibilityField({
                 option ||
                 "blank"
               }
-              value={option}
+
+              value={
+                option
+              }
             >
               {option ||
                 "Not recorded"}
@@ -1959,40 +2470,49 @@ function CompatibilityField({
           )
         )}
       </select>
-    </FieldLabel>
+    </Field>
   );
 }
 
-function FieldLabel({
+function Field({
   label,
-  required = false,
   children,
 }: {
-  label: string;
-  required?: boolean;
+  label:
+    string;
+
   children:
     React.ReactNode;
 }) {
   return (
     <label
       style={{
-        display: "block",
-        marginBottom: 14,
+        display:
+          "block",
+
+        marginBottom:
+          14,
       }}
     >
       <span
         style={{
-          display: "block",
-          fontSize: 12,
-          fontWeight: 700,
-          color: "#4F4D49",
-          marginBottom: 5,
+          display:
+            "block",
+
+          fontSize:
+            12,
+
+          fontWeight:
+            700,
+
+          color:
+            "#4F4D49",
+
+          marginBottom:
+            5,
         }}
       >
         {label}
-        {required
-          ? " *"
-          : ""}
       </span>
 
       {children}
@@ -2004,7 +2524,9 @@ function InfoItem({
   label,
   value,
 }: {
-  label: string;
+  label:
+    string;
+
   value:
     | string
     | null;
@@ -2012,19 +2534,29 @@ function InfoItem({
   return (
     <div
       style={{
-        marginBottom: 12,
+        marginBottom:
+          12,
       }}
     >
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 800,
-          color: "#77736D",
+          fontSize:
+            11,
+
+          fontWeight:
+            800,
+
+          color:
+            "#77736D",
+
           textTransform:
             "uppercase",
+
           letterSpacing:
             ".05em",
-          marginBottom: 3,
+
+          marginBottom:
+            3,
         }}
       >
         {label}
@@ -2032,8 +2564,11 @@ function InfoItem({
 
       <div
         style={{
-          fontSize: 13.5,
-          color: "#35332F",
+          fontSize:
+            13.5,
+
+          color:
+            "#35332F",
         }}
       >
         {value ||
@@ -2047,7 +2582,9 @@ function LongInfoItem({
   label,
   value,
 }: {
-  label: string;
+  label:
+    string;
+
   value:
     | string
     | null;
@@ -2059,19 +2596,29 @@ function LongInfoItem({
   return (
     <div
       style={{
-        marginTop: 12,
+        marginTop:
+          12,
       }}
     >
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 800,
-          color: "#77736D",
+          fontSize:
+            11,
+
+          fontWeight:
+            800,
+
+          color:
+            "#77736D",
+
           textTransform:
             "uppercase",
+
           letterSpacing:
             ".05em",
-          marginBottom: 4,
+
+          marginBottom:
+            4,
         }}
       >
         {label}
@@ -2079,9 +2626,15 @@ function LongInfoItem({
 
       <div
         style={{
-          fontSize: 13.5,
-          lineHeight: 1.55,
-          color: "#35332F",
+          fontSize:
+            13.5,
+
+          lineHeight:
+            1.55,
+
+          color:
+            "#35332F",
+
           whiteSpace:
             "pre-wrap",
         }}
@@ -2102,9 +2655,12 @@ function SeverityBadge({
     | "critical";
 }) {
   const label =
-    severity.charAt(0)
+    severity
+      .charAt(0)
       .toUpperCase() +
-    severity.slice(1);
+    severity.slice(
+      1
+    );
 
   const background =
     severity ===
@@ -2132,12 +2688,20 @@ function SeverityBadge({
   return (
     <span
       style={{
-        borderRadius: 20,
+        borderRadius:
+          20,
+
         padding:
           "3px 7px",
-        fontSize: 10.5,
-        fontWeight: 800,
+
+        fontSize:
+          10.5,
+
+        fontWeight:
+          800,
+
         background,
+
         color,
       }}
     >
@@ -2157,11 +2721,18 @@ function StatusBadge({
   return (
     <span
       style={{
-        borderRadius: 20,
+        borderRadius:
+          20,
+
         padding:
           "3px 7px",
-        fontSize: 10.5,
-        fontWeight: 700,
+
+        fontSize:
+          10.5,
+
+        fontWeight:
+          700,
+
         background:
           status ===
           "resolved"
@@ -2170,6 +2741,7 @@ function StatusBadge({
               "monitoring"
             ? "#EEF1F5"
             : "#EEF4F0",
+
         color:
           status ===
           "resolved"
@@ -2189,30 +2761,42 @@ function StatusBadge({
 
 function Notice({
   type,
-  text,
+  children,
 }: {
   type:
     | "error"
     | "success";
-  text: string;
+
+  children:
+    React.ReactNode;
 }) {
   return (
     <div
       style={{
-        padding: 11,
-        marginBottom: 14,
-        borderRadius: 8,
-        fontSize: 13,
+        padding:
+          11,
+
+        marginBottom:
+          14,
+
+        borderRadius:
+          8,
+
+        fontSize:
+          13,
+
         background:
           type ===
           "error"
             ? "#FFF4F2"
             : "#F1F7F3",
+
         border:
           type ===
           "error"
             ? "1px solid #F3C7BF"
             : "1px solid #C9DDD1",
+
         color:
           type ===
           "error"
@@ -2220,7 +2804,7 @@ function Notice({
             : "#2F6F4E",
       }}
     >
-      {text}
+      {children}
     </div>
   );
 }
@@ -2228,6 +2812,35 @@ function Notice({
 /* =========================================================
    HELPERS
 ========================================================= */
+
+function emptyEntryDraft():
+  EntryDraft {
+  return {
+    observedAt:
+      currentLocalDateTime(),
+
+    behaviorType:
+      "",
+
+    severity:
+      "",
+
+    trigger:
+      "",
+
+    observation:
+      "",
+
+    responseTaken:
+      "",
+
+    outcome:
+      "",
+
+    status:
+      "current",
+  };
+}
 
 function profileToDraft(
   profile:
@@ -2280,37 +2893,95 @@ function profileToDraft(
 }
 
 function updateProfileDraft(
-  setter: React.Dispatch<
-    React.SetStateAction<ProfileDraft>
-  >,
-  key: keyof ProfileDraft,
-  value: string
+  setter:
+    React.Dispatch<
+      React.SetStateAction<ProfileDraft>
+    >,
+
+  key:
+    keyof ProfileDraft,
+
+  value:
+    string
 ) {
   setter(
     (current) => ({
       ...current,
-      [key]: value,
+      [key]:
+        value,
     })
   );
 }
 
 function updateEntryDraft(
-  setter: React.Dispatch<
-    React.SetStateAction<EntryDraft>
-  >,
-  key: keyof EntryDraft,
-  value: string
+  setter:
+    React.Dispatch<
+      React.SetStateAction<EntryDraft>
+    >,
+
+  key:
+    keyof EntryDraft,
+
+  value:
+    string
 ) {
   setter(
     (current) => ({
       ...current,
-      [key]: value,
+      [key]:
+        value,
     })
   );
 }
 
+function currentLocalDateTime() {
+  const now =
+    new Date();
+
+  return new Date(
+    now.getTime() -
+      now.getTimezoneOffset() *
+        60000
+  )
+    .toISOString()
+    .slice(
+      0,
+      16
+    );
+}
+
+function toLocalDateTimeInput(
+  value:
+    string
+) {
+  const date =
+    new Date(
+      value
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return new Date(
+    date.getTime() -
+      date.getTimezoneOffset() *
+        60000
+  )
+    .toISOString()
+    .slice(
+      0,
+      16
+    );
+}
+
 function formatValue(
-  value: string
+  value:
+    string
 ) {
   return value
     .replace(
@@ -2325,10 +2996,13 @@ function formatValue(
 }
 
 function formatDateTime(
-  value: string
+  value:
+    string
 ) {
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
 
   if (
     Number.isNaN(
@@ -2341,11 +3015,20 @@ function formatDateTime(
   return date.toLocaleString(
     [],
     {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
+      month:
+        "short",
+
+      day:
+        "numeric",
+
+      year:
+        "numeric",
+
+      hour:
+        "numeric",
+
+      minute:
+        "2-digit",
     }
   );
 }
@@ -2354,118 +3037,340 @@ function formatDateTime(
    STYLES
 ========================================================= */
 
+const backLink:
+  React.CSSProperties =
+{
+  color:
+    "#52627A",
+
+  fontSize:
+    13,
+
+  fontWeight:
+    700,
+
+  textDecoration:
+    "none",
+};
+
 const cardStyle:
   React.CSSProperties =
 {
-  background: "#fff",
+  background:
+    "#fff",
+
   border:
     "1px solid #E7E5E1",
-  borderRadius: 11,
-  padding: 18,
+
+  borderRadius:
+    11,
+
+  padding:
+    18,
 };
 
 const sectionTitle:
   React.CSSProperties =
 {
-  margin: 0,
-  fontSize: 18,
-  color: "#17233C",
+  margin:
+    0,
+
+  fontSize:
+    18,
+
+  color:
+    "#17233C",
 };
 
 const sectionHelp:
   React.CSSProperties =
 {
-  margin: "4px 0 0",
-  color: "#6B6862",
-  fontSize: 12.5,
-  lineHeight: 1.5,
+  margin:
+    "4px 0 0",
+
+  color:
+    "#6B6862",
+
+  fontSize:
+    12.5,
+
+  lineHeight:
+    1.5,
 };
 
 const twoColumnGrid:
   React.CSSProperties =
 {
-  display: "grid",
+  display:
+    "grid",
+
   gridTemplateColumns:
     "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "0 14px",
+
+  gap:
+    "0 14px",
+};
+
+const formActions:
+  React.CSSProperties =
+{
+  display:
+    "flex",
+
+  gap:
+    9,
+
+  flexWrap:
+    "wrap",
+
+  marginTop:
+    14,
 };
 
 const inputStyle:
   React.CSSProperties =
 {
-  width: "100%",
+  width:
+    "100%",
+
   boxSizing:
     "border-box",
-  padding: 9,
+
+  padding:
+    9,
+
   border:
     "1px solid #D8D6D2",
-  borderRadius: 7,
-  fontSize: 13,
-  fontFamily: "inherit",
-  background: "#fff",
-  color: "#1C1B19",
+
+  borderRadius:
+    7,
+
+  fontSize:
+    13,
+
+  fontFamily:
+    "inherit",
+
+  background:
+    "#fff",
+
+  color:
+    "#1C1B19",
 };
 
 const textareaStyle:
   React.CSSProperties =
 {
   ...inputStyle,
-  resize: "vertical",
-  lineHeight: 1.5,
+
+  resize:
+    "vertical",
+
+  lineHeight:
+    1.5,
 };
 
 const primaryButton:
   React.CSSProperties =
 {
-  background: "#17233C",
-  color: "#fff",
-  border: "none",
-  borderRadius: 7,
+  background:
+    "#17233C",
+
+  color:
+    "#fff",
+
+  border:
+    "none",
+
+  borderRadius:
+    7,
+
   padding:
     "9px 14px",
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: "pointer",
+
+  fontWeight:
+    700,
+
+  fontSize:
+    13,
+
+  cursor:
+    "pointer",
 };
 
 const secondaryButton:
   React.CSSProperties =
 {
-  background: "#fff",
-  color: "#17233C",
+  background:
+    "#fff",
+
+  color:
+    "#17233C",
+
   border:
     "1px solid #D8D6D2",
-  borderRadius: 7,
+
+  borderRadius:
+    7,
+
   padding:
     "9px 14px",
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: "pointer",
+
+  fontWeight:
+    700,
+
+  fontSize:
+    13,
+
+  cursor:
+    "pointer",
+};
+
+const editButton:
+  React.CSSProperties =
+{
+  background:
+    "#17233C",
+
+  color:
+    "#fff",
+
+  border:
+    "1px solid #17233C",
+
+  borderRadius:
+    6,
+
+  padding:
+    "6px 10px",
+
+  fontSize:
+    11.5,
+
+  fontWeight:
+    700,
+
+  cursor:
+    "pointer",
 };
 
 const smallButton:
   React.CSSProperties =
 {
-  background: "#fff",
-  color: "#17233C",
+  background:
+    "#fff",
+
+  color:
+    "#17233C",
+
   border:
     "1px solid #D8D6D2",
-  borderRadius: 6,
-  padding: "6px 9px",
-  fontSize: 11.5,
-  fontWeight: 700,
-  cursor: "pointer",
+
+  borderRadius:
+    6,
+
+  padding:
+    "6px 9px",
+
+  fontSize:
+    11.5,
+
+  fontWeight:
+    700,
+
+  cursor:
+    "pointer",
+};
+
+const editingBadge:
+  React.CSSProperties =
+{
+  display:
+    "inline-block",
+
+  background:
+    "#EEF1F5",
+
+  color:
+    "#52627A",
+
+  border:
+    "1px solid #D7DEE7",
+
+  borderRadius:
+    20,
+
+  padding:
+    "4px 8px",
+
+  fontSize:
+    11,
+
+  fontWeight:
+    700,
+};
+
+const historyToggle:
+  React.CSSProperties =
+{
+  width:
+    "100%",
+
+  border:
+    "none",
+
+  background:
+    "transparent",
+
+  padding:
+    0,
+
+  cursor:
+    "pointer",
+
+  display:
+    "flex",
+
+  justifyContent:
+    "space-between",
+
+  alignItems:
+    "center",
+
+  gap:
+    10,
+
+  color:
+    "#17233C",
+
+  fontFamily:
+    "inherit",
+
+  textAlign:
+    "left",
 };
 
 const emptyStyle:
   React.CSSProperties =
 {
-  marginTop: 16,
-  padding: 16,
+  marginTop:
+    16,
+
+  padding:
+    16,
+
   border:
     "1px dashed #D8D6D2",
-  borderRadius: 8,
-  color: "#77736D",
-  fontSize: 13,
-  background: "#FCFCFB",
+
+  borderRadius:
+    8,
+
+  color:
+    "#77736D",
+
+  fontSize:
+    13,
+
+  background:
+    "#FCFCFB",
 };
