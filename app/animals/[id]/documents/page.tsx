@@ -59,6 +59,9 @@ type AnimalDocument = {
 
 type AnimalPhoto = {
   id: string;
+  document_id:
+    | string
+    | null;
   url: string;
   source:
     | string
@@ -1741,8 +1744,8 @@ export default function DocumentsPage() {
                     document.id
                   }
 
-                  currentProfilePhotoUrl={
-                    animal?.photo?.url ??
+                  currentProfilePhotoDocumentId={
+                    animal?.photo?.document_id ??
                     null
                   }
 
@@ -1803,7 +1806,7 @@ function DocumentCard({
   savingEdit,
   deleting,
   settingProfilePhoto,
-  currentProfilePhotoUrl,
+  currentProfilePhotoDocumentId,
   removingProfilePhoto,
   onBeginEdit,
   onCancelEdit,
@@ -1838,7 +1841,7 @@ function DocumentCard({
   settingProfilePhoto:
     boolean;
 
-  currentProfilePhotoUrl:
+  currentProfilePhotoDocumentId:
     | string
     | null;
 
@@ -1885,8 +1888,8 @@ function DocumentCard({
     );
 
   const isCurrentProfilePhoto =
-    currentProfilePhotoUrl ===
-    openUrl;
+    currentProfilePhotoDocumentId ===
+    document.id;
 
   return (
     <article
