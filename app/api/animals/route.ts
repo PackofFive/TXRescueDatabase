@@ -76,13 +76,30 @@ export async function GET(
         a.created_at,
 
         (
-          select m.url
-          from media m
+          select
+            '/api/animals/' ||
+            a.id::text ||
+            '/documents?documentId=' ||
+            ad.id::text
+
+          from animal_documents ad
+
           where
-            m.owner_type = 'animal'
-            and m.owner_id = a.id
-          order by
-            m.created_at desc
+            ad.id =
+              a.primary_photo_document_id
+
+            and
+            ad.animal_id =
+              a.id
+
+            and
+            ad.org_id =
+              a.current_org_id
+
+            and
+            ad.content_type like
+              'image/%'
+
           limit 1
         ) as photo_url,
 
