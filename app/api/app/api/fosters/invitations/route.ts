@@ -1,853 +1,431 @@
-"use client";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+  getSession,
+} from "@/lib/auth";
 
-type Relationship = {
-  id: string;
-  foster_id: string;
-  full_name: string;
-  email: string | null;
-  phone: string | null;
-  city: string | null;
-  state: string | null;
-  availability_status: string;
-  transport_available: boolean;
-  status: string;
-  access_level: string;
-  created_at: string;
-  approved_at: string | null;
-};
+import {
+  sql,
+} from "@/lib/db";
 
-type Invitation = {
-  id: string;
-  invited_email: string;
-  invited_name: string | null;
-  status: string;
-  expires_at: string;
-  created_at: string;
-};
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
-const COLORS = {
-  navy: "#1E3A5F",
-  coral: "#E85C56",
-  mint: "#DCF0E8",
-  pink: "#FBEFF1",
-  muted: "#4A5D75",
-  border: "#DCE4EC",
-  white: "#FFFFFF",
-};
+async function sha256(
+  value: string
+) {
+  const bytes =
+    new TextEncoder().encode(
+      value
+    );
 
-export default function FosterManagementPage() {
-  const [
-    relationships,
-    setRelationships,
-  ] =
-    useState<
-      Relationship[]
-    >([]);
+  const digest =
+    await crypto.subtle.digest(
+      "SHA-256",
+      bytes
+    );
 
-  const [
-    invitations,
-    setInvitations,
-  ] =
-    useState<
-      Invitation[]
-    >([]);
+  return Array.from(
+    new Uint8Array(
+      digest
+    )
+  )
+    .map((byte) =>
+      byte
+        .toString(16)
+        .padStart(2, "0")
+    )
+    .join("");
+}
 
-  const [
-    name,
-    setName,
-  ] =
-    useState("");
+function createToken() {
+  const bytes =
+    new Uint8Array(32);
 
-  const [
-    email,
-    setEmail,
-  ] =
-    useState("");
+  crypto.getRandomValues(
+    bytes
+  );
 
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true);
+  return Array.from(
+    bytes
+  )
+    .map((byte) =>
+      byte
+        .toString(16)
+        .padStart(2, "0")
+    )
+    .join("");
+}
 
-  const [
-    submitting,
-    setSubmitting,
-  ] =
-    useState(false);
+async function requireOrganizationSession() {
+  const session =
+    await getSession();
 
-  const [
-    error,
-    setError,
-  ] =
-    useState<
-      string | null
-    >(null);
-
-  const [
-    inviteUrl,
-    setInviteUrl,
-  ] =
-    useState<
-      string | null
-    >(null);
-
-  const [
-    copied,
-    setCopied,
-  ] =
-    useState(false);
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  async function load() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res =
-        await fetch(
-          "/api/fosters/invitations",
-          {
-            cache:
-              "no-store",
-          }
-        );
-
-      const data =
-        await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          data.error ??
-            "Couldn't load foster records."
-        );
-      }
-
-      setRelationships(
-        data.relationships ??
-          []
-      );
-
-      setInvitations(
-        data.invitations ??
-          []
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't load foster records."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function submitInvite(
-    e:
-      React.FormEvent
+  if (
+    !session ||
+    session.status !==
+      "approved" ||
+    !session.orgId
   ) {
-    e.preventDefault();
-
-    setSubmitting(true);
-    setError(null);
-    setInviteUrl(null);
-    setCopied(false);
-
-    try {
-      const res =
-        await fetch(
-          "/api/fosters/invitations",
-          {
-            method:
-              "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body:
-              JSON.stringify({
-                name,
-                email,
-              }),
-          }
-        );
-
-      const data =
-        await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          data.error ??
-            "Couldn't create invitation."
-        );
-      }
-
-      setInviteUrl(
-        data.inviteUrl
-      );
-
-      setName("");
-      setEmail("");
-
-      await load();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't create invitation."
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    return null;
   }
 
-  async function copyInvite() {
-    if (!inviteUrl) {
-      return;
-    }
+  return session;
+}
 
-    try {
-      await navigator.clipboard.writeText(
-        inviteUrl
-      );
+export async function GET() {
+  try {
+    const session =
+      await requireOrganizationSession();
 
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  const approvedCount =
-    useMemo(
-      () =>
-        relationships.filter(
-          (item) =>
-            item.status ===
-            "approved"
-        ).length,
-      [relationships]
-    );
-
-  const pendingCount =
-    useMemo(
-      () =>
-        relationships.filter(
-          (item) =>
-            [
-              "invited",
-              "applied",
-              "pending",
-            ].includes(
-              item.status
-            )
-        ).length,
-      [relationships]
-    );
-
-  return (
-    <section>
-      <div
-        style={{
-          display:
-            "flex",
-          justifyContent:
-            "space-between",
-          alignItems:
-            "flex-start",
-          gap:
-            16,
-          flexWrap:
-            "wrap",
-          marginBottom:
-            22,
-        }}
-      >
-        <div>
-          <p
-            style={{
-              margin:
-                0,
-              color:
-                COLORS.coral,
-              fontSize:
-                11.5,
-              fontWeight:
-                800,
-              letterSpacing:
-                ".1em",
-              textTransform:
-                "uppercase",
-            }}
-          >
-            Rescue Manager
-          </p>
-
-          <h1
-            style={{
-              margin:
-                "6px 0 6px",
-              color:
-                COLORS.navy,
-              fontSize:
-                28,
-            }}
-          >
-            Fosters
-          </h1>
-
-          <p
-            style={{
-              margin:
-                0,
-              color:
-                COLORS.muted,
-              fontSize:
-                13.5,
-              lineHeight:
-                1.5,
-              maxWidth:
-                700,
-            }}
-          >
-            Invite fosters and manage
-            rescue-specific foster
-            relationships.
-          </p>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display:
-            "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(150px, 1fr))",
-          gap:
-            10,
-          marginBottom:
-            18,
-        }}
-      >
-        <StatCard
-          value={
-            approvedCount
-          }
-          label="Approved Fosters"
-        />
-
-        <StatCard
-          value={
-            pendingCount
-          }
-          label="Pending / Invited"
-        />
-
-        <StatCard
-          value={
-            invitations.filter(
-              (item) =>
-                item.status ===
-                "pending"
-            ).length
-          }
-          label="Open Invitations"
-        />
-      </div>
-
-      <form
-        onSubmit={
-          submitInvite
+    if (!session) {
+      return NextResponse.json(
+        {
+          error:
+            "Organization access required.",
+        },
+        {
+          status: 401,
         }
-        style={{
-          background:
-            COLORS.mint,
-          padding:
-            16,
-          marginBottom:
-            18,
-        }}
-      >
-        <strong
-          style={{
-            display:
-              "block",
-            color:
-              COLORS.navy,
-            marginBottom:
-              4,
-          }}
-        >
-          Invite a Foster
-        </strong>
+      );
+    }
 
-        <p
-          style={{
-            margin:
-              "0 0 12px",
-            color:
-              COLORS.muted,
-            fontSize:
-              12.5,
-          }}
-        >
-          Create a secure invitation
-          link to send to a foster.
-        </p>
+    const relationships =
+      await sql`
+        select
+          r.id,
+          r.status,
+          r.access_level,
+          r.created_at,
+          r.approved_at,
 
-        <div
-          style={{
-            display:
-              "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(220px, 1fr))",
-            gap:
-              10,
-        }}
-        >
-          <input
-            value={
-              name
-            }
-            onChange={(e) =>
-              setName(
-                e.target.value
-              )
-            }
-            placeholder="Foster name"
-            style={
-              inputStyle
-            }
-          />
+          fp.id as foster_id,
+          fp.full_name,
+          fp.email,
+          fp.phone,
+          fp.city,
+          fp.state,
+          fp.availability_status,
+          fp.transport_available
 
-          <input
-            value={
-              email
-            }
-            onChange={(e) =>
-              setEmail(
-                e.target.value
-              )
-            }
-            placeholder="Email *"
-            type="email"
-            required
-            style={
-              inputStyle
-            }
-          />
-        </div>
+        from foster_organization_relationships r
 
-        <button
-          type="submit"
-          disabled={
-            submitting
-          }
-          style={{
-            ...primaryButton,
-            marginTop:
-              10,
-            opacity:
-              submitting
-                ? 0.65
-                : 1,
-          }}
-        >
-          {submitting
-            ? "Creating…"
-            : "Create Invitation"}
-        </button>
+        join foster_profiles fp
+          on fp.id = r.foster_id
 
-        {inviteUrl && (
-          <div
-            style={{
-              marginTop:
-                12,
-              background:
-                COLORS.white,
-              border:
-                `1px solid ${COLORS.border}`,
-              padding:
-                10,
-            }}
-          >
-            <div
-              style={{
-                color:
-                  COLORS.muted,
-                fontSize:
-                  11.5,
-                marginBottom:
-                  5,
-              }}
-            >
-              Invitation created.
-              Copy this link and send
-              it to the foster:
-            </div>
+        where
+          r.organization_id =
+            ${session.orgId}
 
-            <div
-              style={{
-                display:
-                  "flex",
-                gap:
-                  8,
-                alignItems:
-                  "center",
-                flexWrap:
-                  "wrap",
-              }}
-            >
-              <code
-                style={{
-                  flex:
-                    1,
-                  minWidth:
-                    220,
-                  overflowWrap:
-                    "anywhere",
-                  fontSize:
-                    11.5,
-                  color:
-                    COLORS.navy,
-                }}
-              >
-                {inviteUrl}
-              </code>
+        order by
+          case
+            when r.status = 'pending'
+              then 0
+            when r.status = 'invited'
+              then 1
+            when r.status = 'approved'
+              then 2
+            else 3
+          end,
+          r.created_at desc
+      `;
 
-              <button
-                type="button"
-                onClick={
-                  copyInvite
-                }
-                style={
-                  secondaryButton
-                }
-              >
-                {copied
-                  ? "Copied"
-                  : "Copy Link"}
-              </button>
-            </div>
-          </div>
-        )}
-      </form>
+    const invitations =
+      await sql`
+        select
+          id,
+          invited_email,
+          invited_name,
+          status,
+          expires_at,
+          created_at
 
-      {error && (
-        <div
-          style={{
-            background:
-              "#FFF4F2",
-            border:
-              "1px solid #F3C7BF",
-            color:
-              "#B23B2E",
-            padding:
-              11,
-            marginBottom:
-              15,
-            fontSize:
-              13,
-          }}
-        >
-          {error}
-        </div>
-      )}
+        from foster_invitations
 
-      <div
-        style={{
-          background:
-            COLORS.white,
-          border:
-            `1px solid ${COLORS.border}`,
-        }}
-      >
-        <div
-          style={{
-            padding:
-              "13px 15px",
-            borderBottom:
-              `1px solid ${COLORS.border}`,
-          }}
-        >
-          <strong
-            style={{
-              color:
-                COLORS.navy,
-            }}
-          >
-            Foster Relationships
-          </strong>
-        </div>
+        where
+          organization_id =
+            ${session.orgId}
 
-        {loading ? (
-          <p
-            style={{
-              padding:
-                15,
-              margin:
-                0,
-              color:
-                COLORS.muted,
-            }}
-          >
-            Loading…
-          </p>
-        ) : relationships.length ===
-          0 ? (
-          <p
-            style={{
-              padding:
-                15,
-              margin:
-                0,
-              color:
-                COLORS.muted,
-              fontSize:
-                13,
-            }}
-          >
-            No foster relationships
-            yet.
-          </p>
-        ) : (
-          relationships.map(
-            (item) => (
-              <div
-                key={
-                  item.id
-                }
-                style={{
-                  display:
-                    "grid",
-                  gridTemplateColumns:
-                    "minmax(180px, 1fr) minmax(180px, 1fr) auto",
-                  gap:
-                    12,
-                  alignItems:
-                    "center",
-                  padding:
-                    "12px 15px",
-                  borderBottom:
-                    `1px solid ${COLORS.border}`,
-                }}
-              >
-                <div>
-                  <strong
-                    style={{
-                      color:
-                        COLORS.navy,
-                      fontSize:
-                        13.5,
-                    }}
-                  >
-                    {
-                      item.full_name
-                    }
-                  </strong>
+        order by
+          created_at desc
 
-                  <div
-                    style={{
-                      marginTop:
-                        2,
-                      color:
-                        COLORS.muted,
-                      fontSize:
-                        11.5,
-                    }}
-                  >
-                    {item.email ??
-                      "No email"}
-                  </div>
-                </div>
+        limit 100
+      `;
 
-                <div
-                  style={{
-                    color:
-                      COLORS.muted,
-                    fontSize:
-                      12,
-                  }}
-                >
-                  {[
-                    item.city,
-                    item.state,
-                  ]
-                    .filter(
-                      Boolean
-                    )
-                    .join(
-                      ", "
-                    ) ||
-                    "Location not recorded"}
-                </div>
+    return NextResponse.json({
+      relationships,
+      invitations,
+    });
+  } catch (err) {
+    console.error(
+      "GET /api/fosters/invitations failed:",
+      err
+    );
 
-                <StatusBadge
-                  value={
-                    item.status
-                  }
-                />
-              </div>
-            )
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Couldn't load foster records.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function POST(
+  req: NextRequest
+) {
+  try {
+    const session =
+      await requireOrganizationSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          error:
+            "Organization access required.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const body =
+      await req.json();
+
+    const email =
+      typeof body?.email ===
+        "string"
+        ? body.email
+            .trim()
+            .toLowerCase()
+        : "";
+
+    const name =
+      typeof body?.name ===
+        "string"
+        ? body.name.trim()
+        : "";
+
+    if (!email) {
+      return NextResponse.json(
+        {
+          error:
+            "Foster email is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const existingPending =
+      await sql`
+        select id
+
+        from foster_invitations
+
+        where
+          organization_id =
+            ${session.orgId}
+
+          and lower(
+            invited_email
+          ) = ${email}
+
+          and status =
+            'pending'
+
+          and expires_at >
+            now()
+
+        limit 1
+      `;
+
+    if (
+      existingPending[0]
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "A current invitation already exists for this email.",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+    let fosterId:
+      | string
+      | null =
+      null;
+
+    const existingFoster =
+      await sql`
+        select id
+
+        from foster_profiles
+
+        where
+          lower(email) =
+            ${email}
+
+        limit 1
+      `;
+
+    if (
+      existingFoster[0]?.id
+    ) {
+      fosterId =
+        String(
+          existingFoster[0].id
+        );
+    } else {
+      const newFoster =
+        await sql`
+          insert into foster_profiles (
+            full_name,
+            email,
+            state
           )
-        )}
-      </div>
-    </section>
-  );
+
+          values (
+            ${
+              name ||
+              email
+            },
+            ${email},
+            'TX'
+          )
+
+          returning id
+        `;
+
+      fosterId =
+        String(
+          newFoster[0].id
+        );
+    }
+
+    await sql`
+      insert into foster_organization_relationships (
+        foster_id,
+        organization_id,
+        status
+      )
+
+      values (
+        ${fosterId},
+        ${session.orgId},
+        'invited'
+      )
+
+      on conflict (
+        foster_id,
+        organization_id
+      )
+
+      do update
+      set
+        status =
+          case
+            when foster_organization_relationships.status =
+              'approved'
+              then foster_organization_relationships.status
+            else 'invited'
+          end,
+        updated_at =
+          now()
+    `;
+
+    const token =
+      createToken();
+
+    const tokenHash =
+      await sha256(
+        token
+      );
+
+    const invitationRows =
+      await sql`
+        insert into foster_invitations (
+          organization_id,
+          foster_id,
+          invited_email,
+          invited_name,
+          token_hash,
+          expires_at,
+          invited_by
+        )
+
+        values (
+          ${session.orgId},
+          ${fosterId},
+          ${email},
+          ${
+            name ||
+            null
+          },
+          ${tokenHash},
+          now() +
+            interval '14 days',
+          ${session.id}
+        )
+
+        returning
+          id,
+          invited_email,
+          invited_name,
+          status,
+          expires_at,
+          created_at
+      `;
+
+    const origin =
+      new URL(
+        req.url
+      ).origin;
+
+    const inviteUrl =
+      `${origin}/foster/accept?token=${encodeURIComponent(
+        token
+      )}`;
+
+    return NextResponse.json(
+      {
+        invitation:
+          invitationRows[0],
+        inviteUrl,
+      },
+      {
+        status: 201,
+      }
+    );
+  } catch (err) {
+    console.error(
+      "POST /api/fosters/invitations failed:",
+      err
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Couldn't create foster invitation.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }
-
-function StatCard({
-  value,
-  label,
-}: {
-  value: number;
-  label: string;
-}) {
-  return (
-    <div
-      style={{
-        background:
-          COLORS.white,
-        border:
-          `1px solid ${COLORS.border}`,
-        padding:
-          13,
-      }}
-    >
-      <strong
-        style={{
-          display:
-            "block",
-          color:
-            COLORS.navy,
-          fontSize:
-            22,
-        }}
-      >
-        {value}
-      </strong>
-
-      <span
-        style={{
-          display:
-            "block",
-          marginTop:
-            3,
-          color:
-            COLORS.muted,
-          fontSize:
-            11.5,
-        }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function StatusBadge({
-  value,
-}: {
-  value: string;
-}) {
-  const background =
-    value ===
-      "approved"
-      ? COLORS.mint
-      : value ===
-          "declined" ||
-        value ===
-          "inactive"
-      ? "#F3F1EF"
-      : COLORS.pink;
-
-  return (
-    <span
-      style={{
-        display:
-          "inline-block",
-        background,
-        color:
-          COLORS.navy,
-        padding:
-          "4px 8px",
-        fontSize:
-          11,
-        fontWeight:
-          750,
-        textTransform:
-          "capitalize",
-        whiteSpace:
-          "nowrap",
-      }}
-    >
-      {value}
-    </span>
-  );
-}
-
-const inputStyle:
-  React.CSSProperties =
-{
-  width:
-    "100%",
-  boxSizing:
-    "border-box",
-  border:
-    `1px solid ${COLORS.border}`,
-  padding:
-    "9px 10px",
-  background:
-    "#fff",
-  color:
-    "#1C1B19",
-  fontFamily:
-    "inherit",
-};
-
-const primaryButton:
-  React.CSSProperties =
-{
-  border:
-    "none",
-  background:
-    COLORS.navy,
-  color:
-    "#fff",
-  padding:
-    "9px 13px",
-  fontWeight:
-    800,
-  fontSize:
-    12.5,
-  cursor:
-    "pointer",
-};
-
-const secondaryButton:
-  React.CSSProperties =
-{
-  border:
-    `1px solid ${COLORS.border}`,
-  background:
-    "#fff",
-  color:
-    COLORS.navy,
-  padding:
-    "7px 10px",
-  fontWeight:
-    750,
-  fontSize:
-    11.5,
-  cursor:
-    "pointer",
-};
