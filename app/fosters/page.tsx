@@ -1,1781 +1,853 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-type ShellUser = {
-  email: string;
-  role: "org" | "admin";
-  status: "pending" | "approved" | "rejected";
-  orgId: string | null;
-  orgName?: string | null;
-} | null;
-
-type TestOrg = {
+type Relationship = {
   id: string;
-  name: string;
-  city?: string | null;
-  county?: string | null;
-} | null;
+  foster_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  availability_status: string;
+  transport_available: boolean;
+  status: string;
+  access_level: string;
+  created_at: string;
+  approved_at: string | null;
+};
+
+type Invitation = {
+  id: string;
+  invited_email: string;
+  invited_name: string | null;
+  status: string;
+  expires_at: string;
+  created_at: string;
+};
 
 const COLORS = {
   navy: "#1E3A5F",
   coral: "#E85C56",
-  peach: "#F2A48D",
-  mint: "#A9DCC9",
-  pink: "#F2D6DC",
-  text: "#1E3A5F",
+  mint: "#DCF0E8",
+  pink: "#FBEFF1",
   muted: "#4A5D75",
-  border: "#E9E5E3",
-  surface: "#FFFFFF",
-  background: "#FFFDFC",
+  border: "#DCE4EC",
+  white: "#FFFFFF",
 };
 
-async function signOut() {
-  try {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
-  } finally {
-    window.location.href = "/";
-  }
-}
-
-export default function AppShell({
-  children,
-  user,
-}: {
-  children: ReactNode;
-  user: ShellUser;
-}) {
-  const pathname = usePathname();
-
-  const isAdminArea =
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/");
-
-  const isManagerArea =
-    pathname === "/portal" ||
-    pathname.startsWith("/portal/") ||
-    pathname === "/animals" ||
-    pathname.startsWith("/animals/");
-
-  if (isAdminArea) {
-    return (
-      <AdminShell>
-        {children}
-      </AdminShell>
-    );
-  }
-
-  if (
-    isManagerArea &&
-    user &&
-    user.status === "approved" &&
-    (user.role === "org" || user.role === "admin")
-  ) {
-    return (
-      <ManagerShell user={user}>
-        {children}
-      </ManagerShell>
-    );
-  }
-
-  const isHomePage =
-    pathname === "/";
-
-  const isLoginArea =
-    pathname === "/login" ||
-    pathname.startsWith(
-      "/login/"
-    );
-
-  const isStandalonePortalArea =
-    pathname === "/foster" ||
-    pathname.startsWith(
-      "/foster/"
-    );
-
-  if (
-    isHomePage ||
-    isLoginArea ||
-    isStandalonePortalArea
-  ) {
-    return children;
-  }
-
-  return (
-    <>
-      <PublicHeader user={user} />
-
-      <main
-        style={{
-          padding: "28px 24px",
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}
-      >
-        {children}
-      </main>
-    </>
-  );
-}
-
-/* =========================================================
-   PUBLIC HEADER
-========================================================= */
-
-function PublicHeader({
-  user,
-}: {
-  user: ShellUser;
-}) {
-  return (
-    <header
-      style={{
-        background: COLORS.surface,
-        borderBottom:
-          "1px solid #E8EDF2",
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1180,
-          minHeight: 58,
-          margin: "0 auto",
-          padding: "0 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 18,
-          flexWrap: "wrap",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-          }}
-        >
-          <a
-            href="/"
-            aria-label="Pack of Five home"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 9,
-              color: COLORS.navy,
-              textDecoration: "none",
-            }}
-          >
-            <PawMark />
-
-            <span
-              style={{
-                fontFamily:
-                  '"Space Grotesk", Arial, sans-serif',
-                fontWeight: 700,
-                fontSize: 18,
-                letterSpacing: ".035em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              PACK OF FIVE
-            </span>
-          </a>
-
-          <span
-            aria-label="Current state: Texas"
-            title="Texas"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minWidth: 30,
-              height: 24,
-              padding: "0 7px",
-              background: COLORS.pink,
-              color: COLORS.navy,
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: ".08em",
-              lineHeight: 1,
-              borderRadius: 4,
-            }}
-          >
-            TX
-          </span>
-        </div>
-
-        <nav
-          aria-label="Public navigation"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <a
-            href="/organizations"
-            style={publicLinkStyle}
-          >
-            Directory
-          </a>
-
-          <a
-            href="/adoptable"
-            style={publicLinkStyle}
-          >
-            Adoptable Pets
-          </a>
-
-          <a
-            href="/resources"
-            style={publicLinkStyle}
-          >
-            Resources
-          </a>
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-function PawMark() {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        position: "relative",
-        display: "inline-block",
-        width: 28,
-        height: 26,
-        flex: "0 0 auto",
-      }}
-    >
-      <span
-        style={{
-          ...pawToeStyle,
-          left: 1,
-          top: 5,
-          background: COLORS.coral,
-          transform: "rotate(-24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          left: 7,
-          top: 0,
-          background: COLORS.peach,
-          transform: "rotate(-8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          right: 6,
-          top: 0,
-          background: COLORS.mint,
-          transform: "rotate(8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          right: 0,
-          top: 5,
-          background: COLORS.pink,
-          transform: "rotate(24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          position: "absolute",
-          left: 6,
-          bottom: 0,
-          width: 17,
-          height: 15,
-          borderRadius: "50% 50% 45% 45%",
-          background: COLORS.navy,
-        }}
-      />
-    </span>
-  );
-}
-
-/* =========================================================
-   RESCUE MANAGER
-========================================================= */
-
-function ManagerShell({
-  children,
-  user,
-}: {
-  children: ReactNode;
-  user: Exclude<ShellUser, null>;
-}) {
-  const [testOrg, setTestOrg] =
-    useState<TestOrg>(null);
+export default function FosterManagementPage() {
+  const [
+    relationships,
+    setRelationships,
+  ] =
+    useState<
+      Relationship[]
+    >([]);
 
   const [
-    testOrgChecked,
-    setTestOrgChecked,
-  ] = useState(
-    user.role !== "admin"
-  );
+    invitations,
+    setInvitations,
+  ] =
+    useState<
+      Invitation[]
+    >([]);
+
+  const [
+    name,
+    setName,
+  ] =
+    useState("");
+
+  const [
+    email,
+    setEmail,
+  ] =
+    useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    submitting,
+    setSubmitting,
+  ] =
+    useState(false);
+
+  const [
+    error,
+    setError,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    inviteUrl,
+    setInviteUrl,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    copied,
+    setCopied,
+  ] =
+    useState(false);
 
   useEffect(() => {
-    if (user.role !== "admin") {
+    void load();
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res =
+        await fetch(
+          "/api/fosters/invitations",
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't load foster records."
+        );
+      }
+
+      setRelationships(
+        data.relationships ??
+          []
+      );
+
+      setInvitations(
+        data.invitations ??
+          []
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't load foster records."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitInvite(
+    e:
+      React.FormEvent
+  ) {
+    e.preventDefault();
+
+    setSubmitting(true);
+    setError(null);
+    setInviteUrl(null);
+    setCopied(false);
+
+    try {
+      const res =
+        await fetch(
+          "/api/fosters/invitations",
+          {
+            method:
+              "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                name,
+                email,
+              }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't create invitation."
+        );
+      }
+
+      setInviteUrl(
+        data.inviteUrl
+      );
+
+      setName("");
+      setEmail("");
+
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't create invitation."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function copyInvite() {
+    if (!inviteUrl) {
       return;
     }
 
-    fetch("/api/admin/test-org", {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setTestOrg(
-          data.organization ?? null
-        );
-      })
-      .finally(() => {
-        setTestOrgChecked(true);
-      });
-  }, [user.role]);
+    try {
+      await navigator.clipboard.writeText(
+        inviteUrl
+      );
 
-  async function exitTestMode() {
-    await fetch("/api/admin/test-org", {
-      method: "DELETE",
-    });
-
-    window.location.href =
-      "/admin/orgs";
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
   }
 
-  if (
-    user.role === "admin" &&
-    !testOrgChecked
-  ) {
-    return (
-      <main
-        style={{
-          padding: 28,
-        }}
-      >
-        Loading Rescue Manager test mode…
-      </main>
+  const approvedCount =
+    useMemo(
+      () =>
+        relationships.filter(
+          (item) =>
+            item.status ===
+            "approved"
+        ).length,
+      [relationships]
     );
-  }
 
-  if (
-    user.role === "admin" &&
-    !testOrg
-  ) {
-    return (
-      <main
-        style={{
-          padding: 28,
-          maxWidth: 700,
-          margin: "0 auto",
-        }}
-      >
-        <h1>
-          Choose a test organization
-        </h1>
-
-        <a href="/admin/orgs">
-          Choose Organization
-        </a>
-      </main>
+  const pendingCount =
+    useMemo(
+      () =>
+        relationships.filter(
+          (item) =>
+            [
+              "invited",
+              "applied",
+              "pending",
+            ].includes(
+              item.status
+            )
+        ).length,
+      [relationships]
     );
-  }
-
-  const organizationName =
-    user.role === "admin" &&
-    testOrg
-      ? testOrg.name
-      : user.orgName || null;
-
-  const animalsLabel =
-    organizationName
-      ? `${organizationName} Animals`
-      : "Our Animals";
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          COLORS.background,
-      }}
-    >
-      {user.role === "admin" &&
-        testOrg && (
-          <div
+    <section>
+      <div
+        style={{
+          display:
+            "flex",
+          justifyContent:
+            "space-between",
+          alignItems:
+            "flex-start",
+          gap:
+            16,
+          flexWrap:
+            "wrap",
+          marginBottom:
+            22,
+        }}
+      >
+        <div>
+          <p
             style={{
-              background:
-                "#FFF3CD",
-              borderBottom:
-                "1px solid #E6CF82",
-              padding:
-                "9px 18px",
-              fontSize: 13,
-              display: "flex",
-              justifyContent:
-                "center",
-              alignItems:
-                "center",
-              gap: 12,
-              flexWrap:
-                "wrap",
+              margin:
+                0,
+              color:
+                COLORS.coral,
+              fontSize:
+                11.5,
+              fontWeight:
+                800,
+              letterSpacing:
+                ".1em",
+              textTransform:
+                "uppercase",
             }}
           >
-            <strong>
-              Admin Test Mode
-            </strong>
+            Rescue Manager
+          </p>
 
-            <span>
-              Viewing Rescue
-              Manager as{" "}
-              {testOrg.name}
-            </span>
+          <h1
+            style={{
+              margin:
+                "6px 0 6px",
+              color:
+                COLORS.navy,
+              fontSize:
+                28,
+            }}
+          >
+            Fosters
+          </h1>
 
-            <button
-              onClick={
-                exitTestMode
-              }
-              style={{
-                background:
-                  "transparent",
-                border:
-                  "1px solid #9A8127",
-                borderRadius: 6,
-                padding:
-                  "5px 8px",
-                cursor:
-                  "pointer",
-                fontWeight: 700,
-              }}
-            >
-              Exit Test Mode
-            </button>
-          </div>
-        )}
+          <p
+            style={{
+              margin:
+                0,
+              color:
+                COLORS.muted,
+              fontSize:
+                13.5,
+              lineHeight:
+                1.5,
+              maxWidth:
+                700,
+            }}
+          >
+            Invite fosters and manage
+            rescue-specific foster
+            relationships.
+          </p>
+        </div>
+      </div>
 
       <div
         style={{
-          display: "grid",
+          display:
+            "grid",
           gridTemplateColumns:
-            "260px minmax(0, 1fr)",
-          minHeight:
-            user.role === "admin"
-              ? "calc(100vh - 40px)"
-              : "100vh",
+            "repeat(auto-fit, minmax(150px, 1fr))",
+          gap:
+            10,
+          marginBottom:
+            18,
         }}
       >
-        <aside
+        <StatCard
+          value={
+            approvedCount
+          }
+          label="Approved Fosters"
+        />
+
+        <StatCard
+          value={
+            pendingCount
+          }
+          label="Pending / Invited"
+        />
+
+        <StatCard
+          value={
+            invitations.filter(
+              (item) =>
+                item.status ===
+                "pending"
+            ).length
+          }
+          label="Open Invitations"
+        />
+      </div>
+
+      <form
+        onSubmit={
+          submitInvite
+        }
+        style={{
+          background:
+            COLORS.mint,
+          padding:
+            16,
+          marginBottom:
+            18,
+        }}
+      >
+        <strong
           style={{
-            background:
+            display:
+              "block",
+            color:
               COLORS.navy,
-            color: "#fff",
-            padding:
-              "24px 18px",
+            marginBottom:
+              4,
           }}
         >
-          <a
-            href="/"
-            style={{
-              color: "#fff",
-              textDecoration:
-                "none",
-              fontWeight: 800,
-              fontSize: 18,
-            }}
-          >
-            PACK OF FIVE
-          </a>
+          Invite a Foster
+        </strong>
 
-          <div
-            style={{
-              fontSize: 12,
-              opacity: 0.72,
-              marginTop: 3,
-              marginBottom: 28,
-              letterSpacing:
-                ".08em",
-            }}
-          >
-            RESCUE MANAGER
-          </div>
-
-          {organizationName && (
-            <div
-              style={{
-                fontSize: 13,
-                lineHeight: 1.4,
-                fontWeight: 700,
-                marginBottom: 18,
-                paddingBottom: 14,
-                borderBottom:
-                  "1px solid rgba(255,255,255,.16)",
-              }}
-            >
-              {organizationName}
-            </div>
-          )}
-
-          <nav
-            aria-label="Rescue Manager navigation"
-          >
-            <ManagerLink href="/portal">
-              Overview
-            </ManagerLink>
-
-            <ManagerLink href="/animals">
-              {animalsLabel}
-            </ManagerLink>
-
-            <ManagerLink href="/portal/urgent">
-              Urgent Shelter Animals
-            </ManagerLink>
-          </nav>
-
-          <div
-            style={{
-              borderTop:
-                "1px solid rgba(255,255,255,.16)",
-              marginTop: 28,
-              paddingTop: 18,
-            }}
-          >
-            <a
-              href="/organizations"
-              style={managerFooterLink}
-            >
-              ← Rescue Network
-            </a>
-
-            {user.role === "admin" && (
-              <a
-                href="/admin"
-                style={managerFooterLink}
-              >
-                ← Admin Dashboard
-              </a>
-            )}
-
-            <div
-              style={{
-                fontSize: 12,
-                color:
-                  "rgba(255,255,255,.72)",
-                marginBottom: 14,
-                overflowWrap:
-                  "anywhere",
-              }}
-            >
-              {user.email}
-            </div>
-
-            <button
-              onClick={signOut}
-              style={
-                signOutDarkStyle
-              }
-            >
-              Sign Out
-            </button>
-          </div>
-        </aside>
+        <p
+          style={{
+            margin:
+              "0 0 12px",
+            color:
+              COLORS.muted,
+            fontSize:
+              12.5,
+          }}
+        >
+          Create a secure invitation
+          link to send to a foster.
+        </p>
 
         <div
           style={{
-            minWidth: 0,
+            display:
+              "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(220px, 1fr))",
+            gap:
+              10,
+        }}
+        >
+          <input
+            value={
+              name
+            }
+            onChange={(e) =>
+              setName(
+                e.target.value
+              )
+            }
+            placeholder="Foster name"
+            style={
+              inputStyle
+            }
+          />
+
+          <input
+            value={
+              email
+            }
+            onChange={(e) =>
+              setEmail(
+                e.target.value
+              )
+            }
+            placeholder="Email *"
+            type="email"
+            required
+            style={
+              inputStyle
+            }
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={
+            submitting
+          }
+          style={{
+            ...primaryButton,
+            marginTop:
+              10,
+            opacity:
+              submitting
+                ? 0.65
+                : 1,
           }}
         >
-          <header
+          {submitting
+            ? "Creating…"
+            : "Create Invitation"}
+        </button>
+
+        {inviteUrl && (
+          <div
             style={{
+              marginTop:
+                12,
               background:
-                COLORS.surface,
-              borderBottom:
+                COLORS.white,
+              border:
                 `1px solid ${COLORS.border}`,
               padding:
-                "16px 28px",
+                10,
             }}
           >
             <div
               style={{
-                maxWidth: 1120,
-                margin: "0 auto",
+                color:
+                  COLORS.muted,
+                fontSize:
+                  11.5,
+                marginBottom:
+                  5,
               }}
             >
-              <div
+              Invitation created.
+              Copy this link and send
+              it to the foster:
+            </div>
+
+            <div
+              style={{
+                display:
+                  "flex",
+                gap:
+                  8,
+                alignItems:
+                  "center",
+                flexWrap:
+                  "wrap",
+              }}
+            >
+              <code
                 style={{
-                  fontWeight: 800,
+                  flex:
+                    1,
+                  minWidth:
+                    220,
+                  overflowWrap:
+                    "anywhere",
+                  fontSize:
+                    11.5,
                   color:
                     COLORS.navy,
                 }}
               >
-                {organizationName
-                  ? `${organizationName} Rescue Manager`
-                  : "Rescue Manager"}
-              </div>
+                {inviteUrl}
+              </code>
 
-              <div
-                style={{
-                  fontSize: 12,
-                  color:
-                    COLORS.muted,
-                }}
+              <button
+                type="button"
+                onClick={
+                  copyInvite
+                }
+                style={
+                  secondaryButton
+                }
               >
-                Private rescue or shelter workspace
-              </div>
+                {copied
+                  ? "Copied"
+                  : "Copy Link"}
+              </button>
             </div>
-          </header>
+          </div>
+        )}
+      </form>
 
-          <main
+      {error && (
+        <div
+          style={{
+            background:
+              "#FFF4F2",
+            border:
+              "1px solid #F3C7BF",
+            color:
+              "#B23B2E",
+            padding:
+              11,
+            marginBottom:
+              15,
+            fontSize:
+              13,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div
+        style={{
+          background:
+            COLORS.white,
+          border:
+            `1px solid ${COLORS.border}`,
+        }}
+      >
+        <div
+          style={{
+            padding:
+              "13px 15px",
+            borderBottom:
+              `1px solid ${COLORS.border}`,
+          }}
+        >
+          <strong
             style={{
-              padding: 28,
-              maxWidth: 1120,
-              margin: "0 auto",
+              color:
+                COLORS.navy,
             }}
           >
-            {children}
-          </main>
+            Foster Relationships
+          </strong>
         </div>
+
+        {loading ? (
+          <p
+            style={{
+              padding:
+                15,
+              margin:
+                0,
+              color:
+                COLORS.muted,
+            }}
+          >
+            Loading…
+          </p>
+        ) : relationships.length ===
+          0 ? (
+          <p
+            style={{
+              padding:
+                15,
+              margin:
+                0,
+              color:
+                COLORS.muted,
+              fontSize:
+                13,
+            }}
+          >
+            No foster relationships
+            yet.
+          </p>
+        ) : (
+          relationships.map(
+            (item) => (
+              <div
+                key={
+                  item.id
+                }
+                style={{
+                  display:
+                    "grid",
+                  gridTemplateColumns:
+                    "minmax(180px, 1fr) minmax(180px, 1fr) auto",
+                  gap:
+                    12,
+                  alignItems:
+                    "center",
+                  padding:
+                    "12px 15px",
+                  borderBottom:
+                    `1px solid ${COLORS.border}`,
+                }}
+              >
+                <div>
+                  <strong
+                    style={{
+                      color:
+                        COLORS.navy,
+                      fontSize:
+                        13.5,
+                    }}
+                  >
+                    {
+                      item.full_name
+                    }
+                  </strong>
+
+                  <div
+                    style={{
+                      marginTop:
+                        2,
+                      color:
+                        COLORS.muted,
+                      fontSize:
+                        11.5,
+                    }}
+                  >
+                    {item.email ??
+                      "No email"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    color:
+                      COLORS.muted,
+                    fontSize:
+                      12,
+                  }}
+                >
+                  {[
+                    item.city,
+                    item.state,
+                  ]
+                    .filter(
+                      Boolean
+                    )
+                    .join(
+                      ", "
+                    ) ||
+                    "Location not recorded"}
+                </div>
+
+                <StatusBadge
+                  value={
+                    item.status
+                  }
+                />
+              </div>
+            )
+          )
+        )}
       </div>
-    </div>
+    </section>
   );
 }
 
-/* =========================================================
-   ADMIN SHELL
-========================================================= */
-
-function AdminShell({
-  children,
+function StatCard({
+  value,
+  label,
 }: {
-  children: ReactNode;
+  value: number;
+  label: string;
 }) {
   return (
     <div
       style={{
-        minHeight: "100vh",
         background:
-          "#F7F7F8",
+          COLORS.white,
+        border:
+          `1px solid ${COLORS.border}`,
+        padding:
+          13,
       }}
     >
-      <header
+      <strong
         style={{
-          background:
-            "#111827",
-          color: "#fff",
-          padding:
-            "16px 24px",
+          display:
+            "block",
+          color:
+            COLORS.navy,
+          fontSize:
+            22,
         }}
       >
-        <div
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "flex",
-            justifyContent:
-              "space-between",
-            alignItems:
-              "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontWeight: 800,
-              }}
-            >
-              PACK OF FIVE
-            </div>
+        {value}
+      </strong>
 
-            <div
-              style={{
-                fontSize: 12,
-                opacity: 0.72,
-              }}
-            >
-              PLATFORM ADMINISTRATION
-            </div>
-          </div>
-
-          <nav
-            style={{
-              display: "flex",
-              gap: 18,
-              alignItems:
-                "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <a
-              href="/admin"
-              style={darkLinkStyle}
-            >
-              Admin Dashboard
-            </a>
-
-            <a
-              href="/admin/orgs"
-              style={darkLinkStyle}
-            >
-              Organizations
-            </a>
-
-            <a
-              href="/admin/orgs/new"
-              style={darkLinkStyle}
-            >
-              Add Organization
-            </a>
-
-            <a
-              href="/admin/org-requests"
-              style={darkLinkStyle}
-            >
-              Org Requests
-            </a>
-
-            <a
-              href="/organizations"
-              style={darkLinkStyle}
-            >
-              Rescue Network
-            </a>
-
-            <a
-              href="/"
-              style={darkLinkStyle}
-            >
-              Home
-            </a>
-
-            <button
-              onClick={signOut}
-              style={
-                signOutDarkStyle
-              }
-            >
-              Sign Out
-            </button>
-          </nav>
-        </div>
-      </header>
-
-      <main
+      <span
         style={{
-          padding: 28,
-          maxWidth: 1180,
-          margin: "0 auto",
+          display:
+            "block",
+          marginTop:
+            3,
+          color:
+            COLORS.muted,
+          fontSize:
+            11.5,
         }}
       >
-        {children}
-      </main>
+        {label}
+      </span>
     </div>
   );
 }
 
-/* =========================================================
-   MANAGER LINK
-========================================================= */
-
-function ManagerLink({
-  href,
-  children,
+function StatusBadge({
+  value,
 }: {
-  href: string;
-  children: ReactNode;
+  value: string;
 }) {
-  const pathname =
-    usePathname();
+  const background =
+    value ===
+      "approved"
+      ? COLORS.mint
+      : value ===
+          "declined" ||
+        value ===
+          "inactive"
+      ? "#F3F1EF"
+      : COLORS.pink;
 
-  const active =
-    pathname === href ||
-    pathname.startsWith(
-      `${href}/`
-    );
-
-  return (
-    <a
-      href={href}
-      style={{
-        display: "block",
-        padding:
-          "10px 12px",
-        borderRadius: 7,
-        color: "#fff",
-        textDecoration:
-          "none",
-        marginBottom: 4,
-        background: active
-          ? "rgba(255,255,255,.13)"
-          : "transparent",
-        fontWeight: active
-          ? 700
-          : 500,
-        fontSize: 14,
-        lineHeight: 1.35,
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
-/* =========================================================
-   SHARED STYLES
-========================================================= */
-
-const pawToeStyle: CSSProperties = {
-  position: "absolute",
-  width: 7,
-  height: 9,
-  borderRadius: "50%",
-};
-
-const publicLinkStyle = {
-  textDecoration: "none",
-  color: COLORS.navy,
-  fontSize: 13.5,
-  fontWeight: 700,
-  whiteSpace: "nowrap",
-} as const;
-
-const darkLinkStyle = {
-  textDecoration: "none",
-  color: "#fff",
-  fontSize: 14,
-} as const;
-
-const signOutDarkStyle = {
-  background: "transparent",
-  color: "#fff",
-  border:
-    "1px solid rgba(255,255,255,.45)",
-  borderRadius: 7,
-  padding: "7px 11px",
-  fontSize: 13,
-  fontWeight: 700,
-  cursor: "pointer",
-} as const;
-
-const managerFooterLink = {
-  display: "block",
-  color: "#fff",
-  textDecoration: "none",
-  fontSize: 14,
-  marginBottom: 12,
-} as const
-
-            <NavItem
-              href="/fosters"
-              active={
-                pathname === "/fosters" ||
-                pathname.startsWith("/fosters/")
-              }
-            >
-              Fosters
-            </NavItem>nt";
-
-import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-
-type ShellUser = {
-  email: string;
-  role: "org" | "admin";
-  status: "pending" | "approved" | "rejected";
-  orgId: string | null;
-  orgName?: string | null;
-} | null;
-
-type TestOrg = {
-  id: string;
-  name: string;
-  city?: string | null;
-  county?: string | null;
-} | null;
-
-const COLORS = {
-  navy: "#1E3A5F",
-  coral: "#E85C56",
-  peach: "#F2A48D",
-  mint: "#A9DCC9",
-  pink: "#F2D6DC",
-  text: "#1E3A5F",
-  muted: "#4A5D75",
-  border: "#E9E5E3",
-  surface: "#FFFFFF",
-  background: "#FFFDFC",
-};
-
-async function signOut() {
-  try {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
-  } finally {
-    window.location.href = "/";
-  }
-}
-
-export default function AppShell({
-  children,
-  user,
-}: {
-  children: ReactNode;
-  user: ShellUser;
-}) {
-  const pathname = usePathname();
-
-  const isAdminArea =
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/");
-
-  const isManagerArea =
-    pathname === "/portal" ||
-    pathname.startsWith("/portal/") ||
-    pathname === "/animals" ||
-    pathname.startsWith("/animals/");
-
-  if (isAdminArea) {
-    return (
-      <AdminShell>
-        {children}
-      </AdminShell>
-    );
-  }
-
-  if (
-    isManagerArea &&
-    user &&
-    user.status === "approved" &&
-    (user.role === "org" || user.role === "admin")
-  ) {
-    return (
-      <ManagerShell user={user}>
-        {children}
-      </ManagerShell>
-    );
-  }
-
-  const isHomePage =
-    pathname === "/";
-
-  const isLoginArea =
-    pathname === "/login" ||
-    pathname.startsWith(
-      "/login/"
-    );
-
-  const isStandalonePortalArea =
-    pathname === "/foster" ||
-    pathname.startsWith(
-      "/foster/"
-    );
-
-  if (
-    isHomePage ||
-    isLoginArea ||
-    isStandalonePortalArea
-  ) {
-    return children;
-  }
-
-  return (
-    <>
-      <PublicHeader user={user} />
-
-      <main
-        style={{
-          padding: "28px 24px",
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}
-      >
-        {children}
-      </main>
-    </>
-  );
-}
-
-/* =========================================================
-   PUBLIC HEADER
-========================================================= */
-
-function PublicHeader({
-  user,
-}: {
-  user: ShellUser;
-}) {
-  return (
-    <header
-      style={{
-        background: COLORS.surface,
-        borderBottom:
-          "1px solid #E8EDF2",
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1180,
-          minHeight: 58,
-          margin: "0 auto",
-          padding: "0 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 18,
-          flexWrap: "wrap",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-          }}
-        >
-          <a
-            href="/"
-            aria-label="Pack of Five home"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 9,
-              color: COLORS.navy,
-              textDecoration: "none",
-            }}
-          >
-            <PawMark />
-
-            <span
-              style={{
-                fontFamily:
-                  '"Space Grotesk", Arial, sans-serif',
-                fontWeight: 700,
-                fontSize: 18,
-                letterSpacing: ".035em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              PACK OF FIVE
-            </span>
-          </a>
-
-          <span
-            aria-label="Current state: Texas"
-            title="Texas"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minWidth: 30,
-              height: 24,
-              padding: "0 7px",
-              background: COLORS.pink,
-              color: COLORS.navy,
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: ".08em",
-              lineHeight: 1,
-              borderRadius: 4,
-            }}
-          >
-            TX
-          </span>
-        </div>
-
-        <nav
-          aria-label="Public navigation"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <a
-            href="/organizations"
-            style={publicLinkStyle}
-          >
-            Directory
-          </a>
-
-          <a
-            href="/adoptable"
-            style={publicLinkStyle}
-          >
-            Adoptable Pets
-          </a>
-
-          <a
-            href="/resources"
-            style={publicLinkStyle}
-          >
-            Resources
-          </a>
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-function PawMark() {
   return (
     <span
-      aria-hidden="true"
       style={{
-        position: "relative",
-        display: "inline-block",
-        width: 28,
-        height: 26,
-        flex: "0 0 auto",
+        display:
+          "inline-block",
+        background,
+        color:
+          COLORS.navy,
+        padding:
+          "4px 8px",
+        fontSize:
+          11,
+        fontWeight:
+          750,
+        textTransform:
+          "capitalize",
+        whiteSpace:
+          "nowrap",
       }}
     >
-      <span
-        style={{
-          ...pawToeStyle,
-          left: 1,
-          top: 5,
-          background: COLORS.coral,
-          transform: "rotate(-24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          left: 7,
-          top: 0,
-          background: COLORS.peach,
-          transform: "rotate(-8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          right: 6,
-          top: 0,
-          background: COLORS.mint,
-          transform: "rotate(8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          right: 0,
-          top: 5,
-          background: COLORS.pink,
-          transform: "rotate(24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          position: "absolute",
-          left: 6,
-          bottom: 0,
-          width: 17,
-          height: 15,
-          borderRadius: "50% 50% 45% 45%",
-          background: COLORS.navy,
-        }}
-      />
+      {value}
     </span>
   );
 }
 
-/* =========================================================
-   RESCUE MANAGER
-========================================================= */
-
-function ManagerShell({
-  children,
-  user,
-}: {
-  children: ReactNode;
-  user: Exclude<ShellUser, null>;
-}) {
-  const [testOrg, setTestOrg] =
-    useState<TestOrg>(null);
-
-  const [
-    testOrgChecked,
-    setTestOrgChecked,
-  ] = useState(
-    user.role !== "admin"
-  );
-
-  useEffect(() => {
-    if (user.role !== "admin") {
-      return;
-    }
-
-    fetch("/api/admin/test-org", {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setTestOrg(
-          data.organization ?? null
-        );
-      })
-      .finally(() => {
-        setTestOrgChecked(true);
-      });
-  }, [user.role]);
-
-  async function exitTestMode() {
-    await fetch("/api/admin/test-org", {
-      method: "DELETE",
-    });
-
-    window.location.href =
-      "/admin/orgs";
-  }
-
-  if (
-    user.role === "admin" &&
-    !testOrgChecked
-  ) {
-    return (
-      <main
-        style={{
-          padding: 28,
-        }}
-      >
-        Loading Rescue Manager test mode…
-      </main>
-    );
-  }
-
-  if (
-    user.role === "admin" &&
-    !testOrg
-  ) {
-    return (
-      <main
-        style={{
-          padding: 28,
-          maxWidth: 700,
-          margin: "0 auto",
-        }}
-      >
-        <h1>
-          Choose a test organization
-        </h1>
-
-        <a href="/admin/orgs">
-          Choose Organization
-        </a>
-      </main>
-    );
-  }
-
-  const organizationName =
-    user.role === "admin" &&
-    testOrg
-      ? testOrg.name
-      : user.orgName || null;
-
-  const animalsLabel =
-    organizationName
-      ? `${organizationName} Animals`
-      : "Our Animals";
-
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          COLORS.background,
-      }}
-    >
-      {user.role === "admin" &&
-        testOrg && (
-          <div
-            style={{
-              background:
-                "#FFF3CD",
-              borderBottom:
-                "1px solid #E6CF82",
-              padding:
-                "9px 18px",
-              fontSize: 13,
-              display: "flex",
-              justifyContent:
-                "center",
-              alignItems:
-                "center",
-              gap: 12,
-              flexWrap:
-                "wrap",
-            }}
-          >
-            <strong>
-              Admin Test Mode
-            </strong>
-
-            <span>
-              Viewing Rescue
-              Manager as{" "}
-              {testOrg.name}
-            </span>
-
-            <button
-              onClick={
-                exitTestMode
-              }
-              style={{
-                background:
-                  "transparent",
-                border:
-                  "1px solid #9A8127",
-                borderRadius: 6,
-                padding:
-                  "5px 8px",
-                cursor:
-                  "pointer",
-                fontWeight: 700,
-              }}
-            >
-              Exit Test Mode
-            </button>
-          </div>
-        )}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "260px minmax(0, 1fr)",
-          minHeight:
-            user.role === "admin"
-              ? "calc(100vh - 40px)"
-              : "100vh",
-        }}
-      >
-        <aside
-          style={{
-            background:
-              COLORS.navy,
-            color: "#fff",
-            padding:
-              "24px 18px",
-          }}
-        >
-          <a
-            href="/"
-            style={{
-              color: "#fff",
-              textDecoration:
-                "none",
-              fontWeight: 800,
-              fontSize: 18,
-            }}
-          >
-            PACK OF FIVE
-          </a>
-
-          <div
-            style={{
-              fontSize: 12,
-              opacity: 0.72,
-              marginTop: 3,
-              marginBottom: 28,
-              letterSpacing:
-                ".08em",
-            }}
-          >
-            RESCUE MANAGER
-          </div>
-
-          {organizationName && (
-            <div
-              style={{
-                fontSize: 13,
-                lineHeight: 1.4,
-                fontWeight: 700,
-                marginBottom: 18,
-                paddingBottom: 14,
-                borderBottom:
-                  "1px solid rgba(255,255,255,.16)",
-              }}
-            >
-              {organizationName}
-            </div>
-          )}
-
-          <nav
-            aria-label="Rescue Manager navigation"
-          >
-            <ManagerLink href="/portal">
-              Overview
-            </ManagerLink>
-
-            <ManagerLink href="/animals">
-              {animalsLabel}
-            </ManagerLink>
-
-            <ManagerLink href="/portal/urgent">
-              Urgent Shelter Animals
-            </ManagerLink>
-          </nav>
-
-          <div
-            style={{
-              borderTop:
-                "1px solid rgba(255,255,255,.16)",
-              marginTop: 28,
-              paddingTop: 18,
-            }}
-          >
-            <a
-              href="/organizations"
-              style={managerFooterLink}
-            >
-              ← Rescue Network
-            </a>
-
-            {user.role === "admin" && (
-              <a
-                href="/admin"
-                style={managerFooterLink}
-              >
-                ← Admin Dashboard
-              </a>
-            )}
-
-            <div
-              style={{
-                fontSize: 12,
-                color:
-                  "rgba(255,255,255,.72)",
-                marginBottom: 14,
-                overflowWrap:
-                  "anywhere",
-              }}
-            >
-              {user.email}
-            </div>
-
-            <button
-              onClick={signOut}
-              style={
-                signOutDarkStyle
-              }
-            >
-              Sign Out
-            </button>
-          </div>
-        </aside>
-
-        <div
-          style={{
-            minWidth: 0,
-          }}
-        >
-          <header
-            style={{
-              background:
-                COLORS.surface,
-              borderBottom:
-                `1px solid ${COLORS.border}`,
-              padding:
-                "16px 28px",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: 1120,
-                margin: "0 auto",
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 800,
-                  color:
-                    COLORS.navy,
-                }}
-              >
-                {organizationName
-                  ? `${organizationName} Rescue Manager`
-                  : "Rescue Manager"}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 12,
-                  color:
-                    COLORS.muted,
-                }}
-              >
-                Private rescue or shelter workspace
-              </div>
-            </div>
-          </header>
-
-          <main
-            style={{
-              padding: 28,
-              maxWidth: 1120,
-              margin: "0 auto",
-            }}
-          >
-            {children}
-          </main>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   ADMIN SHELL
-========================================================= */
-
-function AdminShell({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "#F7F7F8",
-      }}
-    >
-      <header
-        style={{
-          background:
-            "#111827",
-          color: "#fff",
-          padding:
-            "16px 24px",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "flex",
-            justifyContent:
-              "space-between",
-            alignItems:
-              "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontWeight: 800,
-              }}
-            >
-              PACK OF FIVE
-            </div>
-
-            <div
-              style={{
-                fontSize: 12,
-                opacity: 0.72,
-              }}
-            >
-              PLATFORM ADMINISTRATION
-            </div>
-          </div>
-
-          <nav
-            style={{
-              display: "flex",
-              gap: 18,
-              alignItems:
-                "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <a
-              href="/admin"
-              style={darkLinkStyle}
-            >
-              Admin Dashboard
-            </a>
-
-            <a
-              href="/admin/orgs"
-              style={darkLinkStyle}
-            >
-              Organizations
-            </a>
-
-            <a
-              href="/admin/orgs/new"
-              style={darkLinkStyle}
-            >
-              Add Organization
-            </a>
-
-            <a
-              href="/admin/org-requests"
-              style={darkLinkStyle}
-            >
-              Org Requests
-            </a>
-
-            <a
-              href="/organizations"
-              style={darkLinkStyle}
-            >
-              Rescue Network
-            </a>
-
-            <a
-              href="/"
-              style={darkLinkStyle}
-            >
-              Home
-            </a>
-
-            <button
-              onClick={signOut}
-              style={
-                signOutDarkStyle
-              }
-            >
-              Sign Out
-            </button>
-          </nav>
-        </div>
-      </header>
-
-      <main
-        style={{
-          padding: 28,
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}
-      >
-        {children}
-      </main>
-    </div>
-  );
-}
-
-/* =========================================================
-   MANAGER LINK
-========================================================= */
-
-function ManagerLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: ReactNode;
-}) {
-  const pathname =
-    usePathname();
-
-  const active =
-    pathname === href ||
-    pathname.startsWith(
-      `${href}/`
-    );
-
-  return (
-    <a
-      href={href}
-      style={{
-        display: "block",
-        padding:
-          "10px 12px",
-        borderRadius: 7,
-        color: "#fff",
-        textDecoration:
-          "none",
-        marginBottom: 4,
-        background: active
-          ? "rgba(255,255,255,.13)"
-          : "transparent",
-        fontWeight: active
-          ? 700
-          : 500,
-        fontSize: 14,
-        lineHeight: 1.35,
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
-/* =========================================================
-   SHARED STYLES
-========================================================= */
-
-const pawToeStyle: CSSProperties = {
-  position: "absolute",
-  width: 7,
-  height: 9,
-  borderRadius: "50%",
+const inputStyle:
+  React.CSSProperties =
+{
+  width:
+    "100%",
+  boxSizing:
+    "border-box",
+  border:
+    `1px solid ${COLORS.border}`,
+  padding:
+    "9px 10px",
+  background:
+    "#fff",
+  color:
+    "#1C1B19",
+  fontFamily:
+    "inherit",
 };
 
-const publicLinkStyle = {
-  textDecoration: "none",
-  color: COLORS.navy,
-  fontSize: 13.5,
-  fontWeight: 700,
-  whiteSpace: "nowrap",
-} as const;
-
-const darkLinkStyle = {
-  textDecoration: "none",
-  color: "#fff",
-  fontSize: 14,
-} as const;
-
-const signOutDarkStyle = {
-  background: "transparent",
-  color: "#fff",
+const primaryButton:
+  React.CSSProperties =
+{
   border:
-    "1px solid rgba(255,255,255,.45)",
-  borderRadius: 7,
-  padding: "7px 11px",
-  fontSize: 13,
-  fontWeight: 700,
-  cursor: "pointer",
-} as const;
+    "none",
+  background:
+    COLORS.navy,
+  color:
+    "#fff",
+  padding:
+    "9px 13px",
+  fontWeight:
+    800,
+  fontSize:
+    12.5,
+  cursor:
+    "pointer",
+};
 
-const managerFooterLink = {
-  display: "block",
-  color: "#fff",
-  textDecoration: "none",
-  fontSize: 14,
-  marginBottom: 12,
-} as const;
+const secondaryButton:
+  React.CSSProperties =
+{
+  border:
+    `1px solid ${COLORS.border}`,
+  background:
+    "#fff",
+  color:
+    COLORS.navy,
+  padding:
+    "7px 10px",
+  fontWeight:
+    750,
+  fontSize:
+    11.5,
+  cursor:
+    "pointer",
+};
