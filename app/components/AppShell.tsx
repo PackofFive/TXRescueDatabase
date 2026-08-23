@@ -91,9 +91,16 @@ export default function AppShell({
       "/login/"
     );
 
+  const isStandalonePortalArea =
+    pathname === "/foster" ||
+    pathname.startsWith(
+      "/foster/"
+    );
+
   if (
     isHomePage ||
-    isLoginArea
+    isLoginArea ||
+    isStandalonePortalArea
   ) {
     return children;
   }
