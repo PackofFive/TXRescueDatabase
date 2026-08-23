@@ -59,36 +59,50 @@ export async function GET() {
 
     let fosterId: string | null = null;
 
-    const fosterRows = await sql`
-      select
-        fp.id
+    /*
+      Foster access is optional. A problem with the new foster
+      tables must never prevent an existing rescue/admin account
+      from loading through /api/auth/me.
+    */
+    try {
+      if (session.id) {
+        const fosterRows = await sql`
+          select
+            fp.id
 
-      from foster_profiles fp
-
-      where
-        fp.user_id = ${session.id}
-
-        and exists (
-          select 1
-
-          from foster_organization_relationships forr
+          from foster_profiles fp
 
           where
-            forr.foster_id = fp.id
-            and forr.status = 'approved'
-        )
+            fp.user_id = ${session.id}
 
-      limit 1
-    `;
+            and exists (
+              select 1
 
-    if (fosterRows[0]?.id) {
-      fosterId =
-        String(
-          fosterRows[0].id
-        );
+              from foster_organization_relationships forr
 
-      availablePortals.push(
-        "foster"
+              where
+                forr.foster_id = fp.id
+                and forr.status = 'approved'
+            )
+
+          limit 1
+        `;
+
+        if (fosterRows[0]?.id) {
+          fosterId =
+            String(
+              fosterRows[0].id
+            );
+
+          availablePortals.push(
+            "foster"
+          );
+        }
+      }
+    } catch (fosterErr) {
+      console.error(
+        "Foster portal access lookup failed:",
+        fosterErr
       );
     }
 
