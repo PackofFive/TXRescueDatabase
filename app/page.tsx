@@ -574,6 +574,29 @@ function PublicHeader() {
             PACK OF FIVE
           </span>
         </a>
+
+        <span
+          aria-label="Current state: Texas"
+          title="Texas — state selection coming later"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: 30,
+            height: 24,
+            padding: "0 7px",
+            marginLeft: 9,
+            background: COLORS.hero,
+            color: COLORS.navy,
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: ".08em",
+            lineHeight: 1,
+            borderRadius: 4,
+          }}
+        >
+          TX
+        </span>
       </div>
     </header>
   );
