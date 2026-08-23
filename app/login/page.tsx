@@ -2,49 +2,131 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
-export const runtime = "edge";
+import {
+  useSearchParams,
+} from "next/navigation";
+
+export const runtime =
+  "edge";
 
 const COLORS = {
   navy: "#1E3A5F",
   coral: "#E85C56",
   pink: "#F2D6DC",
-  text: "#1E3A5F",
+  peach: "#FBE3DA",
+  mint: "#DCF0E8",
   muted: "#4A5D75",
   border: "#DCE4EC",
   white: "#FFFFFF",
   page: "#FFFDFC",
 };
 
+type RequestedPortal =
+  | "organization"
+  | "pet-owner"
+  | "foster";
+
+type PortalConfig = {
+  title: string;
+  description: string;
+  accent: string;
+  accountNote: string;
+};
+
+const PORTALS:
+  Record<
+    RequestedPortal,
+    PortalConfig
+  > = {
+    organization: {
+      title:
+        "Rescue & Shelter Manager",
+      description:
+        "Sign in to your organization's private Pack of Five workspace.",
+      accent:
+        COLORS.pink,
+      accountNote:
+        "Approved rescue and shelter accounts only.",
+    },
+
+    "pet-owner": {
+      title:
+        "Pet Owner Portal",
+      description:
+        "Sign in to access your Pack of Five pet-owner account and tools.",
+      accent:
+        COLORS.peach,
+      accountNote:
+        "Pet Owner Portal features are being developed.",
+    },
+
+    foster: {
+      title:
+        "Foster Portal",
+      description:
+        "Sign in to access approved foster relationships, animals, and foster tools.",
+      accent:
+        COLORS.mint,
+      accountNote:
+        "Foster Portal features are being developed.",
+    },
+  };
+
 export default function LoginPage() {
+  const searchParams =
+    useSearchParams();
+
+  const requestedPortal =
+    useMemo(
+      () =>
+        normalizePortal(
+          searchParams.get(
+            "portal"
+          )
+        ),
+      [searchParams]
+    );
+
+  const portal =
+    PORTALS[
+      requestedPortal
+    ];
+
   const [
     email,
     setEmail,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     password,
     setPassword,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     status,
     setStatus,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(null);
 
   const [
     checking,
     setChecking,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     submitting,
     setSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   useEffect(() => {
     fetch(
@@ -67,25 +149,11 @@ export default function LoginPage() {
             return;
           }
 
-          if (
-            user.role ===
-            "admin"
-          ) {
-            window.location.href =
-              "/admin";
-
-            return;
-          }
-
-          if (
-            user.role ===
-              "org" &&
-            user.status ===
-              "approved"
-          ) {
-            window.location.href =
-              "/portal";
-          }
+          routeSignedInUser(
+            user,
+            requestedPortal,
+            setStatus
+          );
         }
       )
       .finally(
@@ -94,7 +162,9 @@ export default function LoginPage() {
             false
           )
       );
-  }, []);
+  }, [
+    requestedPortal,
+  ]);
 
   async function handleLogin(
     e:
@@ -161,56 +231,10 @@ export default function LoginPage() {
         return;
       }
 
-      /*
-        Admin access is intentionally
-        not promoted on this page.
-        If an admin signs in here
-        anyway, route them to admin.
-      */
-      if (
-        user.role ===
-        "admin"
-      ) {
-        window.location.href =
-          "/admin";
-
-        return;
-      }
-
-      if (
-        user.role ===
-        "org"
-      ) {
-        if (
-          user.status ===
-          "approved"
-        ) {
-          window.location.href =
-            "/portal";
-
-          return;
-        }
-
-        if (
-          user.status ===
-          "pending"
-        ) {
-          setStatus(
-            "Your organization account is still pending approval."
-          );
-
-          return;
-        }
-
-        setStatus(
-          "This organization account is not approved."
-        );
-
-        return;
-      }
-
-      setStatus(
-        "This account does not have access to Rescue & Shelter Manager."
+      routeSignedInUser(
+        user,
+        requestedPortal,
+        setStatus
       );
     } catch {
       setStatus(
@@ -294,9 +318,25 @@ export default function LoginPage() {
         <div
           style={{
             marginBottom:
-              22,
+              20,
           }}
         >
+          <span
+            aria-hidden="true"
+            style={{
+              display:
+                "block",
+              width:
+                42,
+              height:
+                7,
+              background:
+                portal.accent,
+              marginBottom:
+                13,
+            }}
+          />
+
           <p
             style={{
               margin:
@@ -330,7 +370,9 @@ export default function LoginPage() {
                 "-.025em",
             }}
           >
-            Rescue &amp; Shelter Manager
+            {
+              portal.title
+            }
           </h1>
 
           <p
@@ -345,9 +387,9 @@ export default function LoginPage() {
                 1.55,
             }}
           >
-            Sign in to your
-            organization&apos;s private
-            Pack of Five workspace.
+            {
+              portal.description
+            }
           </p>
         </div>
 
@@ -498,28 +540,138 @@ export default function LoginPage() {
                 11.5,
             }}
           >
-            Approved rescue and
-            shelter accounts only.
+            {
+              portal.accountNote
+            }
           </span>
 
-          <a
-            href="/claim"
-            style={{
-              color:
-                COLORS.coral,
-              textDecoration:
-                "none",
-              fontSize:
-                11.5,
-              fontWeight:
-                700,
-            }}
-          >
-            Claim an organization
-          </a>
+          {requestedPortal ===
+          "organization" ? (
+            <a
+              href="/claim"
+              style={{
+                color:
+                  COLORS.coral,
+                textDecoration:
+                  "none",
+                fontSize:
+                  11.5,
+                fontWeight:
+                  700,
+              }}
+            >
+              Claim an organization
+            </a>
+          ) : null}
         </div>
       </section>
     </main>
+  );
+}
+
+function normalizePortal(
+  value:
+    | string
+    | null
+): RequestedPortal {
+  if (
+    value ===
+      "pet-owner" ||
+    value ===
+      "foster" ||
+    value ===
+      "organization"
+  ) {
+    return value;
+  }
+
+  return "organization";
+}
+
+function routeSignedInUser(
+  user: {
+    role?: string;
+    status?: string;
+  },
+  requestedPortal:
+    RequestedPortal,
+  setStatus: (
+    value: string
+  ) => void
+) {
+  /*
+    Current backend roles only
+    support Admin and Organization.
+
+    Pet Owner and Foster routing
+    will be added when those role
+    relationships are implemented.
+  */
+
+  if (
+    user.role ===
+    "admin"
+  ) {
+    window.location.href =
+      "/admin";
+
+    return;
+  }
+
+  if (
+    user.role ===
+    "org"
+  ) {
+    if (
+      user.status ===
+      "pending"
+    ) {
+      setStatus(
+        "Your organization account is still pending approval."
+      );
+
+      return;
+    }
+
+    if (
+      user.status !==
+      "approved"
+    ) {
+      setStatus(
+        "This organization account is not approved."
+      );
+
+      return;
+    }
+
+    if (
+      requestedPortal ===
+      "organization"
+    ) {
+      window.location.href =
+        "/portal";
+
+      return;
+    }
+
+    setStatus(
+      requestedPortal ===
+        "pet-owner"
+        ? "This account does not currently have access to the Pet Owner Portal."
+        : "This account does not currently have access to the Foster Portal."
+    );
+
+    return;
+  }
+
+  setStatus(
+    requestedPortal ===
+      "pet-owner"
+      ? "This account does not currently have access to the Pet Owner Portal."
+      : requestedPortal ===
+        "foster"
+      ? "This account does not currently have access to the Foster Portal."
+      : "This account does not have access to Rescue & Shelter Manager."
   );
 }
 
