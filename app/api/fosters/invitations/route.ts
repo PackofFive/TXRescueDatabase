@@ -1,589 +1,102 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+-- Pack of Five
+-- Create ONLY the missing foster_invitations table.
+-- No BEGIN/COMMIT wrapper, so a later statement cannot roll it back.
 
-import {
-  getSession,
-} from "@/lib/auth";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-import {
-  sql,
-} from "@/lib/db";
+DO $migration$
+DECLARE
+  user_id_type text;
+  org_id_type text;
+BEGIN
+  SELECT format_type(a.atttypid, a.atttypmod)
+  INTO user_id_type
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = current_schema()
+    AND c.relname = 'users'
+    AND a.attname = 'id'
+    AND a.attnum > 0
+    AND NOT a.attisdropped
+  LIMIT 1;
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+  SELECT format_type(a.atttypid, a.atttypmod)
+  INTO org_id_type
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = current_schema()
+    AND c.relname = 'organizations'
+    AND a.attname = 'id'
+    AND a.attnum > 0
+    AND NOT a.attisdropped
+  LIMIT 1;
 
-async function sha256(
-  value: string
-) {
-  const bytes =
-    new TextEncoder().encode(
-      value
-    );
+  IF user_id_type IS NULL THEN
+    RAISE EXCEPTION 'users.id type could not be detected';
+  END IF;
 
-  const digest =
-    await crypto.subtle.digest(
-      "SHA-256",
-      bytes
-    );
+  IF org_id_type IS NULL THEN
+    RAISE EXCEPTION 'organizations.id type could not be detected';
+  END IF;
 
-  return Array.from(
-    new Uint8Array(
-      digest
-    )
-  )
-    .map((byte) =>
-      byte
-        .toString(16)
-        .padStart(2, "0")
-    )
-    .join("");
-}
+  EXECUTE format($sql$
+    CREATE TABLE IF NOT EXISTS foster_invitations (
+      id text PRIMARY KEY
+        DEFAULT ('finvite_' || replace(gen_random_uuid()::text, '-', '')),
 
-function createToken() {
-  const bytes =
-    new Uint8Array(32);
+      organization_id %s NOT NULL
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
 
-  crypto.getRandomValues(
-    bytes
-  );
+      foster_id text NULL
+        REFERENCES foster_profiles(id)
+        ON DELETE SET NULL,
 
-  return Array.from(
-    bytes
-  )
-    .map((byte) =>
-      byte
-        .toString(16)
-        .padStart(2, "0")
-    )
-    .join("");
-}
+      invited_email text NOT NULL,
+      invited_name text NULL,
 
-async function requireOrganizationSession() {
-  const session =
-    await getSession();
+      token_hash text NOT NULL UNIQUE,
 
-  if (
-    !session ||
-    session.status !==
-      "approved" ||
-    !session.orgId
-  ) {
-    return null;
-  }
-
-  return session;
-}
-
-export async function GET() {
-  try {
-    const session =
-      await requireOrganizationSession();
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          error:
-            "Organization access required.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    const relationships =
-      await sql`
-        select
-          r.id,
-          r.status,
-          r.access_level,
-          r.created_at,
-          r.approved_at,
-
-          fp.id as foster_id,
-          fp.full_name,
-          fp.email,
-          fp.phone,
-          fp.city,
-          fp.state,
-          fp.availability_status,
-          fp.transport_available
-
-        from foster_organization_relationships r
-
-        join foster_profiles fp
-          on fp.id = r.foster_id
-
-        where
-          r.organization_id =
-            ${session.orgId}
-
-        order by
-          case
-            when r.status = 'pending'
-              then 0
-            when r.status = 'invited'
-              then 1
-            when r.status = 'approved'
-              then 2
-            else 3
-          end,
-          r.created_at desc
-      `;
-
-    const invitations =
-      await sql`
-        select
-          id,
-          invited_email,
-          invited_name,
-          status,
-          expires_at,
-          created_at
-
-        from foster_invitations
-
-        where
-          organization_id =
-            ${session.orgId}
-
-        order by
-          created_at desc
-
-        limit 100
-      `;
-
-    return NextResponse.json({
-      relationships,
-      invitations,
-    });
-  } catch (err) {
-    console.error(
-      "GET /api/fosters/invitations failed:",
-      err
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Couldn't load foster records.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
-}
-
-export async function POST(
-  req: NextRequest
-) {
-  try {
-    const session =
-      await requireOrganizationSession();
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          error:
-            "Organization access required.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    const body =
-      await req.json();
-
-    const email =
-      typeof body?.email ===
-        "string"
-        ? body.email
-            .trim()
-            .toLowerCase()
-        : "";
-
-    const name =
-      typeof body?.name ===
-        "string"
-        ? body.name.trim()
-        : "";
-
-    if (!email) {
-      return NextResponse.json(
-        {
-          error:
-            "Foster email is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const existingPending =
-      await sql`
-        select id
-
-        from foster_invitations
-
-        where
-          organization_id =
-            ${session.orgId}
-
-          and lower(
-            invited_email
-          ) = ${email}
-
-          and status =
-            'pending'
-
-          and expires_at >
-            now()
-
-        limit 1
-      `;
-
-    if (
-      existingPending[0]
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "A current invitation already exists for this email.",
-        },
-        {
-          status: 409,
-        }
-      );
-    }
-
-    let fosterId:
-      | string
-      | null =
-      null;
-
-    const existingFoster =
-      await sql`
-        select id
-
-        from foster_profiles
-
-        where
-          lower(email) =
-            ${email}
-
-        limit 1
-      `;
-
-    if (
-      existingFoster[0]?.id
-    ) {
-      fosterId =
-        String(
-          existingFoster[0].id
-        );
-    } else {
-      const newFoster =
-        await sql`
-          insert into foster_profiles (
-            full_name,
-            email,
-            state
+      status text NOT NULL DEFAULT 'pending'
+        CHECK (
+          status IN (
+            'pending',
+            'accepted',
+            'expired',
+            'revoked'
           )
+        ),
 
-          values (
-            ${
-              name ||
-              email
-            },
-            ${email},
-            'TX'
-          )
+      expires_at timestamptz NOT NULL,
 
-          returning id
-        `;
+      invited_by %s NULL
+        REFERENCES users(id)
+        ON DELETE SET NULL,
 
-      fosterId =
-        String(
-          newFoster[0].id
-        );
-    }
+      accepted_by %s NULL
+        REFERENCES users(id)
+        ON DELETE SET NULL,
 
-    await sql`
-      insert into foster_organization_relationships (
-        foster_id,
-        organization_id,
-        status
-      )
+      accepted_at timestamptz NULL,
+      revoked_at timestamptz NULL,
 
-      values (
-        ${fosterId},
-        ${session.orgId},
-        'invited'
-      )
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  $sql$, org_id_type, user_id_type, user_id_type);
+END
+$migration$;
 
-      on conflict (
-        foster_id,
-        organization_id
-      )
+CREATE INDEX IF NOT EXISTS idx_foster_invitations_org_status
+  ON foster_invitations (organization_id, status);
 
-      do update
-      set
-        status =
-          case
-            when foster_organization_relationships.status =
-              'approved'
-              then foster_organization_relationships.status
-            else 'invited'
-          end,
-        updated_at =
-          now()
-    `;
+CREATE INDEX IF NOT EXISTS idx_foster_invitations_email
+  ON foster_invitations (lower(invited_email));
 
-    const token =
-      createToken();
-
-    const tokenHash =
-      await sha256(
-        token
-      );
-
-    const invitationRows =
-      await sql`
-        insert into foster_invitations (
-          organization_id,
-          foster_id,
-          invited_email,
-          invited_name,
-          token_hash,
-          expires_at,
-          invited_by
-        )
-
-        values (
-          ${session.orgId},
-          ${fosterId},
-          ${email},
-          ${
-            name ||
-            null
-          },
-          ${tokenHash},
-          now() +
-            interval '14 days',
-          ${session.id}
-        )
-
-        returning
-          id,
-          invited_email,
-          invited_name,
-          status,
-          expires_at,
-          created_at
-      `;
-
-    const origin =
-      new URL(
-        req.url
-      ).origin;
-
-    const inviteUrl =
-      `${origin}/foster/accept?token=${encodeURIComponent(
-        token
-      )}`;
-
-    return NextResponse.json(
-      {
-        invitation:
-          invitationRows[0],
-        inviteUrl,
-      },
-      {
-        status: 201,
-      }
-    );
-  } catch (err) {
-    console.error(
-      "POST /api/fosters/invitations failed:",
-      err
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Couldn't create foster invitation.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
-}
-
-
-export async function PATCH(
-  req: NextRequest
-) {
-  try {
-    const session =
-      await requireOrganizationSession();
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          error:
-            "Organization access required.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    const body =
-      await req.json();
-
-    const relationshipId =
-      typeof body?.relationshipId ===
-        "string"
-        ? body.relationshipId.trim()
-        : "";
-
-    const action =
-      typeof body?.action ===
-        "string"
-        ? body.action.trim()
-        : "";
-
-    if (!relationshipId) {
-      return NextResponse.json(
-        {
-          error:
-            "Foster relationship is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      action !== "approve" &&
-      action !== "decline"
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Action must be approve or decline.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const nextStatus =
-      action === "approve"
-        ? "approved"
-        : "declined";
-
-    const rows =
-      await sql`
-        update foster_organization_relationships
-
-        set
-          status =
-            ${nextStatus},
-
-          approved_at =
-            case
-              when ${nextStatus} =
-                'approved'
-                then now()
-              else null
-            end,
-
-          approved_by =
-            case
-              when ${nextStatus} =
-                'approved'
-                then ${session.id}
-              else null
-            end,
-
-          inactive_at =
-            case
-              when ${nextStatus} =
-                'declined'
-                then now()
-              else null
-            end,
-
-          updated_at =
-            now()
-
-        where
-          id =
-            ${relationshipId}
-
-          and organization_id =
-            ${session.orgId}
-
-          and status =
-            'pending'
-
-        returning
-          id,
-          foster_id,
-          status,
-          approved_at,
-          inactive_at,
-          updated_at
-      `;
-
-    if (!rows[0]) {
-      return NextResponse.json(
-        {
-          error:
-            "Pending foster relationship was not found for this organization.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      relationship:
-        rows[0],
-    });
-  } catch (err) {
-    console.error(
-      "PATCH /api/fosters/invitations failed:",
-      err
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Couldn't update foster relationship.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
-}
+SELECT
+  table_schema,
+  table_name
+FROM information_schema.tables
+WHERE table_schema = current_schema()
+  AND table_name = 'foster_invitations';
