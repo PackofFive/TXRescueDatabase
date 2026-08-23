@@ -11,7 +11,6 @@ const COLORS = {
   peach: "#F2A48D",
   mint: "#A9DCC9",
   pink: "#F2D6DC",
-  hero: "#FBEFF1",
   org: "#FBD9D6",
   owner: "#FBE3DA",
   foster: "#DCF0E8",
@@ -19,20 +18,16 @@ const COLORS = {
   muted: "#4A5D75",
   white: "#FFFFFF",
   page: "#FFFDFC",
+  border: "#E9E5E3",
 };
 
-type Stats = {
-  organizations: number | null;
-  animals: number | null;
+type SuccessAnimal = {
+  id: string;
+  name: string;
+  photoUrl: string;
 };
 
 export default function HomePage() {
-  const [stats, setStats] =
-    useState<Stats>({
-      organizations: null,
-      animals: null,
-    });
-
   const [
     isMobile,
     setIsMobile,
@@ -41,19 +36,12 @@ export default function HomePage() {
   const [
     successAnimals,
     setSuccessAnimals,
-  ] = useState<
-    Array<{
-      id: string;
-      name: string;
-      photoUrl: string;
-    }>
-  >([]);
+  ] = useState<SuccessAnimal[]>([]);
 
   useEffect(() => {
     function syncViewport() {
       setIsMobile(
-        window.innerWidth <
-          700
+        window.innerWidth < 700
       );
     }
 
@@ -75,78 +63,6 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadStats() {
-      try {
-        const [
-          organizationsResponse,
-          animalsResponse,
-        ] = await Promise.all([
-          fetch(
-            "/api/public/organizations?limit=1",
-            {
-              cache: "no-store",
-            }
-          ),
-          fetch(
-            "/api/public/adoptable?limit=1",
-            {
-              cache: "no-store",
-            }
-          ),
-        ]);
-
-        if (cancelled) {
-          return;
-        }
-
-        let organizations:
-          | number
-          | null = null;
-
-        let animals:
-          | number
-          | null = null;
-
-        if (
-          organizationsResponse.ok
-        ) {
-          const data =
-            await organizationsResponse.json();
-
-          organizations =
-            readCount(data);
-        }
-
-        if (
-          animalsResponse.ok
-        ) {
-          const data =
-            await animalsResponse.json();
-
-          animals =
-            readCount(data);
-        }
-
-        setStats({
-          organizations,
-          animals,
-        });
-      } catch {
-        // Stats are optional. The homepage
-        // remains complete without them.
-      }
-    }
-
-    loadStats();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
     async function loadSuccessAnimals() {
       const endpoints = [
         "/api/public/success-wall?limit=8",
@@ -155,10 +71,12 @@ export default function HomePage() {
 
       for (const endpoint of endpoints) {
         try {
-          const response =
-            await fetch(endpoint, {
+          const response = await fetch(
+            endpoint,
+            {
               cache: "no-store",
-            });
+            }
+          );
 
           if (!response.ok) {
             continue;
@@ -170,37 +88,27 @@ export default function HomePage() {
           const rows =
             readArray(data);
 
-          const animals =
-            rows
-              .map((row) =>
-                normalizeSuccessAnimal(
-                  row
-                )
+          const animals = rows
+            .map((row) =>
+              normalizeSuccessAnimal(
+                row
               )
-              .filter(
-                (
-                  animal
-                ): animal is {
-                  id: string;
-                  name: string;
-                  photoUrl: string;
-                } =>
-                  Boolean(animal)
-              )
-              .slice(0, 8);
+            )
+            .filter(
+              (animal) =>
+                animal !== null
+            ) as SuccessAnimal[];
 
           if (
             !cancelled &&
             animals.length > 0
           ) {
             setSuccessAnimals(
-              animals
+              animals.slice(0, 8)
             );
           }
 
-          if (
-            animals.length > 0
-          ) {
+          if (animals.length > 0) {
             return;
           }
         } catch {
@@ -216,58 +124,39 @@ export default function HomePage() {
     };
   }, []);
 
-  const showStats =
-    (stats.organizations ?? 0) >
-      0 ||
-    (stats.animals ?? 0) > 0;
-
   return (
     <main
       style={{
-        background:
-          COLORS.page,
-        color:
-          COLORS.text,
-        minHeight:
-          "100vh",
+        minHeight: "100vh",
+        background: COLORS.page,
+        color: COLORS.text,
       }}
     >
       <PublicHeader />
 
       <section
         style={{
-          background:
-            COLORS.white,
+          background: COLORS.white,
         }}
       >
         <div
           style={{
-            maxWidth:
-              1180,
-            margin:
-              "0 auto",
-            padding:
-              isMobile
-                ? "22px 18px 20px"
-                : "24px 24px 20px",
-            textAlign:
-              "center",
+            maxWidth: 1180,
+            margin: "0 auto",
+            padding: isMobile
+              ? "20px 18px 18px"
+              : "22px 24px 18px",
+            textAlign: "center",
           }}
         >
           <p
             style={{
-              margin:
-                "0 0 8px",
-              color:
-                COLORS.coral,
-              fontSize:
-                12,
-              fontWeight:
-                800,
-              letterSpacing:
-                ".12em",
-              textTransform:
-                "uppercase",
+              margin: "0 0 7px",
+              color: COLORS.coral,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: ".11em",
+              textTransform: "uppercase",
             }}
           >
             Rescue · Resources · Responsible Pet Ownership
@@ -275,20 +164,13 @@ export default function HomePage() {
 
           <h1
             style={{
-              margin:
-                "0 auto",
-              maxWidth:
-                880,
-              color:
-                COLORS.navy,
-              fontSize:
-                isMobile
-                  ? "34px"
-                  : "clamp(34px, 5vw, 50px)",
-              lineHeight:
-                1.02,
-              letterSpacing:
-                "-.045em",
+              margin: 0,
+              color: COLORS.navy,
+              fontSize: isMobile
+                ? 34
+                : "clamp(34px, 5vw, 48px)",
+              lineHeight: 1.02,
+              letterSpacing: "-.04em",
             }}
           >
             Helping people help animals.
@@ -296,238 +178,187 @@ export default function HomePage() {
 
           <p
             style={{
-              maxWidth:
-                720,
-              margin:
-                "10px auto 0",
-              color:
-                COLORS.muted,
-              fontSize:
-                isMobile
-                  ? 14
-                  : 15,
-              lineHeight:
-                1.65,
+              maxWidth: 720,
+              margin: "9px auto 0",
+              color: COLORS.muted,
+              fontSize: isMobile
+                ? 14
+                : 15,
+              lineHeight: 1.55,
             }}
           >
             Find rescues and shelters,
-            discover animals needing
-            homes or help, and connect
-            with practical resources
-            for animal welfare and
-            responsible pet ownership.
+            discover animals needing homes
+            or help, and access practical
+            animal-welfare resources.
           </p>
-
-
         </div>
       </section>
 
       <section
         style={{
-          maxWidth:
-            1180,
-          margin:
-            "0 auto",
-          padding:
-            isMobile
-              ? "10px 18px 14px"
-              : "10px 24px 14px",
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: isMobile
+            ? "8px 18px 10px"
+            : "8px 24px 10px",
         }}
       >
-        <p
-          style={
-            eyebrowStyle
-          }
-        >
+        <p style={eyebrowStyle}>
           Public Access
         </p>
 
         <div
           style={{
-            display:
-              "grid",
+            display: "grid",
             gridTemplateColumns:
               isMobile
                 ? "1fr 1fr"
                 : "repeat(4, minmax(0, 1fr))",
-            gap:
-              isMobile
-                ? 8
-                : 0,
-            marginTop:
-              14,
-            background:
-              COLORS.white,
+            gap: 8,
+            marginTop: 8,
           }}
         >
           <ActionLink
-            compact={
-              isMobile
-            }
+            compact={isMobile}
             title="Directory"
-            text="Search rescues, shelters, and animal-welfare organizations."
+            text="Find rescues, shelters, and animal-welfare organizations."
             href="/organizations"
           />
 
           <ActionLink
-            compact={
-              isMobile
-            }
+            compact={isMobile}
             title="Adoptable Pets"
-            text="Browse animals shared publicly by participating organizations."
+            text="Browse public animal profiles shared by participating organizations."
             href="/adoptable"
           />
 
           <ActionLink
-            compact={
-              isMobile
-            }
+            compact={isMobile}
             title="Resources"
             text="Find practical information for pet owners and animal advocates."
             href="/resources"
           />
 
           <ActionLink
-            compact={
-              isMobile
-            }
-            title="Request an Organization"
-            text="Suggest an organization that should be included in the network."
+            compact={isMobile}
+            title="Request Organization"
+            text="Suggest a rescue, shelter, or resource to add to the network."
             href="/request-organization"
           />
         </div>
       </section>
 
+      <section
+        style={{
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: isMobile
+            ? "9px 18px 12px"
+            : "9px 24px 14px",
+        }}
+      >
+        <p style={eyebrowStyle}>
+          Portal Access
+        </p>
 
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              isMobile
+                ? "1fr"
+                : "repeat(3, minmax(0, 1fr))",
+            gap: isMobile
+              ? 8
+              : 10,
+            marginTop: 8,
+          }}
+        >
+          <PortalCard
+            compact={isMobile}
+            background={COLORS.org}
+            symbol="ORG"
+            title="Organization Portal"
+            text="For rescues and shelters managing animals, records, public profiles, and help offers."
+            href="/login?portal=organization"
+          />
 
-            {(stats.animals ??
-              0) > 0 ? (
-              <StatCard
-                value={
-                  stats.animals!
-                }
-                label="Animals currently shared"
-              />
-            ) : null}
+          <PortalCard
+            compact={isMobile}
+            background={COLORS.owner}
+            symbol="PET"
+            title="Pet Owner Portal"
+            text="For personal pet-owner tools, records, resources, and future account features."
+            href="/login?portal=pet-owner"
+          />
 
-            <div
-              style={{
-                background:
-                  COLORS.white,
-                padding:
-                  "22px 24px",
-              }}
-            >
-              <strong
-                style={{
-                  display:
-                    "block",
-                  color:
-                    COLORS.navy,
-                  fontSize:
-                    17,
-                  marginBottom:
-                    5,
-                }}
-              >
-                Built for action
-              </strong>
+          <PortalCard
+            compact={isMobile}
+            background={COLORS.foster}
+            symbol="FOS"
+            title="Foster Portal"
+            text="For approved foster relationships, applications, animals, and foster tools."
+            href="/login?portal=foster"
+          />
+        </div>
+      </section>
 
-              <span
-                style={{
-                  color:
-                    COLORS.muted,
-                  fontSize:
-                    13.5,
-                  lineHeight:
-                    1.5,
-                }}
-              >
-                One place to find
-                information, people,
-                and ways to help.
-              </span>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {successAnimals.length >
-      0 ? (
+      {successAnimals.length > 0 ? (
         <section
           style={{
-            maxWidth:
-              1180,
-            margin:
-              "0 auto",
-            padding:
-              isMobile
-                ? "8px 18px 12px"
-                : "8px 24px 14px",
+            maxWidth: 1180,
+            margin: "0 auto",
+            padding: isMobile
+              ? "8px 18px 12px"
+              : "10px 24px 14px",
           }}
         >
           <div
             style={{
-              display:
-                "flex",
-              alignItems:
-                "end",
+              display: "flex",
               justifyContent:
                 "space-between",
-              gap:
-                16,
-              marginBottom:
-                14,
+              alignItems: "end",
+              gap: 12,
+              marginBottom: 8,
             }}
           >
             <div>
-              <p
-                style={
-                  eyebrowStyle
-                }
-              >
+              <p style={eyebrowStyle}>
                 Success Stories
               </p>
 
               <h2
                 style={{
-                  margin:
-                    "7px 0 0",
-                  color:
-                    COLORS.navy,
-                  fontSize:
-                    21,
-                  letterSpacing:
-                    "-.025em",
+                  margin: "4px 0 0",
+                  color: COLORS.navy,
+                  fontSize: 19,
                 }}
               >
                 Recently adopted
               </h2>
             </div>
 
-            <span
-              style={{
-                color:
-                  COLORS.muted,
-                fontSize:
-                  12.5,
-              }}
-            >
-              Select a photo to
-              view their story.
-            </span>
+            {!isMobile ? (
+              <span
+                style={{
+                  color: COLORS.muted,
+                  fontSize: 11.5,
+                }}
+              >
+                Select a photo to view
+                their public profile.
+              </span>
+            ) : null}
           </div>
 
           <div
             style={{
-              display:
-                "flex",
-              gap:
-                10,
-              overflowX:
-                "auto",
-              paddingBottom:
-                4,
+              display: "flex",
+              gap: 8,
+              overflowX: "auto",
+              paddingBottom: 3,
               WebkitOverflowScrolling:
                 "touch",
             }}
@@ -535,30 +366,22 @@ export default function HomePage() {
             {successAnimals.map(
               (animal) => (
                 <a
-                  key={
-                    animal.id
-                  }
+                  key={animal.id}
                   href={`/pet/${encodeURIComponent(
                     animal.id
                   )}`}
-                  aria-label={`View ${animal.name}'s public profile`}
                   style={{
-                    position:
-                      "relative",
-                    display:
-                      "block",
-                    flex:
-                      isMobile
-                        ? "0 0 112px"
-                        : "0 0 132px",
-                    height:
-                      isMobile
-                        ? 82
-                        : 92,
-                    overflow:
-                      "hidden",
+                    position: "relative",
+                    display: "block",
+                    flex: isMobile
+                      ? "0 0 106px"
+                      : "0 0 125px",
+                    height: isMobile
+                      ? 78
+                      : 88,
+                    overflow: "hidden",
                     background:
-                      COLORS.hero,
+                      COLORS.white,
                     textDecoration:
                       "none",
                   }}
@@ -567,41 +390,28 @@ export default function HomePage() {
                     src={
                       animal.photoUrl
                     }
-                    alt={
-                      animal.name
-                    }
+                    alt={animal.name}
                     style={{
-                      width:
-                        "100%",
-                      height:
-                        "100%",
-                      objectFit:
-                        "cover",
-                      display:
-                        "block",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
                     }}
                   />
 
                   <span
                     style={{
-                      position:
-                        "absolute",
-                      left:
-                        0,
-                      right:
-                        0,
-                      bottom:
-                        0,
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
                       padding:
-                        "18px 10px 8px",
+                        "14px 8px 6px",
                       background:
                         "linear-gradient(transparent, rgba(30,58,95,.78))",
-                      color:
-                        "#fff",
-                      fontSize:
-                        13,
-                      fontWeight:
-                        800,
+                      color: "#fff",
+                      fontSize: 11.5,
+                      fontWeight: 800,
                     }}
                   >
                     {animal.name}
@@ -615,167 +425,43 @@ export default function HomePage() {
 
       <section
         style={{
-          maxWidth:
-            1180,
-          margin:
-            "0 auto",
-          padding:
-            isMobile
-              ? "12px 18px 14px"
-              : "12px 24px 18px",
+          background: COLORS.navy,
+          color: COLORS.white,
+          marginTop: 12,
         }}
       >
         <div
           style={{
-            marginBottom:
-              8,
+            maxWidth: 850,
+            margin: "0 auto",
+            padding: isMobile
+              ? "24px 18px"
+              : "28px 24px",
+            textAlign: "center",
           }}
         >
-          <p
-            style={
-              eyebrowStyle
-            }
-          >
-            Portal Access
-          </p>
-        </div>
-
-        <div
-          style={{
-            display:
-              "grid",
-            gridTemplateColumns:
-              isMobile
-                ? "1fr"
-                : "repeat(3, minmax(0, 1fr))",
-            gap:
-              isMobile
-                ? 10
-                : 18,
-          }}
-        >
-          <PortalCard
-            compact={
-              isMobile
-            }
-            background={
-              COLORS.org
-            }
-            symbol="ORG"
-            title="Rescue or Shelter"
-            text="Manage animals, records, public profiles, foster and help offers, and your organization information."
-            primaryHref="/login?portal=organization"
-            primaryText="Organization Portal"
-          />
-
-          <PortalCard
-            compact={
-              isMobile
-            }
-            background={
-              COLORS.owner
-            }
-            symbol="PET"
-            title="Pet Owner"
-            text="Access your Pack of Five pet-owner tools and account."
-            primaryHref="/login?portal=pet-owner"
-            primaryText="Pet Owner Portal"
-          />
-
-          <PortalCard
-            compact={
-              isMobile
-            }
-            background={
-              COLORS.foster
-            }
-            symbol="FOS"
-            title="Foster"
-            text="Access approved foster relationships, animals, applications, and foster tools."
-            primaryHref="/login?portal=foster"
-            primaryText="Foster Portal"
-          />
-        </div>
-      </section>
-
-
-
-      <section
-        style={{
-          background:
-            COLORS.navy,
-          color:
-            COLORS.white,
-        }}
-      >
-        <div
-          style={{
-            maxWidth:
-              900,
-            margin:
-              "0 auto",
-            padding:
-              isMobile
-                ? "28px 18px"
-                : "34px 24px",
-            textAlign:
-              "center",
-          }}
-        >
-          <p
-            style={{
-              margin:
-                "0 0 10px",
-              color:
-                COLORS.pink,
-              fontSize:
-                12,
-              fontWeight:
-                800,
-              letterSpacing:
-                ".1em",
-              textTransform:
-                "uppercase",
-            }}
-          >
-            Why Pack of Five
-          </p>
-
           <h2
             style={{
-              margin:
-                "0 0 13px",
-              fontSize:
-                30,
-              letterSpacing:
-                "-.025em",
+              margin: "0 0 7px",
+              fontSize: 22,
             }}
           >
-            Make it easier to know
-            what to do, where to go,
-            and who can help.
+            Better tools for people
+            helping animals.
           </h2>
 
           <p
             style={{
-              maxWidth:
-                700,
-              margin:
-                "0 auto",
+              margin: 0,
               color:
-                "rgba(255,255,255,.76)",
-              fontSize:
-                15,
-              lineHeight:
-                1.7,
+                "rgba(255,255,255,.74)",
+              fontSize: 13.5,
+              lineHeight: 1.55,
             }}
           >
-            Pack of Five develops
-            accessible digital tools
-            that connect people with
-            the information, resources,
-            organizations, and
-            opportunities they need to
+            Pack of Five connects people
+            with organizations, resources,
+            animals, and practical ways to
             improve animal welfare.
           </p>
         </div>
@@ -783,52 +469,36 @@ export default function HomePage() {
 
       <footer
         style={{
-          maxWidth:
-            1180,
-          margin:
-            "0 auto",
-          padding:
-            isMobile
-              ? "22px 18px 28px"
-              : "30px 24px 40px",
-          display:
-            "flex",
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: isMobile
+            ? "18px 18px 24px"
+            : "20px 24px 26px",
+          display: "flex",
           justifyContent:
             "space-between",
-          gap:
-            18,
-          flexWrap:
-            "wrap",
-          flexDirection:
-            isMobile
-              ? "column"
-              : "row",
-          alignItems:
-            isMobile
-              ? "flex-start"
-              : "center",
-          color:
-            COLORS.muted,
-          fontSize:
-            13,
+          alignItems: isMobile
+            ? "flex-start"
+            : "center",
+          flexDirection: isMobile
+            ? "column"
+            : "row",
+          gap: 12,
+          color: COLORS.muted,
+          fontSize: 12.5,
         }}
       >
         <div
           style={{
-            display:
-              "flex",
-            alignItems:
-              "center",
-            gap:
-              18,
-            flexWrap:
-              "wrap",
+            display: "flex",
+            gap: 16,
+            alignItems: "center",
+            flexWrap: "wrap",
           }}
         >
           <strong
             style={{
-              color:
-                COLORS.navy,
+              color: COLORS.navy,
             }}
           >
             PACK OF FIVE
@@ -837,48 +507,26 @@ export default function HomePage() {
           <a
             href="/support"
             style={{
-              color:
-                COLORS.navy,
-              fontWeight:
-                750,
-              textDecoration:
-                "none",
+              color: COLORS.navy,
+              fontWeight: 700,
+              textDecoration: "none",
             }}
           >
             Support Pack of Five
           </a>
         </div>
 
-        <div
+        <a
+          href="/admin"
+          aria-label="Admin login"
           style={{
-            display:
-              "flex",
-            alignItems:
-              "center",
-            gap:
-              14,
+            color: "#9A9690",
+            fontSize: 10.5,
+            textDecoration: "none",
           }}
         >
-          <span>
-            Better tools for people
-            helping animals.
-          </span>
-
-          <a
-            href="/admin"
-            aria-label="Admin login"
-            style={{
-              color:
-                "#9A9690",
-              fontSize:
-                10.5,
-              textDecoration:
-                "none",
-            }}
-          >
-            Admin
-          </a>
-        </div>
+          Admin
+        </a>
       </footer>
     </main>
   );
@@ -888,40 +536,28 @@ function PublicHeader() {
   return (
     <header
       style={{
-        background:
-          COLORS.white,
+        background: COLORS.white,
       }}
     >
       <div
         style={{
-          maxWidth:
-            1180,
-          minHeight:
-            58,
-          margin:
-            "0 auto",
-          padding:
-            "0 24px",
-          display:
-            "flex",
-          alignItems:
-            "center",
+          maxWidth: 1180,
+          minHeight: 56,
+          margin: "0 auto",
+          padding: "0 24px",
+          display: "flex",
+          alignItems: "center",
         }}
       >
         <a
           href="/"
           aria-label="Pack of Five home"
           style={{
-            display:
-              "inline-flex",
-            alignItems:
-              "center",
-            gap:
-              10,
-            color:
-              COLORS.navy,
-            textDecoration:
-              "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 9,
+            color: COLORS.navy,
+            textDecoration: "none",
           }}
         >
           <PawMark />
@@ -930,12 +566,9 @@ function PublicHeader() {
             style={{
               fontFamily:
                 '"Space Grotesk", Arial, sans-serif',
-              fontWeight:
-                700,
-              fontSize:
-                19,
-              letterSpacing:
-                ".035em",
+              fontWeight: 700,
+              fontSize: 18,
+              letterSpacing: ".035em",
             }}
           >
             PACK OF FIVE
@@ -951,246 +584,66 @@ function PawMark() {
     <span
       aria-hidden="true"
       style={{
-        position:
-          "relative",
-        display:
-          "inline-block",
-        width:
-          32,
-        height:
-          30,
-        flex:
-          "0 0 auto",
+        position: "relative",
+        display: "inline-block",
+        width: 30,
+        height: 28,
+        flex: "0 0 auto",
       }}
     >
       <span
         style={{
           ...toeStyle,
-          left:
-            1,
-          top:
-            6,
-          background:
-            COLORS.coral,
-          transform:
-            "rotate(-24deg)",
+          left: 1,
+          top: 6,
+          background: COLORS.coral,
+          transform: "rotate(-24deg)",
         }}
       />
 
       <span
         style={{
           ...toeStyle,
-          left:
-            8,
-          top:
-            0,
-          background:
-            COLORS.peach,
-          transform:
-            "rotate(-8deg)",
+          left: 8,
+          top: 0,
+          background: COLORS.peach,
+          transform: "rotate(-8deg)",
         }}
       />
 
       <span
         style={{
           ...toeStyle,
-          right:
-            7,
-          top:
-            0,
-          background:
-            COLORS.mint,
-          transform:
-            "rotate(8deg)",
+          right: 7,
+          top: 0,
+          background: COLORS.mint,
+          transform: "rotate(8deg)",
         }}
       />
 
       <span
         style={{
           ...toeStyle,
-          right:
-            0,
-          top:
-            6,
-          background:
-            COLORS.pink,
-          transform:
-            "rotate(24deg)",
+          right: 0,
+          top: 6,
+          background: COLORS.pink,
+          transform: "rotate(24deg)",
         }}
       />
 
       <span
         style={{
-          position:
-            "absolute",
-          left:
-            7,
-          bottom:
-            0,
-          width:
-            19,
-          height:
-            17,
+          position: "absolute",
+          left: 7,
+          bottom: 0,
+          width: 18,
+          height: 16,
           borderRadius:
             "50% 50% 45% 45%",
-          background:
-            COLORS.navy,
+          background: COLORS.navy,
         }}
       />
     </span>
-  );
-}
-
-function PortalCard({
-  compact,
-  background,
-  symbol,
-  title,
-  text,
-  primaryHref,
-  primaryText,
-  secondaryHref,
-  secondaryText,
-}: {
-  compact: boolean;
-  background: string;
-  symbol: string;
-  title: string;
-  text: string;
-  primaryHref: string;
-  primaryText: string;
-  secondaryHref?: string;
-  secondaryText?: string;
-}) {
-  return (
-    <article
-      style={{
-        background,
-        padding:
-          compact
-            ? 14
-            : 16,
-        minHeight:
-          compact
-            ? 0
-            : 174,
-        display:
-          "flex",
-        flexDirection:
-          "column",
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          display:
-            "inline-flex",
-          alignItems:
-            "center",
-          justifyContent:
-            "center",
-          width:
-            32,
-          height:
-            32,
-          background:
-            "rgba(255,255,255,.62)",
-          color:
-            COLORS.navy,
-          fontSize:
-            10,
-          fontWeight:
-            900,
-          letterSpacing:
-            ".08em",
-          marginBottom:
-            compact
-              ? 8
-              : 9,
-        }}
-      >
-        {symbol}
-      </span>
-
-      <h3
-        style={{
-          margin:
-            "0 0 10px",
-          color:
-            COLORS.navy,
-          fontSize:
-            compact
-              ? 17
-              : 18,
-          letterSpacing:
-            "-.025em",
-        }}
-      >
-        {title}
-      </h3>
-
-      <p
-        style={{
-          margin:
-            "0 0 10px",
-          color:
-            COLORS.muted,
-          fontSize:
-            compact
-              ? 13
-              : 13.5,
-          lineHeight:
-            compact
-              ? 1.5
-              : 1.65,
-          flex:
-            1,
-        }}
-      >
-        {text}
-      </p>
-
-      <a
-        href={
-          primaryHref
-        }
-        style={{
-          color:
-            COLORS.navy,
-          fontWeight:
-            800,
-          textDecoration:
-            "none",
-          fontSize:
-            14,
-        }}
-      >
-        {primaryText} →
-      </a>
-
-      {secondaryHref &&
-      secondaryText ? (
-        <a
-          href={
-            secondaryHref
-          }
-          style={{
-            color:
-              COLORS.muted,
-            fontWeight:
-              700,
-            textDecoration:
-              "none",
-            fontSize:
-              12.5,
-            marginTop:
-              10,
-          }}
-        >
-          {secondaryText}
-        </a>
-      ) : null}
-    </article>
   );
 }
 
@@ -1209,34 +662,24 @@ function ActionLink({
     <a
       href={href}
       style={{
-        display:
-          "block",
-        padding:
-          compact
-            ? "11px 11px"
-            : "12px 14px",
-        color:
-          "inherit",
-        textDecoration:
-          "none",
-        background:
-          COLORS.white,
-        border:
-          "1px solid #E9E5E3",
+        display: "block",
+        padding: compact
+          ? "10px 10px"
+          : "11px 13px",
+        background: COLORS.white,
+        border: `1px solid ${COLORS.border}`,
+        color: "inherit",
+        textDecoration: "none",
       }}
     >
       <strong
         style={{
-          display:
-            "block",
-          color:
-            COLORS.navy,
-          fontSize:
-            compact
-              ? 13.5
-              : 14.5,
-          marginBottom:
-            4,
+          display: "block",
+          color: COLORS.navy,
+          fontSize: compact
+            ? 13
+            : 14,
+          marginBottom: 3,
         }}
       >
         {title}
@@ -1244,116 +687,131 @@ function ActionLink({
 
       <span
         style={{
-          color:
-            COLORS.muted,
-          fontSize:
-            compact
-              ? 12.5
-              : 13.5,
-          lineHeight:
-            1.45,
+          color: COLORS.muted,
+          fontSize: compact
+            ? 11.5
+            : 12.5,
+          lineHeight: 1.4,
         }}
       >
         {text}
-      </span>
-
-      <span
-        style={{
-          display:
-            "block",
-          color:
-            COLORS.coral,
-          fontWeight:
-            800,
-          marginTop:
-            5,
-          fontSize:
-            13,
-        }}
-      >
-        Explore →
       </span>
     </a>
   );
 }
 
-function StatCard({
-  value,
-  label,
+function PortalCard({
+  compact,
+  background,
+  symbol,
+  title,
+  text,
+  href,
 }: {
-  value: number;
-  label: string;
+  compact: boolean;
+  background: string;
+  symbol: string;
+  title: string;
+  text: string;
+  href: string;
 }) {
   return (
-    <div
+    <a
+      href={href}
       style={{
-        background:
-          COLORS.white,
-        padding:
-          "22px 24px",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: compact
+          ? 0
+          : 150,
+        padding: compact
+          ? 13
+          : 15,
+        background,
+        color: "inherit",
+        textDecoration: "none",
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 30,
+          height: 30,
+          background:
+            "rgba(255,255,255,.62)",
+          color: COLORS.navy,
+          fontSize: 9,
+          fontWeight: 900,
+          letterSpacing: ".08em",
+          marginBottom: 7,
+        }}
+      >
+        {symbol}
+      </span>
+
+      <h3
+        style={{
+          margin: "0 0 5px",
+          color: COLORS.navy,
+          fontSize: compact
+            ? 17
+            : 18,
+        }}
+      >
+        {title}
+      </h3>
+
+      <p
+        style={{
+          margin: "0 0 8px",
+          color: COLORS.muted,
+          fontSize: compact
+            ? 12.5
+            : 13,
+          lineHeight: 1.45,
+          flex: 1,
+        }}
+      >
+        {text}
+      </p>
+
       <strong
         style={{
-          display:
-            "block",
-          color:
-            COLORS.navy,
-          fontSize:
-            30,
-          lineHeight:
-            1,
-          marginBottom:
-            7,
+          color: COLORS.navy,
+          fontSize: 12.5,
         }}
       >
-        {value.toLocaleString()}
+        Login →
       </strong>
-
-      <span
-        style={{
-          color:
-            COLORS.muted,
-          fontSize:
-            13.5,
-        }}
-      >
-        {label}
-      </span>
-    </div>
+    </a>
   );
 }
 
 function readArray(
   data: unknown
-): Array<
-  Record<string, unknown>
-> {
+): Array<Record<string, unknown>> {
   if (
     !data ||
-    typeof data !==
-      "object"
+    typeof data !== "object"
   ) {
     return [];
   }
 
   if (Array.isArray(data)) {
     return data.filter(
-      (item): item is Record<
-        string,
-        unknown
-      > =>
+      (item) =>
         Boolean(item) &&
-        typeof item ===
-          "object"
-    );
+        typeof item === "object"
+    ) as Array<Record<string, unknown>>;
   }
 
-  const record =
-    data as Record<
-      string,
-      unknown
-    >;
+  const record = data as Record<
+    string,
+    unknown
+  >;
 
   for (const key of [
     "animals",
@@ -1361,21 +819,16 @@ function readArray(
     "items",
     "data",
   ]) {
-    const value =
-      record[key];
+    const value = record[key];
 
-    if (
-      Array.isArray(value)
-    ) {
+    if (Array.isArray(value)) {
       return value.filter(
-        (item): item is Record<
-          string,
-          unknown
-        > =>
+        (item) =>
           Boolean(item) &&
-          typeof item ===
-            "object"
-      );
+          typeof item === "object"
+      ) as Array<
+        Record<string, unknown>
+      >;
     }
   }
 
@@ -1383,40 +836,27 @@ function readArray(
 }
 
 function normalizeSuccessAnimal(
-  row: Record<
-    string,
-    unknown
-  >
-) {
-  const id =
-    stringValue(
-      row.id
-    );
+  row: Record<string, unknown>
+): SuccessAnimal | null {
+  const id = stringValue(
+    row.id
+  );
 
   const name =
-    stringValue(
-      row.name
-    ) ||
-    stringValue(
-      row.public_name
-    ) ||
+    stringValue(row.name) ||
+    stringValue(row.public_name) ||
     "Adopted";
 
   const directPhoto =
-    stringValue(
-      row.photo_url
-    ) ||
-    stringValue(
-      row.photoUrl
-    ) ||
+    stringValue(row.photo_url) ||
+    stringValue(row.photoUrl) ||
     stringValue(
       row.profile_photo_url
     );
 
   const photo =
     row.photo &&
-    typeof row.photo ===
-      "object"
+    typeof row.photo === "object"
       ? stringValue(
           (
             row.photo as Record<
@@ -1428,13 +868,9 @@ function normalizeSuccessAnimal(
       : null;
 
   const photoUrl =
-    directPhoto ||
-    photo;
+    directPhoto || photo;
 
-  if (
-    !id ||
-    !photoUrl
-  ) {
+  if (!id || !photoUrl) {
     return null;
   }
 
@@ -1448,112 +884,24 @@ function normalizeSuccessAnimal(
 function stringValue(
   value: unknown
 ): string | null {
-  return typeof value ===
-      "string" &&
+  return typeof value === "string" &&
     value.trim()
     ? value.trim()
     : null;
 }
 
-function readCount(
-  data: unknown
-): number | null {
-  if (
-    !data ||
-    typeof data !==
-      "object"
-  ) {
-    return null;
-  }
-
-  const record =
-    data as Record<
-      string,
-      unknown
-    >;
-
-  const directKeys = [
-    "count",
-    "total",
-    "totalCount",
-  ];
-
-  for (
-    const key of directKeys
-  ) {
-    const value =
-      record[key];
-
-    if (
-      typeof value ===
-        "number" &&
-      Number.isFinite(
-        value
-      )
-    ) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
 const toeStyle: React.CSSProperties = {
-  position:
-    "absolute",
-  width:
-    8,
-  height:
-    11,
-  borderRadius:
-    "50%",
+  position: "absolute",
+  width: 8,
+  height: 10,
+  borderRadius: "50%",
 };
 
 const eyebrowStyle: React.CSSProperties = {
-  margin:
-    0,
-  color:
-    COLORS.coral,
-  fontSize:
-    11.5,
-  fontWeight:
-    800,
-  letterSpacing:
-    ".11em",
-  textTransform:
-    "uppercase",
-};
-
-const primaryButton: React.CSSProperties = {
-  display:
-    "inline-block",
-  background:
-    COLORS.navy,
-  color:
-    "#fff",
-  padding:
-    "11px 17px",
-  textDecoration:
-    "none",
-  fontWeight:
-    800,
-  fontSize:
-    14,
-};
-
-const secondaryButton: React.CSSProperties = {
-  display:
-    "inline-block",
-  background:
-    COLORS.white,
-  color:
-    COLORS.navy,
-  padding:
-    "11px 17px",
-  textDecoration:
-    "none",
-  fontWeight:
-    800,
-  fontSize:
-    14,
+  margin: 0,
+  color: COLORS.coral,
+  fontSize: 10.5,
+  fontWeight: 800,
+  letterSpacing: ".1em",
+  textTransform: "uppercase",
 };
