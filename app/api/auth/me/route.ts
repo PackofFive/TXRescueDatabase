@@ -48,6 +48,50 @@ export async function GET() {
       availablePortals.push("organization");
     }
 
+    /*
+      Foster portal access is granted when this Pack of Five
+      user account is linked to a foster profile that has at
+      least one approved organization relationship.
+
+      A foster identity is rescue-independent, so this does
+      not depend on session.orgId.
+    */
+
+    let fosterId: string | null = null;
+
+    const fosterRows = await sql`
+      select
+        fp.id
+
+      from foster_profiles fp
+
+      where
+        fp.user_id = ${session.id}
+
+        and exists (
+          select 1
+
+          from foster_organization_relationships forr
+
+          where
+            forr.foster_id = fp.id
+            and forr.status = 'approved'
+        )
+
+      limit 1
+    `;
+
+    if (fosterRows[0]?.id) {
+      fosterId =
+        String(
+          fosterRows[0].id
+        );
+
+      availablePortals.push(
+        "foster"
+      );
+    }
+
     return NextResponse.json(
       {
         user: {
@@ -57,6 +101,7 @@ export async function GET() {
           roles: [session.role],
           orgId: session.orgId,
           orgName,
+          fosterId,
           status: session.status,
           availablePortals,
         },
