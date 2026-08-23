@@ -33,6 +33,17 @@ export default function HomePage() {
       animals: null,
     });
 
+  const [
+    successAnimals,
+    setSuccessAnimals,
+  ] = useState<
+    Array<{
+      id: string;
+      name: string;
+      photoUrl: string;
+    }>
+  >([]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -99,6 +110,78 @@ export default function HomePage() {
     }
 
     loadStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSuccessAnimals() {
+      const endpoints = [
+        "/api/public/success-wall?limit=8",
+        "/api/public/animals?outcome=adopted&successWall=true&limit=8",
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response =
+            await fetch(endpoint, {
+              cache: "no-store",
+            });
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const data =
+            await response.json();
+
+          const rows =
+            readArray(data);
+
+          const animals =
+            rows
+              .map((row) =>
+                normalizeSuccessAnimal(
+                  row
+                )
+              )
+              .filter(
+                (
+                  animal
+                ): animal is {
+                  id: string;
+                  name: string;
+                  photoUrl: string;
+                } =>
+                  Boolean(animal)
+              )
+              .slice(0, 8);
+
+          if (
+            !cancelled &&
+            animals.length > 0
+          ) {
+            setSuccessAnimals(
+              animals
+            );
+          }
+
+          if (
+            animals.length > 0
+          ) {
+            return;
+          }
+        } catch {
+          // Success stories are optional.
+        }
+      }
+    }
+
+    loadSuccessAnimals();
 
     return () => {
       cancelled = true;
@@ -201,38 +284,63 @@ export default function HomePage() {
             responsible pet ownership.
           </p>
 
-          <div
-            style={{
-              display:
-                "flex",
-              justifyContent:
-                "center",
-              gap:
-                12,
-              flexWrap:
-                "wrap",
-              marginTop:
-                30,
-            }}
-          >
-            <a
-              href="/organizations"
-              style={
-                primaryButton
-              }
-            >
-              Find an Organization
-            </a>
 
-            <a
-              href="/adoptable"
-              style={
-                secondaryButton
-              }
-            >
-              Browse Adoptable Pets
-            </a>
-          </div>
+        </div>
+      </section>
+
+      <section
+        style={{
+          maxWidth:
+            1180,
+          margin:
+            "0 auto",
+          padding:
+            "26px 24px 42px",
+        }}
+      >
+        <p
+          style={
+            eyebrowStyle
+          }
+        >
+          Find what you need
+        </p>
+
+        <div
+          style={{
+            display:
+              "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(220px, 1fr))",
+            marginTop:
+              14,
+            background:
+              COLORS.white,
+          }}
+        >
+          <ActionLink
+            title="Directory"
+            text="Search rescues, shelters, and animal-welfare organizations."
+            href="/organizations"
+          />
+
+          <ActionLink
+            title="Adoptable Pets"
+            text="Browse animals shared publicly by participating organizations."
+            href="/adoptable"
+          />
+
+          <ActionLink
+            title="Resources"
+            text="Find practical information for pet owners and animal advocates."
+            href="/resources"
+          />
+
+          <ActionLink
+            title="Request an Organization"
+            text="Suggest an organization that should be included in the network."
+            href="/request-organization"
+          />
         </div>
       </section>
 
@@ -321,6 +429,161 @@ export default function HomePage() {
         </section>
       ) : null}
 
+      {successAnimals.length >
+      0 ? (
+        <section
+          style={{
+            maxWidth:
+              1180,
+            margin:
+              "0 auto",
+            padding:
+              "18px 24px 34px",
+          }}
+        >
+          <div
+            style={{
+              display:
+                "flex",
+              alignItems:
+                "end",
+              justifyContent:
+                "space-between",
+              gap:
+                16,
+              marginBottom:
+                14,
+            }}
+          >
+            <div>
+              <p
+                style={
+                  eyebrowStyle
+                }
+              >
+                Success Stories
+              </p>
+
+              <h2
+                style={{
+                  margin:
+                    "7px 0 0",
+                  color:
+                    COLORS.navy,
+                  fontSize:
+                    25,
+                  letterSpacing:
+                    "-.025em",
+                }}
+              >
+                Recently adopted
+              </h2>
+            </div>
+
+            <span
+              style={{
+                color:
+                  COLORS.muted,
+                fontSize:
+                  12.5,
+              }}
+            >
+              Select a photo to
+              view their story.
+            </span>
+          </div>
+
+          <div
+            style={{
+              display:
+                "flex",
+              gap:
+                10,
+              overflowX:
+                "auto",
+              paddingBottom:
+                4,
+              WebkitOverflowScrolling:
+                "touch",
+            }}
+          >
+            {successAnimals.map(
+              (animal) => (
+                <a
+                  key={
+                    animal.id
+                  }
+                  href={`/pet/${encodeURIComponent(
+                    animal.id
+                  )}`}
+                  aria-label={`View ${animal.name}'s public profile`}
+                  style={{
+                    position:
+                      "relative",
+                    display:
+                      "block",
+                    flex:
+                      "0 0 168px",
+                    height:
+                      126,
+                    overflow:
+                      "hidden",
+                    background:
+                      COLORS.hero,
+                    textDecoration:
+                      "none",
+                  }}
+                >
+                  <img
+                    src={
+                      animal.photoUrl
+                    }
+                    alt={
+                      animal.name
+                    }
+                    style={{
+                      width:
+                        "100%",
+                      height:
+                        "100%",
+                      objectFit:
+                        "cover",
+                      display:
+                        "block",
+                    }}
+                  />
+
+                  <span
+                    style={{
+                      position:
+                        "absolute",
+                      left:
+                        0,
+                      right:
+                        0,
+                      bottom:
+                        0,
+                      padding:
+                        "18px 10px 8px",
+                      background:
+                        "linear-gradient(transparent, rgba(30,58,95,.78))",
+                      color:
+                        "#fff",
+                      fontSize:
+                        13,
+                      fontWeight:
+                        800,
+                    }}
+                  >
+                    {animal.name}
+                  </span>
+                </a>
+              )
+            )}
+          </div>
+        </section>
+      ) : null}
+
       <section
         style={{
           maxWidth:
@@ -404,8 +667,6 @@ export default function HomePage() {
             text="Manage animals, records, public profiles, foster and help offers, and your organization information."
             primaryHref="/portal"
             primaryText="Organization Portal"
-            secondaryHref="/claim"
-            secondaryText="Claim an Organization"
           />
 
           <PortalCard
@@ -414,9 +675,9 @@ export default function HomePage() {
             }
             symbol="PET"
             title="Pet Owner"
-            text="Find practical resources, animal-welfare information, and support designed to help people care for and keep their pets."
-            primaryHref="/resources"
-            primaryText="Pet Owner Resources"
+            text="Access your Pack of Five pet-owner tools and account."
+            primaryHref="/portal"
+            primaryText="Pet Owner Portal"
           />
 
           <PortalCard
@@ -425,68 +686,14 @@ export default function HomePage() {
             }
             symbol="FOS"
             title="Foster"
-            text="Find animals needing foster support and, as the foster portal grows, manage approved foster relationships in one place."
-            primaryHref="/adoptable"
-            primaryText="Find Animals to Help"
+            text="Access approved foster relationships, animals, applications, and foster tools."
+            primaryHref="/portal"
+            primaryText="Foster Portal"
           />
         </div>
       </section>
 
-      <section
-        style={{
-          maxWidth:
-            1180,
-          margin:
-            "0 auto",
-          padding:
-            "42px 24px 64px",
-        }}
-      >
-        <p
-          style={
-            eyebrowStyle
-          }
-        >
-          Public Rescue Network
-        </p>
 
-        <div
-          style={{
-            display:
-              "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(220px, 1fr))",
-            marginTop:
-              14,
-            background:
-              COLORS.white,
-          }}
-        >
-          <ActionLink
-            title="Directory"
-            text="Search rescues, shelters, and animal-welfare organizations."
-            href="/organizations"
-          />
-
-          <ActionLink
-            title="Adoptable Pets"
-            text="Browse animals shared publicly by participating organizations."
-            href="/adoptable"
-          />
-
-          <ActionLink
-            title="Resources"
-            text="Find practical information for pet owners and animal advocates."
-            href="/resources"
-          />
-
-          <ActionLink
-            title="Request an Organization"
-            text="Suggest an organization that should be included in the network."
-            href="/request-organization"
-          />
-        </div>
-      </section>
 
       <section
         style={{
@@ -574,9 +781,11 @@ export default function HomePage() {
           margin:
             "0 auto",
           padding:
-            "28px 24px 38px",
+            "30px 24px 40px",
           display:
             "flex",
+          alignItems:
+            "center",
           justifyContent:
             "space-between",
           gap:
@@ -589,19 +798,72 @@ export default function HomePage() {
             13,
         }}
       >
-        <strong
+        <div
           style={{
-            color:
-              COLORS.navy,
+            display:
+              "flex",
+            alignItems:
+              "center",
+            gap:
+              18,
+            flexWrap:
+              "wrap",
           }}
         >
-          PACK OF FIVE
-        </strong>
+          <strong
+            style={{
+              color:
+                COLORS.navy,
+            }}
+          >
+            PACK OF FIVE
+          </strong>
 
-        <span>
-          Better tools for people
-          helping animals.
-        </span>
+          <a
+            href="/support"
+            style={{
+              color:
+                COLORS.navy,
+              fontWeight:
+                750,
+              textDecoration:
+                "none",
+            }}
+          >
+            Support Pack of Five
+          </a>
+        </div>
+
+        <div
+          style={{
+            display:
+              "flex",
+            alignItems:
+              "center",
+            gap:
+              14,
+          }}
+        >
+          <span>
+            Better tools for people
+            helping animals.
+          </span>
+
+          <a
+            href="/admin"
+            aria-label="Admin login"
+            style={{
+              color:
+                "#9A9690",
+              fontSize:
+                10.5,
+              textDecoration:
+                "none",
+            }}
+          >
+            Admin
+          </a>
+        </div>
       </footer>
     </main>
   );
@@ -629,12 +891,6 @@ function PublicHeader() {
             "flex",
           alignItems:
             "center",
-          justifyContent:
-            "space-between",
-          gap:
-            22,
-          flexWrap:
-            "wrap",
         }}
       >
         <a
@@ -670,53 +926,6 @@ function PublicHeader() {
             PACK OF FIVE
           </span>
         </a>
-
-        <nav
-          aria-label="Public navigation"
-          style={{
-            display:
-              "flex",
-            alignItems:
-              "center",
-            gap:
-              20,
-            flexWrap:
-              "wrap",
-          }}
-        >
-          <NavLink
-            href="/organizations"
-            label="Directory"
-          />
-
-          <NavLink
-            href="/adoptable"
-            label="Adoptable Pets"
-          />
-
-          <NavLink
-            href="/resources"
-            label="Resources"
-          />
-
-          <NavLink
-            href="/support"
-            label="Support"
-          />
-
-          <a
-            href="/portal"
-            style={{
-              ...primaryButton,
-              padding:
-                "9px 14px",
-              fontSize:
-                13,
-            }}
-          >
-            Portal Login
-          </a>
-        </nav>
       </div>
     </header>
   );
@@ -814,34 +1023,6 @@ function PawMark() {
         }}
       />
     </span>
-  );
-}
-
-function NavLink({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
-  return (
-    <a
-      href={href}
-      style={{
-        color:
-          COLORS.navy,
-        textDecoration:
-          "none",
-        fontSize:
-          13.5,
-        fontWeight:
-          700,
-        whiteSpace:
-          "nowrap",
-      }}
-    >
-      {label}
-    </a>
   );
 }
 
@@ -1100,6 +1281,137 @@ function StatCard({
       </span>
     </div>
   );
+}
+
+function readArray(
+  data: unknown
+): Array<
+  Record<string, unknown>
+> {
+  if (
+    !data ||
+    typeof data !==
+      "object"
+  ) {
+    return [];
+  }
+
+  if (Array.isArray(data)) {
+    return data.filter(
+      (item): item is Record<
+        string,
+        unknown
+      > =>
+        Boolean(item) &&
+        typeof item ===
+          "object"
+    );
+  }
+
+  const record =
+    data as Record<
+      string,
+      unknown
+    >;
+
+  for (const key of [
+    "animals",
+    "results",
+    "items",
+    "data",
+  ]) {
+    const value =
+      record[key];
+
+    if (
+      Array.isArray(value)
+    ) {
+      return value.filter(
+        (item): item is Record<
+          string,
+          unknown
+        > =>
+          Boolean(item) &&
+          typeof item ===
+            "object"
+      );
+    }
+  }
+
+  return [];
+}
+
+function normalizeSuccessAnimal(
+  row: Record<
+    string,
+    unknown
+  >
+) {
+  const id =
+    stringValue(
+      row.id
+    );
+
+  const name =
+    stringValue(
+      row.name
+    ) ||
+    stringValue(
+      row.public_name
+    ) ||
+    "Adopted";
+
+  const directPhoto =
+    stringValue(
+      row.photo_url
+    ) ||
+    stringValue(
+      row.photoUrl
+    ) ||
+    stringValue(
+      row.profile_photo_url
+    );
+
+  const photo =
+    row.photo &&
+    typeof row.photo ===
+      "object"
+      ? stringValue(
+          (
+            row.photo as Record<
+              string,
+              unknown
+            >
+          ).url
+        )
+      : null;
+
+  const photoUrl =
+    directPhoto ||
+    photo;
+
+  if (
+    !id ||
+    !photoUrl
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    photoUrl,
+  };
+}
+
+function stringValue(
+  value: unknown
+): string | null {
+  return typeof value ===
+      "string" &&
+    value.trim()
+    ? value.trim()
+    : null;
 }
 
 function readCount(
