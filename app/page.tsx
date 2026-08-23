@@ -237,7 +237,7 @@ export default function HomePage() {
       <section
         style={{
           background:
-            COLORS.hero,
+            COLORS.white,
         }}
       >
         <div
@@ -248,8 +248,8 @@ export default function HomePage() {
               "0 auto",
             padding:
               isMobile
-                ? "28px 18px 26px"
-                : "42px 24px 38px",
+                ? "22px 18px 20px"
+                : "24px 24px 20px",
             textAlign:
               "center",
           }}
@@ -257,7 +257,7 @@ export default function HomePage() {
           <p
             style={{
               margin:
-                "0 0 16px",
+                "0 0 8px",
               color:
                 COLORS.coral,
               fontSize:
@@ -283,8 +283,8 @@ export default function HomePage() {
                 COLORS.navy,
               fontSize:
                 isMobile
-                  ? "36px"
-                  : "clamp(36px, 6vw, 58px)",
+                  ? "34px"
+                  : "clamp(34px, 5vw, 50px)",
               lineHeight:
                 1.02,
               letterSpacing:
@@ -299,13 +299,13 @@ export default function HomePage() {
               maxWidth:
                 720,
               margin:
-                "14px auto 0",
+                "10px auto 0",
               color:
                 COLORS.muted,
               fontSize:
                 isMobile
-                  ? 15
-                  : 16.5,
+                  ? 14
+                  : 15,
               lineHeight:
                 1.65,
             }}
@@ -330,8 +330,8 @@ export default function HomePage() {
             "0 auto",
           padding:
             isMobile
-              ? "14px 18px 18px"
-              : "18px 24px 24px",
+              ? "10px 18px 14px"
+              : "10px 24px 14px",
         }}
       >
         <p
@@ -339,7 +339,7 @@ export default function HomePage() {
             eyebrowStyle
           }
         >
-          Find what you need
+          Public Access
         </p>
 
         <div
@@ -398,38 +398,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {showStats ? (
-        <section
-          style={{
-            maxWidth:
-              1180,
-            margin:
-              "-28px auto 0",
-            padding:
-              "0 24px",
-            position:
-              "relative",
-          }}
-        >
-          <div
-            style={{
-              display:
-                "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(190px, 1fr))",
-              gap:
-                14,
-            }}
-          >
-            {(stats.organizations ??
-              0) > 0 ? (
-              <StatCard
-                value={
-                  stats.organizations!
-                }
-                label="Organizations in the network"
-              />
-            ) : null}
+
 
             {(stats.animals ??
               0) > 0 ? (
@@ -493,8 +462,8 @@ export default function HomePage() {
               "0 auto",
             padding:
               isMobile
-                ? "8px 18px 16px"
-                : "10px 24px 20px",
+                ? "8px 18px 12px"
+                : "8px 24px 14px",
           }}
         >
           <div
@@ -652,20 +621,14 @@ export default function HomePage() {
             "0 auto",
           padding:
             isMobile
-              ? "22px 18px 16px"
-              : showStats
-              ? "38px 24px 20px"
-              : "28px 24px 20px",
+              ? "12px 18px 14px"
+              : "12px 24px 18px",
         }}
       >
         <div
           style={{
-            textAlign:
-              "center",
-            maxWidth:
-              720,
-            margin:
-              "0 auto 18px",
+            marginBottom:
+              8,
           }}
         >
           <p
@@ -673,40 +636,7 @@ export default function HomePage() {
               eyebrowStyle
             }
           >
-            Choose your path
-          </p>
-
-          <h2
-            style={{
-              margin:
-                "9px 0 10px",
-              color:
-                COLORS.navy,
-              fontSize:
-                "clamp(25px, 3.5vw, 34px)",
-              letterSpacing:
-                "-.03em",
-            }}
-          >
-            Pack of Five is built
-            for everyone helping animals.
-          </h2>
-
-          <p
-            style={{
-              margin:
-                0,
-              color:
-                COLORS.muted,
-              lineHeight:
-                1.65,
-              fontSize:
-                15.5,
-            }}
-          >
-            Start with the portal or
-            public resources that fit
-            what you need today.
+            Portal Access
           </p>
         </div>
 
@@ -786,8 +716,8 @@ export default function HomePage() {
               "0 auto",
             padding:
               isMobile
-                ? "36px 18px"
-                : "54px 24px",
+                ? "28px 18px"
+                : "34px 24px",
             textAlign:
               "center",
           }}
@@ -967,7 +897,7 @@ function PublicHeader() {
           maxWidth:
             1180,
           minHeight:
-            72,
+            58,
           margin:
             "0 auto",
           padding:
@@ -1138,12 +1068,12 @@ function PortalCard({
         background,
         padding:
           compact
-            ? 16
-            : 20,
+            ? 14
+            : 16,
         minHeight:
           compact
             ? 0
-            : 230,
+            : 174,
         display:
           "flex",
         flexDirection:
@@ -1160,9 +1090,9 @@ function PortalCard({
           justifyContent:
             "center",
           width:
-            38,
+            32,
           height:
-            38,
+            32,
           background:
             "rgba(255,255,255,.62)",
           color:
@@ -1175,8 +1105,8 @@ function PortalCard({
             ".08em",
           marginBottom:
             compact
-              ? 10
-              : 14,
+              ? 8
+              : 9,
         }}
       >
         {symbol}
@@ -1190,8 +1120,8 @@ function PortalCard({
             COLORS.navy,
           fontSize:
             compact
-              ? 18
-              : 20,
+              ? 17
+              : 18,
           letterSpacing:
             "-.025em",
         }}
@@ -1202,7 +1132,7 @@ function PortalCard({
       <p
         style={{
           margin:
-            "0 0 15px",
+            "0 0 10px",
           color:
             COLORS.muted,
           fontSize:
@@ -1283,20 +1213,16 @@ function ActionLink({
           "block",
         padding:
           compact
-            ? "12px 12px"
-            : "15px 16px",
+            ? "11px 11px"
+            : "12px 14px",
         color:
           "inherit",
         textDecoration:
           "none",
         background:
-          title === "Directory"
-            ? COLORS.org
-            : title === "Adoptable Pets"
-            ? COLORS.foster
-            : title === "Resources"
-            ? COLORS.owner
-            : COLORS.hero,
+          COLORS.white,
+        border:
+          "1px solid #E9E5E3",
       }}
     >
       <strong
@@ -1310,7 +1236,7 @@ function ActionLink({
               ? 13.5
               : 14.5,
           marginBottom:
-            7,
+            4,
         }}
       >
         {title}
@@ -1340,7 +1266,7 @@ function ActionLink({
           fontWeight:
             800,
           marginTop:
-            8,
+            5,
           fontSize:
             13,
         }}
