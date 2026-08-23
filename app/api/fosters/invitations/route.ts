@@ -457,7 +457,6 @@ export async function POST(
   }
 }
 
-
 export async function PUT(
   req: NextRequest
 ) {
@@ -540,7 +539,9 @@ export async function PUT(
       relationship.email
         ? String(
             relationship.email
-          ).trim().toLowerCase()
+          )
+            .trim()
+            .toLowerCase()
         : "";
 
     if (!fosterEmail) {
@@ -599,7 +600,10 @@ export async function PUT(
           ${session.orgId},
           ${relationship.foster_id},
           ${fosterEmail},
-          ${relationship.full_name ?? null},
+          ${
+            relationship.full_name ??
+            null
+          },
           ${tokenHash},
           now() +
             interval '14 days',
@@ -734,7 +738,7 @@ export async function PATCH(
             case
               when ${nextStatus} =
                 'approved'
-                then ${session.id}
+                then ${session.id}::uuid
               else null
             end,
 
