@@ -10,6 +10,7 @@ type ShellUser = {
   status: "pending" | "approved" | "rejected";
   orgId: string | null;
   orgName?: string | null;
+  availablePortals?: string[];
 } | null;
 
 type TestOrg = {
@@ -91,7 +92,7 @@ export default function AppShell({
       "/login/"
     );
 
-  const isStandalonePortalArea =
+  const isFosterArea =
     pathname === "/foster" ||
     pathname.startsWith(
       "/foster/"
@@ -99,9 +100,25 @@ export default function AppShell({
 
   if (
     isHomePage ||
-    isLoginArea ||
-    isStandalonePortalArea
+    isLoginArea
   ) {
+    return children;
+  }
+
+  if (
+    isFosterArea &&
+    user &&
+    user.status === "approved"
+  ) {
+    return (
+      <>
+        <SignedInHeader user={user} />
+        {children}
+      </>
+    );
+  }
+
+  if (isFosterArea) {
     return children;
   }
 
@@ -119,6 +136,374 @@ export default function AppShell({
         {children}
       </main>
     </>
+  );
+}
+
+/* =========================================================
+   SIGNED-IN HEADER
+========================================================= */
+
+function SignedInHeader({
+  user,
+}: {
+  user: Exclude<ShellUser, null>;
+}) {
+  const pathname = usePathname();
+
+  const [
+    portals,
+    setPortals,
+  ] = useState<string[]>(
+    user.availablePortals ??
+      (
+        user.role === "admin"
+          ? ["admin"]
+          : user.role === "org"
+          ? ["organization"]
+          : []
+      )
+  );
+
+  useEffect(() => {
+    fetch(
+      "/api/auth/me",
+      {
+        cache: "no-store",
+      }
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        const next =
+          data.user?.availablePortals;
+
+        if (Array.isArray(next)) {
+          setPortals(next);
+        }
+      })
+      .catch(() => {
+        // Keep server-provided fallback links.
+      });
+  }, []);
+
+  const showOrganization =
+    portals.includes(
+      "organization"
+    ) ||
+    user.role === "org" ||
+    (
+      user.role === "admin" &&
+      Boolean(user.orgId)
+    );
+
+  const showFoster =
+    portals.includes(
+      "foster"
+    );
+
+  const showPetOwner =
+    portals.includes(
+      "pet-owner"
+    );
+
+  return (
+    <header
+      style={{
+        background:
+          COLORS.surface,
+        borderBottom:
+          "1px solid #E8EDF2",
+        position:
+          "sticky",
+        top:
+          0,
+        zIndex:
+          60,
+      }}
+    >
+      <div
+        style={{
+          maxWidth:
+            1180,
+          margin:
+            "0 auto",
+          padding:
+            "0 20px",
+        }}
+      >
+        <div
+          style={{
+            minHeight:
+              58,
+            display:
+              "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "space-between",
+            gap:
+              18,
+            flexWrap:
+              "wrap",
+          }}
+        >
+          <div
+            style={{
+              display:
+                "flex",
+              alignItems:
+                "center",
+              gap:
+                9,
+            }}
+          >
+            <a
+              href="/"
+              aria-label="Pack of Five home"
+              style={{
+                display:
+                  "inline-flex",
+                alignItems:
+                  "center",
+                gap:
+                  9,
+                color:
+                  COLORS.navy,
+                textDecoration:
+                  "none",
+              }}
+            >
+              <PawMark />
+
+              <span
+                style={{
+                  fontFamily:
+                    '"Space Grotesk", Arial, sans-serif',
+                  fontWeight:
+                    700,
+                  fontSize:
+                    18,
+                  letterSpacing:
+                    ".035em",
+                  whiteSpace:
+                    "nowrap",
+                }}
+              >
+                PACK OF FIVE
+              </span>
+            </a>
+
+            <span
+              aria-label="Current state: Texas"
+              title="Texas"
+              style={{
+                display:
+                  "inline-flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "center",
+                minWidth:
+                  30,
+                height:
+                  24,
+                padding:
+                  "0 7px",
+                background:
+                  COLORS.pink,
+                color:
+                  COLORS.navy,
+                fontSize:
+                  11,
+                fontWeight:
+                  800,
+                letterSpacing:
+                  ".08em",
+                lineHeight:
+                  1,
+                borderRadius:
+                  4,
+              }}
+            >
+              TX
+            </span>
+          </div>
+
+          <nav
+            aria-label="Private portal navigation"
+            style={{
+              display:
+                "flex",
+              alignItems:
+                "center",
+              gap:
+                16,
+              flexWrap:
+                "wrap",
+            }}
+          >
+            {showOrganization && (
+              <TopPortalLink
+                href="/portal"
+                active={
+                  pathname ===
+                    "/portal" ||
+                  pathname.startsWith(
+                    "/portal/"
+                  ) ||
+                  pathname ===
+                    "/animals" ||
+                  pathname.startsWith(
+                    "/animals/"
+                  ) ||
+                  pathname ===
+                    "/fosters" ||
+                  pathname.startsWith(
+                    "/fosters/"
+                  )
+                }
+              >
+                Rescue Manager
+              </TopPortalLink>
+            )}
+
+            {showFoster && (
+              <TopPortalLink
+                href="/foster"
+                active={
+                  pathname ===
+                    "/foster" ||
+                  pathname.startsWith(
+                    "/foster/"
+                  )
+                }
+              >
+                Foster Portal
+              </TopPortalLink>
+            )}
+
+            {showPetOwner && (
+              <TopPortalLink
+                href="/pet-owner"
+                active={
+                  pathname ===
+                    "/pet-owner" ||
+                  pathname.startsWith(
+                    "/pet-owner/"
+                  )
+                }
+              >
+                Pet Owner
+              </TopPortalLink>
+            )}
+
+            <a
+              href="/account"
+              style={
+                topUtilityLinkStyle
+              }
+            >
+              Account
+            </a>
+
+            <button
+              type="button"
+              onClick={
+                signOut
+              }
+              style={
+                topSignOutStyle
+              }
+            >
+              Sign Out
+            </button>
+          </nav>
+        </div>
+
+        <div
+          style={{
+            minHeight:
+              42,
+            borderTop:
+              "1px solid #F0F2F5",
+            display:
+              "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "flex-end",
+            gap:
+              22,
+            flexWrap:
+              "wrap",
+          }}
+        >
+          <a
+            href="/organizations"
+            style={
+              publicLinkStyle
+            }
+          >
+            Directory
+          </a>
+
+          <a
+            href="/adoptable"
+            style={
+              publicLinkStyle
+            }
+          >
+            Adoptable Pets
+          </a>
+
+          <a
+            href="/resources"
+            style={
+              publicLinkStyle
+            }
+          >
+            Resources
+          </a>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function TopPortalLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      style={{
+        textDecoration:
+          "none",
+        color:
+          COLORS.navy,
+        fontSize:
+          13,
+        fontWeight:
+          active
+            ? 800
+            : 700,
+        whiteSpace:
+          "nowrap",
+        padding:
+          "7px 0 6px",
+        borderBottom:
+          active
+            ? `2px solid ${COLORS.coral}`
+            : "2px solid transparent",
+      }}
+    >
+      {children}
+    </a>
   );
 }
 
@@ -420,6 +805,9 @@ function ManagerShell({
           COLORS.background,
       }}
     >
+      <SignedInHeader
+        user={user}
+      />
       {user.role === "admin" &&
         testOrg && (
           <div
@@ -862,6 +1250,42 @@ const publicLinkStyle = {
   fontWeight: 700,
   whiteSpace: "nowrap",
 } as const;
+
+const topUtilityLinkStyle:
+  CSSProperties =
+{
+  textDecoration:
+    "none",
+  color:
+    COLORS.muted,
+  fontSize:
+    12.5,
+  fontWeight:
+    700,
+  whiteSpace:
+    "nowrap",
+};
+
+const topSignOutStyle:
+  CSSProperties =
+{
+  background:
+    "transparent",
+  color:
+    COLORS.muted,
+  border:
+    `1px solid ${COLORS.border}`,
+  borderRadius:
+    6,
+  padding:
+    "6px 9px",
+  fontSize:
+    12,
+  fontWeight:
+    700,
+  cursor:
+    "pointer",
+};
 
 const darkLinkStyle = {
   textDecoration: "none",
