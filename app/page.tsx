@@ -219,7 +219,7 @@ export default function HomePage() {
             margin:
               "0 auto",
             padding:
-              "74px 24px 72px",
+              "42px 24px 38px",
             textAlign:
               "center",
           }}
@@ -252,7 +252,7 @@ export default function HomePage() {
               color:
                 COLORS.navy,
               fontSize:
-                "clamp(42px, 7vw, 72px)",
+                "clamp(36px, 6vw, 58px)",
               lineHeight:
                 1.02,
               letterSpacing:
@@ -267,11 +267,11 @@ export default function HomePage() {
               maxWidth:
                 720,
               margin:
-                "22px auto 0",
+                "14px auto 0",
               color:
                 COLORS.muted,
               fontSize:
-                18,
+                16.5,
               lineHeight:
                 1.65,
             }}
@@ -295,7 +295,7 @@ export default function HomePage() {
           margin:
             "0 auto",
           padding:
-            "26px 24px 42px",
+            "18px 24px 24px",
         }}
       >
         <p
@@ -438,7 +438,7 @@ export default function HomePage() {
             margin:
               "0 auto",
             padding:
-              "18px 24px 34px",
+              "10px 24px 20px",
           }}
         >
           <div
@@ -471,7 +471,7 @@ export default function HomePage() {
                   color:
                     COLORS.navy,
                   fontSize:
-                    25,
+                    21,
                   letterSpacing:
                     "-.025em",
                 }}
@@ -523,9 +523,9 @@ export default function HomePage() {
                     display:
                       "block",
                     flex:
-                      "0 0 168px",
+                      "0 0 132px",
                     height:
-                      126,
+                      92,
                     overflow:
                       "hidden",
                     background:
@@ -592,8 +592,8 @@ export default function HomePage() {
             "0 auto",
           padding:
             showStats
-              ? "72px 24px 30px"
-              : "64px 24px 30px",
+              ? "38px 24px 20px"
+              : "28px 24px 20px",
         }}
       >
         <div
@@ -603,7 +603,7 @@ export default function HomePage() {
             maxWidth:
               720,
             margin:
-              "0 auto 30px",
+              "0 auto 18px",
           }}
         >
           <p
@@ -621,7 +621,7 @@ export default function HomePage() {
               color:
                 COLORS.navy,
               fontSize:
-                "clamp(28px, 4vw, 40px)",
+                "clamp(25px, 3.5vw, 34px)",
               letterSpacing:
                 "-.03em",
             }}
@@ -1050,9 +1050,9 @@ function PortalCard({
       style={{
         background,
         padding:
-          26,
+          20,
         minHeight:
-          310,
+          230,
         display:
           "flex",
         flexDirection:
@@ -1069,9 +1069,9 @@ function PortalCard({
           justifyContent:
             "center",
           width:
-            46,
+            38,
           height:
-            46,
+            38,
           background:
             "rgba(255,255,255,.62)",
           color:
@@ -1083,7 +1083,7 @@ function PortalCard({
           letterSpacing:
             ".08em",
           marginBottom:
-            22,
+            14,
         }}
       >
         {symbol}
@@ -1096,7 +1096,7 @@ function PortalCard({
           color:
             COLORS.navy,
           fontSize:
-            24,
+            20,
           letterSpacing:
             "-.025em",
         }}
@@ -1107,11 +1107,11 @@ function PortalCard({
       <p
         style={{
           margin:
-            "0 0 24px",
+            "0 0 15px",
           color:
             COLORS.muted,
           fontSize:
-            14.5,
+            13.5,
           lineHeight:
             1.65,
           flex:
@@ -1181,11 +1181,19 @@ function ActionLink({
         display:
           "block",
         padding:
-          "22px 20px",
+          "15px 16px",
         color:
           "inherit",
         textDecoration:
           "none",
+        background:
+          title === "Directory"
+            ? COLORS.org
+            : title === "Adoptable Pets"
+            ? COLORS.foster
+            : title === "Resources"
+            ? COLORS.owner
+            : COLORS.hero,
       }}
     >
       <strong
@@ -1195,7 +1203,7 @@ function ActionLink({
           color:
             COLORS.navy,
           fontSize:
-            16,
+            14.5,
           marginBottom:
             7,
         }}
@@ -1225,7 +1233,7 @@ function ActionLink({
           fontWeight:
             800,
           marginTop:
-            13,
+            8,
           fontSize:
             13,
         }}
