@@ -34,6 +34,11 @@ export default function HomePage() {
     });
 
   const [
+    isMobile,
+    setIsMobile,
+  ] = useState(false);
+
+  const [
     successAnimals,
     setSuccessAnimals,
   ] = useState<
@@ -43,6 +48,29 @@ export default function HomePage() {
       photoUrl: string;
     }>
   >([]);
+
+  useEffect(() => {
+    function syncViewport() {
+      setIsMobile(
+        window.innerWidth <
+          700
+      );
+    }
+
+    syncViewport();
+
+    window.addEventListener(
+      "resize",
+      syncViewport
+    );
+
+    return () => {
+      window.removeEventListener(
+        "resize",
+        syncViewport
+      );
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,7 +247,9 @@ export default function HomePage() {
             margin:
               "0 auto",
             padding:
-              "42px 24px 38px",
+              isMobile
+                ? "28px 18px 26px"
+                : "42px 24px 38px",
             textAlign:
               "center",
           }}
@@ -252,7 +282,9 @@ export default function HomePage() {
               color:
                 COLORS.navy,
               fontSize:
-                "clamp(36px, 6vw, 58px)",
+                isMobile
+                  ? "36px"
+                  : "clamp(36px, 6vw, 58px)",
               lineHeight:
                 1.02,
               letterSpacing:
@@ -271,7 +303,9 @@ export default function HomePage() {
               color:
                 COLORS.muted,
               fontSize:
-                16.5,
+                isMobile
+                  ? 15
+                  : 16.5,
               lineHeight:
                 1.65,
             }}
@@ -295,7 +329,9 @@ export default function HomePage() {
           margin:
             "0 auto",
           padding:
-            "18px 24px 24px",
+            isMobile
+              ? "14px 18px 18px"
+              : "18px 24px 24px",
         }}
       >
         <p
@@ -311,7 +347,13 @@ export default function HomePage() {
             display:
               "grid",
             gridTemplateColumns:
-              "repeat(auto-fit, minmax(220px, 1fr))",
+              isMobile
+                ? "1fr 1fr"
+                : "repeat(4, minmax(0, 1fr))",
+            gap:
+              isMobile
+                ? 8
+                : 0,
             marginTop:
               14,
             background:
@@ -319,24 +361,36 @@ export default function HomePage() {
           }}
         >
           <ActionLink
+            compact={
+              isMobile
+            }
             title="Directory"
             text="Search rescues, shelters, and animal-welfare organizations."
             href="/organizations"
           />
 
           <ActionLink
+            compact={
+              isMobile
+            }
             title="Adoptable Pets"
             text="Browse animals shared publicly by participating organizations."
             href="/adoptable"
           />
 
           <ActionLink
+            compact={
+              isMobile
+            }
             title="Resources"
             text="Find practical information for pet owners and animal advocates."
             href="/resources"
           />
 
           <ActionLink
+            compact={
+              isMobile
+            }
             title="Request an Organization"
             text="Suggest an organization that should be included in the network."
             href="/request-organization"
@@ -438,7 +492,9 @@ export default function HomePage() {
             margin:
               "0 auto",
             padding:
-              "10px 24px 20px",
+              isMobile
+                ? "8px 18px 16px"
+                : "10px 24px 20px",
           }}
         >
           <div
@@ -523,9 +579,13 @@ export default function HomePage() {
                     display:
                       "block",
                     flex:
-                      "0 0 132px",
+                      isMobile
+                        ? "0 0 112px"
+                        : "0 0 132px",
                     height:
-                      92,
+                      isMobile
+                        ? 82
+                        : 92,
                     overflow:
                       "hidden",
                     background:
@@ -591,7 +651,9 @@ export default function HomePage() {
           margin:
             "0 auto",
           padding:
-            showStats
+            isMobile
+              ? "22px 18px 16px"
+              : showStats
               ? "38px 24px 20px"
               : "28px 24px 20px",
         }}
@@ -653,12 +715,19 @@ export default function HomePage() {
             display:
               "grid",
             gridTemplateColumns:
-              "repeat(auto-fit, minmax(250px, 1fr))",
+              isMobile
+                ? "1fr"
+                : "repeat(3, minmax(0, 1fr))",
             gap:
-              18,
+              isMobile
+                ? 10
+                : 18,
           }}
         >
           <PortalCard
+            compact={
+              isMobile
+            }
             background={
               COLORS.org
             }
@@ -670,6 +739,9 @@ export default function HomePage() {
           />
 
           <PortalCard
+            compact={
+              isMobile
+            }
             background={
               COLORS.owner
             }
@@ -681,6 +753,9 @@ export default function HomePage() {
           />
 
           <PortalCard
+            compact={
+              isMobile
+            }
             background={
               COLORS.foster
             }
@@ -710,7 +785,9 @@ export default function HomePage() {
             margin:
               "0 auto",
             padding:
-              "54px 24px",
+              isMobile
+                ? "36px 18px"
+                : "54px 24px",
             textAlign:
               "center",
           }}
@@ -781,7 +858,9 @@ export default function HomePage() {
           margin:
             "0 auto",
           padding:
-            "30px 24px 40px",
+            isMobile
+              ? "22px 18px 28px"
+              : "30px 24px 40px",
           display:
             "flex",
           alignItems:
@@ -792,6 +871,14 @@ export default function HomePage() {
             18,
           flexWrap:
             "wrap",
+          flexDirection:
+            isMobile
+              ? "column"
+              : "row",
+          alignItems:
+            isMobile
+              ? "flex-start"
+              : "center",
           color:
             COLORS.muted,
           fontSize:
@@ -1027,6 +1114,7 @@ function PawMark() {
 }
 
 function PortalCard({
+  compact,
   background,
   symbol,
   title,
@@ -1036,6 +1124,7 @@ function PortalCard({
   secondaryHref,
   secondaryText,
 }: {
+  compact: boolean;
   background: string;
   symbol: string;
   title: string;
@@ -1050,9 +1139,13 @@ function PortalCard({
       style={{
         background,
         padding:
-          20,
+          compact
+            ? 16
+            : 20,
         minHeight:
-          230,
+          compact
+            ? 0
+            : 230,
         display:
           "flex",
         flexDirection:
@@ -1083,7 +1176,9 @@ function PortalCard({
           letterSpacing:
             ".08em",
           marginBottom:
-            14,
+            compact
+              ? 10
+              : 14,
         }}
       >
         {symbol}
@@ -1096,7 +1191,9 @@ function PortalCard({
           color:
             COLORS.navy,
           fontSize:
-            20,
+            compact
+              ? 18
+              : 20,
           letterSpacing:
             "-.025em",
         }}
@@ -1111,9 +1208,13 @@ function PortalCard({
           color:
             COLORS.muted,
           fontSize:
-            13.5,
+            compact
+              ? 13
+              : 13.5,
           lineHeight:
-            1.65,
+            compact
+              ? 1.5
+              : 1.65,
           flex:
             1,
         }}
@@ -1166,10 +1267,12 @@ function PortalCard({
 }
 
 function ActionLink({
+  compact,
   title,
   text,
   href,
 }: {
+  compact: boolean;
   title: string;
   text: string;
   href: string;
@@ -1181,7 +1284,9 @@ function ActionLink({
         display:
           "block",
         padding:
-          "15px 16px",
+          compact
+            ? "12px 12px"
+            : "15px 16px",
         color:
           "inherit",
         textDecoration:
@@ -1203,7 +1308,9 @@ function ActionLink({
           color:
             COLORS.navy,
           fontSize:
-            14.5,
+            compact
+              ? 13.5
+              : 14.5,
           marginBottom:
             7,
         }}
@@ -1216,9 +1323,11 @@ function ActionLink({
           color:
             COLORS.muted,
           fontSize:
-            13.5,
+            compact
+              ? 12.5
+              : 13.5,
           lineHeight:
-            1.55,
+            1.45,
         }}
       >
         {text}
