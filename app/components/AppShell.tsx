@@ -124,26 +124,12 @@ function PublicHeader({
 }: {
   user: ShellUser;
 }) {
-  const accountHref =
-    user?.role === "admin"
-      ? "/admin"
-      : user?.role === "org" &&
-        user.status === "approved"
-      ? "/portal"
-      : "/portal";
-
-  const accountLabel =
-    user?.role === "admin"
-      ? "Admin"
-      : user?.role === "org" &&
-        user.status === "approved"
-      ? "Rescue Manager"
-      : "Portal Login";
-
   return (
     <header
       style={{
         background: COLORS.surface,
+        borderBottom:
+          "1px solid #E8EDF2",
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -152,41 +138,72 @@ function PublicHeader({
       <div
         style={{
           maxWidth: 1180,
-          minHeight: 72,
+          minHeight: 58,
           margin: "0 auto",
-          padding: "0 24px",
+          padding: "0 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 22,
+          gap: 18,
           flexWrap: "wrap",
         }}
       >
-        <a
-          href="/"
-          aria-label="Pack of Five home"
+        <div
           style={{
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
-            gap: 10,
-            color: COLORS.navy,
-            textDecoration: "none",
+            gap: 9,
           }}
         >
-          <PawMark />
-
-          <span
+          <a
+            href="/"
+            aria-label="Pack of Five home"
             style={{
-              fontFamily:
-                '"Space Grotesk", Arial, sans-serif',
-              fontWeight: 700,
-              fontSize: 19,
-              letterSpacing: ".035em",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 9,
+              color: COLORS.navy,
+              textDecoration: "none",
             }}
           >
-            PACK OF FIVE
+            <PawMark />
+
+            <span
+              style={{
+                fontFamily:
+                  '"Space Grotesk", Arial, sans-serif',
+                fontWeight: 700,
+                fontSize: 18,
+                letterSpacing: ".035em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              PACK OF FIVE
+            </span>
+          </a>
+
+          <span
+            aria-label="Current state: Texas"
+            title="Texas"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: 30,
+              height: 24,
+              padding: "0 7px",
+              background: COLORS.pink,
+              color: COLORS.navy,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: ".08em",
+              lineHeight: 1,
+              borderRadius: 4,
+            }}
+          >
+            TX
           </span>
-        </a>
+        </div>
 
         <nav
           aria-label="Public navigation"
@@ -197,35 +214,25 @@ function PublicHeader({
             flexWrap: "wrap",
           }}
         >
-          <a href="/organizations" style={publicLinkStyle}>
+          <a
+            href="/organizations"
+            style={publicLinkStyle}
+          >
             Directory
           </a>
 
-          <a href="/adoptable" style={publicLinkStyle}>
+          <a
+            href="/adoptable"
+            style={publicLinkStyle}
+          >
             Adoptable Pets
           </a>
 
-          <a href="/resources" style={publicLinkStyle}>
-            Resources
-          </a>
-
-          <a href="/support" style={publicLinkStyle}>
-            Support
-          </a>
-
           <a
-            href={accountHref}
-            style={{
-              textDecoration: "none",
-              background: COLORS.navy,
-              color: "#fff",
-              padding: "9px 14px",
-              fontSize: 13,
-              fontWeight: 800,
-              whiteSpace: "nowrap",
-            }}
+            href="/resources"
+            style={publicLinkStyle}
           >
-            {accountLabel}
+            Resources
           </a>
         </nav>
       </div>
@@ -240,8 +247,8 @@ function PawMark() {
       style={{
         position: "relative",
         display: "inline-block",
-        width: 32,
-        height: 30,
+        width: 28,
+        height: 26,
         flex: "0 0 auto",
       }}
     >
@@ -249,7 +256,7 @@ function PawMark() {
         style={{
           ...pawToeStyle,
           left: 1,
-          top: 6,
+          top: 5,
           background: COLORS.coral,
           transform: "rotate(-24deg)",
         }}
@@ -258,7 +265,7 @@ function PawMark() {
       <span
         style={{
           ...pawToeStyle,
-          left: 8,
+          left: 7,
           top: 0,
           background: COLORS.peach,
           transform: "rotate(-8deg)",
@@ -268,7 +275,7 @@ function PawMark() {
       <span
         style={{
           ...pawToeStyle,
-          right: 7,
+          right: 6,
           top: 0,
           background: COLORS.mint,
           transform: "rotate(8deg)",
@@ -279,7 +286,7 @@ function PawMark() {
         style={{
           ...pawToeStyle,
           right: 0,
-          top: 6,
+          top: 5,
           background: COLORS.pink,
           transform: "rotate(24deg)",
         }}
@@ -288,10 +295,10 @@ function PawMark() {
       <span
         style={{
           position: "absolute",
-          left: 7,
+          left: 6,
           bottom: 0,
-          width: 19,
-          height: 17,
+          width: 17,
+          height: 15,
           borderRadius: "50% 50% 45% 45%",
           background: COLORS.navy,
         }}
@@ -832,8 +839,8 @@ function ManagerLink({
 
 const pawToeStyle: CSSProperties = {
   position: "absolute",
-  width: 8,
-  height: 11,
+  width: 7,
+  height: 9,
   borderRadius: "50%",
 };
 
