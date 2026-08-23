@@ -863,8 +863,6 @@ export default function HomePage() {
               : "30px 24px 40px",
           display:
             "flex",
-          alignItems:
-            "center",
           justifyContent:
             "space-between",
           gap:
