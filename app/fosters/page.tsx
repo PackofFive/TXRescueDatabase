@@ -20,6 +20,11 @@ type Relationship = {
   access_level: string;
   created_at: string;
   approved_at: string | null;
+
+  invitation_id: string | null;
+  invitation_status: string | null;
+  invitation_created_at: string | null;
+  invitation_expires_at: string | null;
 };
 
 type Invitation = {
@@ -111,6 +116,25 @@ export default function FosterManagementPage() {
     useState<
       string | null
     >(null);
+
+  const [
+    expandedRelationshipId,
+    setExpandedRelationshipId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    relationshipInviteLinks,
+    setRelationshipInviteLinks,
+  ] =
+    useState<
+      Record<
+        string,
+        string
+      >
+    >({});
 
   useEffect(() => {
     void load();
@@ -305,6 +329,118 @@ export default function FosterManagementPage() {
       setWorkingRelationshipId(
         null
       );
+    }
+  }
+
+  async function regenerateInvite(
+    relationshipId: string
+  ) {
+    setWorkingRelationshipId(
+      relationshipId
+    );
+
+    setError(null);
+    setCopied(false);
+
+    try {
+      const res =
+        await fetch(
+          "/api/fosters/invitations",
+          {
+            method:
+              "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                relationshipId,
+              }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't create a new invitation link."
+        );
+      }
+
+      setRelationshipInviteLinks(
+        (current) => ({
+          ...current,
+          [relationshipId]:
+            data.inviteUrl,
+        })
+      );
+
+      setRelationships(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              relationshipId
+                ? {
+                    ...item,
+                    invitation_id:
+                      data.invitation
+                        ?.id ??
+                      item.invitation_id,
+                    invitation_status:
+                      data.invitation
+                        ?.status ??
+                      "pending",
+                    invitation_created_at:
+                      data.invitation
+                        ?.created_at ??
+                      item.invitation_created_at,
+                    invitation_expires_at:
+                      data.invitation
+                        ?.expires_at ??
+                      item.invitation_expires_at,
+                  }
+                : item
+          )
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't create a new invitation link."
+      );
+    } finally {
+      setWorkingRelationshipId(
+        null
+      );
+    }
+  }
+
+  async function copyRelationshipInvite(
+    relationshipId: string
+  ) {
+    const value =
+      relationshipInviteLinks[
+        relationshipId
+      ];
+
+    if (!value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        value
+      );
+
+      setCopied(true);
+    } catch {
+      setCopied(false);
     }
   }
 
@@ -702,155 +838,447 @@ export default function FosterManagementPage() {
           </p>
         ) : (
           relationships.map(
-            (item) => (
-              <div
-                key={
+            (item) => {
+              const expanded =
+                expandedRelationshipId ===
+                item.id;
+
+              const liveInvite =
+                relationshipInviteLinks[
                   item.id
-                }
-                style={{
-                  display:
-                    "grid",
-                  gridTemplateColumns:
-                    "minmax(180px, 1fr) minmax(160px, .8fr) minmax(210px, auto)",
-                  gap:
-                    12,
-                  alignItems:
-                    "center",
-                  padding:
-                    "12px 15px",
-                  borderBottom:
-                    `1px solid ${COLORS.border}`,
-                }}
-              >
-                <div>
-                  <strong
-                    style={{
-                      color:
-                        COLORS.navy,
-                      fontSize:
-                        13.5,
-                    }}
-                  >
-                    {
-                      item.full_name
-                    }
-                  </strong>
+                ];
 
-                  <div
-                    style={{
-                      marginTop:
-                        2,
-                      color:
-                        COLORS.muted,
-                      fontSize:
-                        11.5,
-                    }}
-                  >
-                    {item.email ??
-                      "No email"}
-                  </div>
-                </div>
-
+              return (
                 <div
+                  key={
+                    item.id
+                  }
                   style={{
-                    color:
-                      COLORS.muted,
-                    fontSize:
-                      12,
+                    borderBottom:
+                      `1px solid ${COLORS.border}`,
                   }}
                 >
-                  {[
-                    item.city,
-                    item.state,
-                  ]
-                    .filter(
-                      Boolean
-                    )
-                    .join(
-                      ", "
-                    ) ||
-                    "Location not recorded"}
-                </div>
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    justifyContent:
-                      "flex-end",
-                    gap:
-                      7,
-                    flexWrap:
-                      "wrap",
-                  }}
-                >
-                  <StatusBadge
-                    value={
-                      item.status
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedRelationshipId(
+                        expanded
+                          ? null
+                          : item.id
+                      )
                     }
-                  />
-
-                  {item.status ===
-                    "pending" && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={
-                          workingRelationshipId ===
-                          item.id
-                        }
-                        onClick={() =>
-                          reviewRelationship(
-                            item.id,
-                            "approve"
-                          )
-                        }
+                    style={{
+                      width:
+                        "100%",
+                      border:
+                        "none",
+                      background:
+                        COLORS.white,
+                      padding:
+                        "12px 15px",
+                      display:
+                        "grid",
+                      gridTemplateColumns:
+                        "minmax(180px, 1fr) minmax(150px, .8fr) auto auto",
+                      gap:
+                        12,
+                      alignItems:
+                        "center",
+                      textAlign:
+                        "left",
+                      cursor:
+                        "pointer",
+                      fontFamily:
+                        "inherit",
+                    }}
+                  >
+                    <div>
+                      <strong
                         style={{
-                          ...smallApproveButton,
-                          opacity:
-                            workingRelationshipId ===
-                            item.id
-                              ? 0.6
-                              : 1,
+                          color:
+                            COLORS.navy,
+                          fontSize:
+                            13.5,
                         }}
                       >
-                        Approve
-                      </button>
+                        {
+                          item.full_name
+                        }
+                      </strong>
 
-                      <button
-                        type="button"
-                        disabled={
-                          workingRelationshipId ===
-                          item.id
-                        }
-                        onClick={() =>
-                          reviewRelationship(
-                            item.id,
-                            "decline"
-                          )
-                        }
+                      <div
                         style={{
-                          ...smallDeclineButton,
-                          opacity:
-                            workingRelationshipId ===
-                            item.id
-                              ? 0.6
-                              : 1,
+                          marginTop:
+                            2,
+                          color:
+                            COLORS.muted,
+                          fontSize:
+                            11.5,
                         }}
                       >
-                        Decline
-                      </button>
-                    </>
+                        {item.email ??
+                          "No email"}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        color:
+                          COLORS.muted,
+                        fontSize:
+                          12,
+                      }}
+                    >
+                      {[
+                        item.city,
+                        item.state,
+                      ]
+                        .filter(
+                          Boolean
+                        )
+                        .join(
+                          ", "
+                        ) ||
+                        "Location not recorded"}
+                    </div>
+
+                    <StatusBadge
+                      value={
+                        item.status
+                      }
+                    />
+
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        color:
+                          COLORS.muted,
+                        fontSize:
+                          15,
+                      }}
+                    >
+                      {expanded
+                        ? "▲"
+                        : "▼"}
+                    </span>
+                  </button>
+
+                  {expanded && (
+                    <div
+                      style={{
+                        padding:
+                          "0 15px 15px",
+                        background:
+                          "#FBFCFD",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display:
+                            "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap:
+                            10,
+                          padding:
+                            "12px 0",
+                        }}
+                      >
+                        <Detail
+                          label="Relationship"
+                          value={
+                            item.status
+                          }
+                        />
+
+                        <Detail
+                          label="Availability"
+                          value={
+                            item.availability_status ??
+                            "Not recorded"
+                          }
+                        />
+
+                        <Detail
+                          label="Transport"
+                          value={
+                            item.transport_available
+                              ? "Available"
+                              : "Not listed"
+                          }
+                        />
+
+                        <Detail
+                          label="Access"
+                          value={
+                            item.access_level
+                          }
+                        />
+
+                        <Detail
+                          label="Invite Status"
+                          value={
+                            item.invitation_status ??
+                            "No invitation"
+                          }
+                        />
+
+                        <Detail
+                          label="Invite Expires"
+                          value={
+                            item.invitation_expires_at
+                              ? new Date(
+                                  item.invitation_expires_at
+                                ).toLocaleDateString()
+                              : "—"
+                          }
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+                          gap:
+                            8,
+                          alignItems:
+                            "center",
+                          flexWrap:
+                            "wrap",
+                        }}
+                      >
+                        {item.status ===
+                          "pending" && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={
+                                workingRelationshipId ===
+                                item.id
+                              }
+                              onClick={() =>
+                                reviewRelationship(
+                                  item.id,
+                                  "approve"
+                                )
+                              }
+                              style={{
+                                ...smallApproveButton,
+                                opacity:
+                                  workingRelationshipId ===
+                                  item.id
+                                    ? 0.6
+                                    : 1,
+                              }}
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={
+                                workingRelationshipId ===
+                                item.id
+                              }
+                              onClick={() =>
+                                reviewRelationship(
+                                  item.id,
+                                  "decline"
+                                )
+                              }
+                              style={{
+                                ...smallDeclineButton,
+                                opacity:
+                                  workingRelationshipId ===
+                                  item.id
+                                    ? 0.6
+                                    : 1,
+                              }}
+                            >
+                              Decline
+                            </button>
+                          </>
+                        )}
+
+                        {item.status ===
+                          "invited" && (
+                          <button
+                            type="button"
+                            disabled={
+                              workingRelationshipId ===
+                              item.id
+                            }
+                            onClick={() =>
+                              regenerateInvite(
+                                item.id
+                              )
+                            }
+                            style={
+                              secondaryButton
+                            }
+                          >
+                            {liveInvite
+                              ? "Generate New Link"
+                              : "Generate New Invite Link"}
+                          </button>
+                        )}
+                      </div>
+
+                      {liveInvite && (
+                        <div
+                          style={{
+                            marginTop:
+                              10,
+                            padding:
+                              10,
+                            background:
+                              COLORS.white,
+                            border:
+                              `1px solid ${COLORS.border}`,
+                          }}
+                        >
+                          <div
+                            style={{
+                              color:
+                                COLORS.muted,
+                              fontSize:
+                                11.5,
+                              marginBottom:
+                                5,
+                            }}
+                          >
+                            New secure invitation link
+                          </div>
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              gap:
+                                8,
+                              alignItems:
+                                "center",
+                              flexWrap:
+                                "wrap",
+                            }}
+                          >
+                            <code
+                              style={{
+                                flex:
+                                  1,
+                                minWidth:
+                                  220,
+                                overflowWrap:
+                                  "anywhere",
+                                fontSize:
+                                  11.5,
+                                color:
+                                  COLORS.navy,
+                              }}
+                            >
+                              {liveInvite}
+                            </code>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                copyRelationshipInvite(
+                                  item.id
+                                )
+                              }
+                              style={
+                                secondaryButton
+                              }
+                            >
+                              {copied
+                                ? "Copied"
+                                : "Copy Link"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <p
+                        style={{
+                          margin:
+                            "10px 0 0",
+                          color:
+                            COLORS.muted,
+                          fontSize:
+                            11.25,
+                          lineHeight:
+                            1.45,
+                        }}
+                      >
+                        For security,
+                        Pack of Five stores
+                        only a one-way hash
+                        of invitation links.
+                        The original link
+                        cannot be recovered
+                        after the page is
+                        reloaded. Generate a
+                        new link here if you
+                        need to resend it.
+                      </p>
+                    </div>
                   )}
                 </div>
-              </div>
-            )
+              );
+            }
           )
         )}
       </div>
     </section>
+  );
+}
+
+function Detail({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          color:
+            COLORS.muted,
+          fontSize:
+            10.5,
+          fontWeight:
+            750,
+          textTransform:
+            "uppercase",
+          letterSpacing:
+            ".04em",
+          marginBottom:
+            3,
+        }}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          color:
+            COLORS.navy,
+          fontSize:
+            12.5,
+          textTransform:
+            label ===
+              "Relationship" ||
+            label ===
+              "Invite Status"
+              ? "capitalize"
+              : "none",
+        }}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 
