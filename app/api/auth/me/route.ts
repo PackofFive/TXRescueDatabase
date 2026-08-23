@@ -9,30 +9,12 @@ export async function GET() {
   try {
     const session = await getSession();
 
-    if (
-      !session ||
-      session.status !== "approved"
-    ) {
+    if (!session || session.status !== "approved") {
       return NextResponse.json(
-        {
-          user: null,
-        },
-        {
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        }
+        { user: null },
+        { headers: { "Cache-Control": "no-store" } }
       );
     }
-
-    /*
-      Resolve organization identity from orgId.
-
-      This works for:
-      - normal rescue/shelter accounts
-      - Admin Test Mode, because the selected test
-        organization is stored as orgId in the admin session
-    */
 
     let orgName: string | null = null;
 
@@ -44,10 +26,26 @@ export async function GET() {
         limit 1
       `;
 
-      orgName =
-        rows[0]?.name
-          ? String(rows[0].name)
-          : null;
+      orgName = rows[0]?.name
+        ? String(rows[0].name)
+        : null;
+    }
+
+    const availablePortals: string[] = [];
+
+    if (session.role === "admin") {
+      availablePortals.push("admin");
+
+      if (session.orgId) {
+        availablePortals.push("organization");
+      }
+    }
+
+    if (
+      session.role === "org" &&
+      session.status === "approved"
+    ) {
+      availablePortals.push("organization");
     }
 
     return NextResponse.json(
@@ -56,32 +54,23 @@ export async function GET() {
           id: session.id,
           email: session.email,
           role: session.role,
+          roles: [session.role],
           orgId: session.orgId,
           orgName,
           status: session.status,
+          availablePortals,
         },
       },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      }
+      { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
-    console.error(
-      "GET /api/auth/me failed:",
-      err
-    );
+    console.error("GET /api/auth/me failed:", err);
 
     return NextResponse.json(
-      {
-        user: null,
-      },
+      { user: null },
       {
         status: 500,
-        headers: {
-          "Cache-Control": "no-store",
-        },
+        headers: { "Cache-Control": "no-store" },
       }
     );
   }
