@@ -867,10 +867,70 @@ export default function DirectoryPage() {
     <div className="txdir-root">
       <style>{`
         .txdir-root {
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='%231C1B19' fill-opacity='0.035'%3E%3Cellipse cx='70' cy='78' rx='13' ry='16'/%3E%3Cellipse cx='53' cy='58' rx='6.5' ry='8'/%3E%3Cellipse cx='70' cy='50' rx='7' ry='8.5'/%3E%3Cellipse cx='87' cy='58' rx='6.5' ry='8'/%3E%3C/g%3E%3C/svg%3E");
-          background-repeat: repeat;
+          background: #FFFFFF;
           margin: -24px -28px;
-          padding: 24px 28px;
+          min-height: 100vh;
+          color: #1E3A5F;
+        }
+
+        .txdir-sitebar {
+          height: 58px;
+          padding: 0 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #E8EDF2;
+          background: #FFFFFF;
+          position: sticky;
+          top: 0;
+          z-index: 50;
+        }
+
+        .txdir-brandrow {
+          display: flex;
+          align-items: center;
+        }
+
+        .txdir-brand {
+          color: #1E3A5F;
+          text-decoration: none;
+          font-family: "Space Grotesk", Arial, sans-serif;
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: .035em;
+        }
+
+        .txdir-state {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 30px;
+          height: 24px;
+          padding: 0 7px;
+          margin-left: 9px;
+          background: #F2D6DC;
+          color: #1E3A5F;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .08em;
+          border-radius: 4px;
+        }
+
+        .txdir-home {
+          color: #4A5D75;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .txdir-home:hover {
+          color: #1E3A5F;
+        }
+
+        .txdir-content {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 24px 28px 50px;
         }
 
         .txdir-header {
@@ -878,12 +938,15 @@ export default function DirectoryPage() {
         }
 
         .txdir-header h1 {
-          font-size: 20px;
+          font-size: 28px;
+          line-height: 1.1;
+          letter-spacing: -.025em;
           margin: 0;
+          color: #1E3A5F;
         }
 
         .txdir-header p {
-          color: #6B6862;
+          color: #4A5D75;
           font-size: 13.5px;
           margin: 5px 0 0;
         }
@@ -900,7 +963,7 @@ export default function DirectoryPage() {
 
         .txdir-count .label {
           font-size: 11px;
-          color: #6B6862;
+          color: #4A5D75;
           margin-top: 3px;
         }
 
@@ -918,7 +981,7 @@ export default function DirectoryPage() {
           flex-wrap: wrap;
           padding: 0 0 14px 0;
           margin-bottom: 16px;
-          border-bottom: 1px solid #E7E5E1;
+          border-bottom: 1px solid #E8EDF2;
           font-size: 12px;
         }
 
@@ -926,7 +989,7 @@ export default function DirectoryPage() {
           display: flex;
           align-items: center;
           gap: 6px;
-          color: #6B6862;
+          color: #4A5D75;
         }
 
         .txdir-dot {
@@ -946,12 +1009,12 @@ export default function DirectoryPage() {
         .txdir-input,
         .txdir-select {
           background: #fff;
-          border: 1px solid #E7E5E1;
+          border: 1px solid #DCE4EC;
           border-radius: 6px;
           padding: 8px 11px;
           font-size: 13.5px;
           font-family: inherit;
-          color: #1C1B19;
+          color: #1E3A5F;
         }
 
         .txdir-input {
@@ -961,24 +1024,24 @@ export default function DirectoryPage() {
 
         .txdir-input:focus,
         .txdir-select:focus {
-          outline: 2px solid #C05621;
+          outline: 2px solid #E85C56;
           outline-offset: 1px;
         }
 
         .txdir-results-count {
           font-size: 12px;
-          color: #6B6862;
+          color: #4A5D75;
           margin-bottom: 10px;
           font-family: monospace;
         }
 
         .txdir-card {
           background: #fff;
-          border: 1px solid #E7E5E1;
+          border: 1px solid #DCE4EC;
           border-radius: 6px;
           padding: 14px 16px;
           margin-bottom: 8px;
-          box-shadow: 0 1px 2px rgba(28,27,25,0.04);
+          box-shadow: none;
           scroll-margin-top: 90px;
         }
 
@@ -998,13 +1061,13 @@ export default function DirectoryPage() {
 
         .txdir-card-meta {
           font-size: 12.5px;
-          color: #6B6862;
+          color: #4A5D75;
           margin-top: 3px;
         }
 
         .txdir-statewide-tag {
           display: inline-block;
-          color: #C05621;
+          color: #E85C56;
           font-weight: 600;
           font-size: 11.5px;
           margin-left: 4px;
@@ -1020,7 +1083,7 @@ export default function DirectoryPage() {
 
         .txdir-update-note {
           font-size: 12px;
-          color: #6B6862;
+          color: #4A5D75;
         }
 
         .txdir-resource-status {
@@ -1069,7 +1132,7 @@ export default function DirectoryPage() {
 
         .txdir-adoptable-link {
           display: inline-block;
-          background: #17233C;
+          background: #1E3A5F;
           color: #fff;
           text-decoration: none;
           font-size: 12px;
@@ -1079,11 +1142,11 @@ export default function DirectoryPage() {
         }
 
         .txdir-adoptable-link:hover {
-          background: #263652;
+          background: #294E78;
         }
 
         .txdir-adoptable-link:focus-visible {
-          outline: 3px solid #C05621;
+          outline: 3px solid #E85C56;
           outline-offset: 2px;
         }
 
@@ -1093,7 +1156,7 @@ export default function DirectoryPage() {
 
         .txdir-claim-link {
           font-size: 12px;
-          color: #C05621;
+          color: #E85C56;
           text-decoration: none;
           font-weight: 600;
         }
@@ -1103,7 +1166,7 @@ export default function DirectoryPage() {
         }
 
         .txdir-claim-link:focus-visible {
-          outline: 3px solid #C05621;
+          outline: 3px solid #E85C56;
           outline-offset: 2px;
           border-radius: 2px;
         }
@@ -1153,7 +1216,7 @@ export default function DirectoryPage() {
         }
 
         .txdir-detail-grid .k {
-          color: #6B6862;
+          color: #4A5D75;
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: .04em;
@@ -1166,7 +1229,7 @@ export default function DirectoryPage() {
         }
 
         .txdir-detail-grid .v a {
-          color: #C05621;
+          color: #E85C56;
           text-decoration: none;
         }
 
@@ -1175,7 +1238,7 @@ export default function DirectoryPage() {
         }
 
         .txdir-notes {
-          color: #6B6862;
+          color: #4A5D75;
           font-size: 12.5px;
           margin-top: 8px;
         }
@@ -1184,7 +1247,7 @@ export default function DirectoryPage() {
           font-size: 11.5px;
           text-transform: uppercase;
           letter-spacing: .06em;
-          color: #6B6862;
+          color: #4A5D75;
           font-weight: 600;
           margin-bottom: 10px;
           margin-top: 10px;
@@ -1193,14 +1256,14 @@ export default function DirectoryPage() {
         .txdir-empty {
           text-align: center;
           padding: 50px 20px;
-          color: #6B6862;
+          color: #4A5D75;
         }
 
         .txdir-card:focus,
         .txdir-card-top:focus-visible,
         .txdir-back-to-top:focus-visible,
         .txdir-alpha-btn:focus-visible {
-          outline: 3px solid #C05621;
+          outline: 3px solid #E85C56;
           outline-offset: 2px;
         }
 
@@ -1208,7 +1271,7 @@ export default function DirectoryPage() {
           position: fixed;
           right: 24px;
           bottom: 24px;
-          background: #1C1B19;
+          background: #1E3A5F;
           color: #fff;
           border: none;
           border-radius: 999px;
@@ -1217,12 +1280,12 @@ export default function DirectoryPage() {
           font-weight: 600;
           font-family: inherit;
           cursor: pointer;
-          box-shadow: 0 2px 8px rgba(28,27,25,0.25);
+          box-shadow: none;
           z-index: 40;
         }
 
         .txdir-back-to-top:hover {
-          background: #35322D;
+          background: #294E78;
         }
 
         .txdir-alpha-nav {
@@ -1234,7 +1297,7 @@ export default function DirectoryPage() {
           flex-direction: column;
           gap: 1px;
           background: #fff;
-          border: 1px solid #E7E5E1;
+          border: 1px solid #DCE4EC;
           border-radius: 8px;
           padding: 6px 3px;
           z-index: 30;
@@ -1246,7 +1309,7 @@ export default function DirectoryPage() {
           font-family: monospace;
           font-size: 11px;
           font-weight: 600;
-          color: #1C1B19;
+          color: #1E3A5F;
           padding: 2px 5px;
           border-radius: 3px;
           cursor: pointer;
@@ -1254,12 +1317,12 @@ export default function DirectoryPage() {
         }
 
         .txdir-alpha-btn:hover:not(:disabled) {
-          background: #FBEAE0;
-          color: #C05621;
+          background: #FBEFF1;
+          color: #E85C56;
         }
 
         .txdir-alpha-btn:disabled {
-          color: #C7C4BE;
+          color: #A7B2BE;
           cursor: default;
         }
 
@@ -1272,7 +1335,19 @@ export default function DirectoryPage() {
         @media (max-width: 640px) {
           .txdir-root {
             margin: -24px;
-            padding: 20px 16px;
+          }
+
+          .txdir-sitebar {
+            height: 54px;
+            padding: 0 16px;
+          }
+
+          .txdir-brand {
+            font-size: 16px;
+          }
+
+          .txdir-content {
+            padding: 20px 16px 40px;
           }
 
           .txdir-toprow {
@@ -1297,6 +1372,27 @@ export default function DirectoryPage() {
           }
         }
       `}</style>
+
+      <header className="txdir-sitebar">
+        <div className="txdir-brandrow">
+          <a className="txdir-brand" href="/">
+            PACK OF FIVE
+          </a>
+          <span
+            className="txdir-state"
+            aria-label="Current state: Texas"
+            title="Texas"
+          >
+            TX
+          </span>
+        </div>
+
+        <a className="txdir-home" href="/">
+          Home
+        </a>
+      </header>
+
+      <div className="txdir-content">
 
       {/* ===============================================
           ALPHABET
@@ -1368,19 +1464,13 @@ export default function DirectoryPage() {
             }
             tabIndex={-1}
           >
-            TX Animal Rescue
-            &amp; Resource
-            Database
+            Texas Organization
+            Directory
           </h1>
 
           <p>
-            Directory,
-            capability tracking,
-            and self-service
-            updates for Texas
-            rescues, shelters,
-            and resource
-            partners.
+            Find Texas rescues, shelters, and animal-welfare
+            organizations by location, species, and services.
           </p>
         </div>
 
@@ -1392,7 +1482,7 @@ export default function DirectoryPage() {
           </div>
 
           <div className="label">
-            Organizations loaded
+            Organizations
           </div>
         </div>
       </div>
@@ -2155,6 +2245,7 @@ export default function DirectoryPage() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
