@@ -586,7 +586,7 @@ function PublicHeader() {
             height: 24,
             padding: "0 7px",
             marginLeft: 9,
-            background: COLORS.hero,
+            background: COLORS.pink,
             color: COLORS.navy,
             fontSize: 11,
             fontWeight: 800,
