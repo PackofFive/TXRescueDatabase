@@ -30,6 +30,16 @@ type RequestedPortal =
   | "pet-owner"
   | "foster";
 
+type AuthUser = {
+  id?: string;
+  email?: string;
+  role?: string;
+  status?: string;
+  orgId?: string | null;
+  fosterId?: string | null;
+  availablePortals?: string[];
+};
+
 type PortalConfig = {
   title: string;
   description: string;
@@ -72,7 +82,7 @@ const PORTALS:
       accent:
         COLORS.mint,
       accountNote:
-        "Foster Portal features are being developed.",
+        "Approved foster relationships can use this portal.",
     },
   };
 
@@ -143,7 +153,9 @@ export default function LoginPage() {
       .then(
         (data) => {
           const user =
-            data.user;
+            data.user as
+              | AuthUser
+              | null;
 
           if (!user) {
             return;
@@ -221,7 +233,9 @@ export default function LoginPage() {
         await me.json();
 
       const user =
-        meData.user;
+        meData.user as
+          | AuthUser
+          | null;
 
       if (!user) {
         setStatus(
@@ -589,42 +603,46 @@ function normalizePortal(
 }
 
 function routeSignedInUser(
-  user: {
-    role?: string;
-    status?: string;
-  },
+  user: AuthUser,
   requestedPortal:
     RequestedPortal,
   setStatus: (
     value: string
   ) => void
 ) {
-  /*
-    Current backend roles only
-    support Admin and Organization.
+  const portals =
+    Array.isArray(
+      user.availablePortals
+    )
+      ? user.availablePortals
+      : [];
 
-    Pet Owner and Foster routing
-    will be added when those role
-    relationships are implemented.
+  /*
+    Admin remains a valid destination when someone explicitly
+    enters through the admin route, but an admin account may also
+    hold other portal memberships.
   */
 
   if (
-    user.role ===
-    "admin"
-  ) {
-    window.location.href =
-      "/admin";
-
-    return;
-  }
-
-  if (
-    user.role ===
-    "org"
+    requestedPortal ===
+    "organization"
   ) {
     if (
+      portals.includes(
+        "organization"
+      )
+    ) {
+      window.location.href =
+        "/portal";
+
+      return;
+    }
+
+    if (
+      user.role ===
+        "org" &&
       user.status ===
-      "pending"
+        "pending"
     ) {
       setStatus(
         "Your organization account is still pending approval."
@@ -633,45 +651,59 @@ function routeSignedInUser(
       return;
     }
 
-    if (
-      user.status !==
-      "approved"
-    ) {
-      setStatus(
-        "This organization account is not approved."
-      );
+    setStatus(
+      "This account does not currently have access to Rescue & Shelter Manager."
+    );
 
-      return;
-    }
+    return;
+  }
 
+  if (
+    requestedPortal ===
+    "foster"
+  ) {
     if (
-      requestedPortal ===
-      "organization"
+      portals.includes(
+        "foster"
+      )
     ) {
       window.location.href =
-        "/portal";
+        "/foster";
 
       return;
     }
 
     setStatus(
-      requestedPortal ===
+      "This account does not currently have access to the Foster Portal."
+    );
+
+    return;
+  }
+
+  if (
+    requestedPortal ===
+    "pet-owner"
+  ) {
+    if (
+      portals.includes(
         "pet-owner"
-        ? "This account does not currently have access to the Pet Owner Portal."
-        : "This account does not currently have access to the Foster Portal."
+      )
+    ) {
+      window.location.href =
+        "/pet-owner";
+
+      return;
+    }
+
+    setStatus(
+      "This account does not currently have access to the Pet Owner Portal."
     );
 
     return;
   }
 
   setStatus(
-    requestedPortal ===
-      "pet-owner"
-      ? "This account does not currently have access to the Pet Owner Portal."
-      : requestedPortal ===
-        "foster"
-      ? "This account does not currently have access to the Foster Portal."
-      : "This account does not have access to Rescue & Shelter Manager."
+    "This account does not have an available workspace."
   );
 }
 
