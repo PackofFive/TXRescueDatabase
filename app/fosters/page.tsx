@@ -104,6 +104,14 @@ export default function FosterManagementPage() {
   ] =
     useState(false);
 
+  const [
+    workingRelationshipId,
+    setWorkingRelationshipId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
   useEffect(() => {
     void load();
   }, []);
@@ -224,6 +232,79 @@ export default function FosterManagementPage() {
       setCopied(true);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function reviewRelationship(
+    relationshipId: string,
+    action:
+      | "approve"
+      | "decline"
+  ) {
+    setWorkingRelationshipId(
+      relationshipId
+    );
+
+    setError(null);
+
+    try {
+      const res =
+        await fetch(
+          "/api/fosters/invitations",
+          {
+            method:
+              "PATCH",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                relationshipId,
+                action,
+              }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Couldn't update foster relationship."
+        );
+      }
+
+      setRelationships(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              relationshipId
+                ? {
+                    ...item,
+                    status:
+                      action ===
+                      "approve"
+                        ? "approved"
+                        : "declined",
+                  }
+                : item
+          )
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't update foster relationship."
+      );
+    } finally {
+      setWorkingRelationshipId(
+        null
+      );
     }
   }
 
@@ -630,7 +711,7 @@ export default function FosterManagementPage() {
                   display:
                     "grid",
                   gridTemplateColumns:
-                    "minmax(180px, 1fr) minmax(180px, 1fr) auto",
+                    "minmax(180px, 1fr) minmax(160px, .8fr) minmax(210px, auto)",
                   gap:
                     12,
                   alignItems:
@@ -691,11 +772,79 @@ export default function FosterManagementPage() {
                     "Location not recorded"}
                 </div>
 
-                <StatusBadge
-                  value={
-                    item.status
-                  }
-                />
+                <div
+                  style={{
+                    display:
+                      "flex",
+                    alignItems:
+                      "center",
+                    justifyContent:
+                      "flex-end",
+                    gap:
+                      7,
+                    flexWrap:
+                      "wrap",
+                  }}
+                >
+                  <StatusBadge
+                    value={
+                      item.status
+                    }
+                  />
+
+                  {item.status ===
+                    "pending" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={
+                          workingRelationshipId ===
+                          item.id
+                        }
+                        onClick={() =>
+                          reviewRelationship(
+                            item.id,
+                            "approve"
+                          )
+                        }
+                        style={{
+                          ...smallApproveButton,
+                          opacity:
+                            workingRelationshipId ===
+                            item.id
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        Approve
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          workingRelationshipId ===
+                          item.id
+                        }
+                        onClick={() =>
+                          reviewRelationship(
+                            item.id,
+                            "decline"
+                          )
+                        }
+                        style={{
+                          ...smallDeclineButton,
+                          opacity:
+                            workingRelationshipId ===
+                            item.id
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        Decline
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )
           )
@@ -794,6 +943,44 @@ function StatusBadge({
     </span>
   );
 }
+
+const smallApproveButton:
+  React.CSSProperties =
+{
+  border:
+    "none",
+  background:
+    COLORS.navy,
+  color:
+    "#fff",
+  padding:
+    "6px 9px",
+  fontWeight:
+    800,
+  fontSize:
+    11,
+  cursor:
+    "pointer",
+};
+
+const smallDeclineButton:
+  React.CSSProperties =
+{
+  border:
+    "1px solid #E8C8C2",
+  background:
+    "#fff",
+  color:
+    "#B23B2E",
+  padding:
+    "5px 9px",
+  fontWeight:
+    800,
+  fontSize:
+    11,
+  cursor:
+    "pointer",
+};
 
 const inputStyle:
   React.CSSProperties =
