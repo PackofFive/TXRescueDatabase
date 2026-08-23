@@ -734,7 +734,7 @@ export default function HomePage() {
             symbol="ORG"
             title="Rescue or Shelter"
             text="Manage animals, records, public profiles, foster and help offers, and your organization information."
-            primaryHref="/portal"
+            primaryHref="/login?portal=organization"
             primaryText="Organization Portal"
           />
 
@@ -748,7 +748,7 @@ export default function HomePage() {
             symbol="PET"
             title="Pet Owner"
             text="Access your Pack of Five pet-owner tools and account."
-            primaryHref="/portal"
+            primaryHref="/login?portal=pet-owner"
             primaryText="Pet Owner Portal"
           />
 
@@ -762,7 +762,7 @@ export default function HomePage() {
             symbol="FOS"
             title="Foster"
             text="Access approved foster relationships, animals, applications, and foster tools."
-            primaryHref="/portal"
+            primaryHref="/login?portal=foster"
             primaryText="Foster Portal"
           />
         </div>
