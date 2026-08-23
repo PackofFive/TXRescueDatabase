@@ -873,60 +873,6 @@ export default function DirectoryPage() {
           color: #1E3A5F;
         }
 
-        .txdir-sitebar {
-          height: 58px;
-          padding: 0 28px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 1px solid #E8EDF2;
-          background: #FFFFFF;
-          position: sticky;
-          top: 0;
-          z-index: 50;
-        }
-
-        .txdir-brandrow {
-          display: flex;
-          align-items: center;
-        }
-
-        .txdir-brand {
-          color: #1E3A5F;
-          text-decoration: none;
-          font-family: "Space Grotesk", Arial, sans-serif;
-          font-size: 18px;
-          font-weight: 700;
-          letter-spacing: .035em;
-        }
-
-        .txdir-state {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 30px;
-          height: 24px;
-          padding: 0 7px;
-          margin-left: 9px;
-          background: #F2D6DC;
-          color: #1E3A5F;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: .08em;
-          border-radius: 4px;
-        }
-
-        .txdir-home {
-          color: #4A5D75;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-        }
-
-        .txdir-home:hover {
-          color: #1E3A5F;
-        }
-
         .txdir-content {
           max-width: 1120px;
           margin: 0 auto;
@@ -1337,15 +1283,6 @@ export default function DirectoryPage() {
             margin: -24px;
           }
 
-          .txdir-sitebar {
-            height: 54px;
-            padding: 0 16px;
-          }
-
-          .txdir-brand {
-            font-size: 16px;
-          }
-
           .txdir-content {
             padding: 20px 16px 40px;
           }
@@ -1372,25 +1309,6 @@ export default function DirectoryPage() {
           }
         }
       `}</style>
-
-      <header className="txdir-sitebar">
-        <div className="txdir-brandrow">
-          <a className="txdir-brand" href="/">
-            PACK OF FIVE
-          </a>
-          <span
-            className="txdir-state"
-            aria-label="Current state: Texas"
-            title="Texas"
-          >
-            TX
-          </span>
-        </div>
-
-        <a className="txdir-home" href="/">
-          Home
-        </a>
-      </header>
 
       <div className="txdir-content">
 
