@@ -85,25 +85,32 @@ export default function AppShell({
   const isHomePage =
     pathname === "/";
 
+  const isLoginArea =
+    pathname === "/login" ||
+    pathname.startsWith(
+      "/login/"
+    );
+
+  if (
+    isHomePage ||
+    isLoginArea
+  ) {
+    return children;
+  }
+
   return (
     <>
-      {!isHomePage && (
-        <PublicHeader user={user} />
-      )}
+      <PublicHeader user={user} />
 
-      {isHomePage ? (
-        children
-      ) : (
-        <main
-          style={{
-            padding: "28px 24px",
-            maxWidth: 1180,
-            margin: "0 auto",
-          }}
-        >
-          {children}
-        </main>
-      )}
+      <main
+        style={{
+          padding: "28px 24px",
+          maxWidth: 1180,
+          margin: "0 auto",
+        }}
+      >
+        {children}
+      </main>
     </>
   );
 }
