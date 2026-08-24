@@ -12,7 +12,11 @@ export async function GET() {
     if (!session || session.status !== "approved") {
       return NextResponse.json(
         { user: null },
-        { headers: { "Cache-Control": "no-store" } }
+        {
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
       );
     }
 
@@ -26,16 +30,18 @@ export async function GET() {
         limit 1
       `;
 
-      orgName = rows[0]?.name
-        ? String(rows[0].name)
-        : null;
+      orgName =
+        rows[0]?.name
+          ? String(rows[0].name)
+          : null;
     }
 
     /*
-      One Pack of Five account can have access to multiple portals.
+      One Pack of Five account can access multiple portals.
 
-      The existing session.role remains in place for backward
-      compatibility, but portal access is resolved independently.
+      The legacy session.role remains for compatibility with
+      existing Rescue Manager/Admin code, while availablePortals
+      determines the full set of workspaces available to the user.
     */
 
     const availablePortals: string[] = [];
@@ -59,17 +65,17 @@ export async function GET() {
       FOSTER ACCESS
 
       Foster profiles may have been created before a Pack of Five
-      account was linked to them. Because the invitation workflow
-      is email-based, we resolve the foster identity in this order:
+      account was linked to them.
 
-      1. foster_profiles.user_id matches the signed-in user
-      2. otherwise foster_profiles.email matches the signed-in email
+      Resolve by:
+      1. user_id
+      2. matching email when user_id is still null
 
-      If the email-matched profile has no user_id yet, we safely
-      attach it to this Pack of Five user account.
+      If an email match is found with no user_id, link it to the
+      signed-in user account.
 
-      Foster Portal access is granted only when that foster profile
-      has at least one APPROVED organization relationship.
+      Foster Portal access is granted only when the foster has at
+      least one approved organization relationship.
     */
 
     let fosterId: string | null = null;
@@ -120,22 +126,16 @@ export async function GET() {
           fosterRows[0] ?? null;
 
         if (fosterProfile?.id) {
-          fosterId =
-            String(fosterProfile.id);
+          fosterId = String(
+            fosterProfile.id
+          );
 
-          /*
-            Link an invitation-created foster profile to the
-            signed-in Pack of Five account the first time the
-            matching user signs in.
-          */
           if (!fosterProfile.user_id) {
             await sql`
               update foster_profiles
-
               set
                 user_id = ${session.id}::uuid,
                 updated_at = now()
-
               where
                 id = ${fosterId}
                 and user_id is null
@@ -153,8 +153,8 @@ export async function GET() {
       }
     } catch (fosterErr) {
       /*
-        Foster access must never prevent an existing rescue/admin
-        account from loading.
+        Foster access must never prevent existing Rescue Manager
+        or Admin access from loading.
       */
       console.error(
         "Foster portal access lookup failed:",
@@ -165,10 +165,45 @@ export async function GET() {
     /*
       PET OWNER ACCESS
 
-      Not enabled yet. When the Pet Owner data model is added,
-      this same endpoint should append "pet-owner" without
-      replacing any existing portal access.
+      Pet Owner access is additive. A user receives the Pet Owner
+      Portal only when a pet_owner_profiles record exists for the
+      signed-in Pack of Five user.
+
+      We intentionally do NOT create that profile automatically
+      here because some Pack of Five users will only use Rescue
+      Manager, Foster, or other portals.
     */
+
+    let petOwnerId: string | null = null;
+
+    try {
+      if (session.id) {
+        const ownerRows = await sql`
+          select id
+          from pet_owner_profiles
+          where user_id = ${session.id}::uuid
+          limit 1
+        `;
+
+        if (ownerRows[0]?.id) {
+          petOwnerId = String(
+            ownerRows[0].id
+          );
+
+          availablePortals.push(
+            "pet-owner"
+          );
+        }
+      }
+    } catch (petOwnerErr) {
+      /*
+        Pet Owner access must never break an existing account.
+      */
+      console.error(
+        "Pet Owner portal access lookup failed:",
+        petOwnerErr
+      );
+    }
 
     return NextResponse.json(
       {
@@ -177,8 +212,7 @@ export async function GET() {
           email: session.email,
 
           /*
-            Keep role/status for existing code until the rest of
-            the app is migrated away from single-role checks.
+            Keep legacy role fields for existing code.
           */
           role: session.role,
           roles: [session.role],
@@ -187,18 +221,10 @@ export async function GET() {
           orgName,
 
           fosterId,
+          petOwnerId,
 
           status: session.status,
 
-          /*
-            Examples:
-            ["organization"]
-            ["foster"]
-            ["organization", "foster"]
-            ["admin", "organization", "foster"]
-
-            Pet Owner can be added later without changing identity.
-          */
           availablePortals: Array.from(
             new Set(availablePortals)
           ),
