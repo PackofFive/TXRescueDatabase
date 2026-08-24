@@ -684,20 +684,8 @@ function routeSignedInUser(
     requestedPortal ===
     "pet-owner"
   ) {
-    if (
-      portals.includes(
-        "pet-owner"
-      )
-    ) {
-      window.location.href =
-        "/pet-owner";
-
-      return;
-    }
-
-    setStatus(
-      "This account does not currently have access to the Pet Owner Portal."
-    );
+    window.location.href =
+      "/pet-owner";
 
     return;
   }
