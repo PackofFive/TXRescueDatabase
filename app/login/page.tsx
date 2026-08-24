@@ -37,6 +37,7 @@ type AuthUser = {
   status?: string;
   orgId?: string | null;
   fosterId?: string | null;
+  petOwnerId?: string | null;
   availablePortals?: string[];
 };
 
@@ -67,11 +68,11 @@ const PORTALS:
       title:
         "Pet Owner Portal",
       description:
-        "Sign in to access your Pack of Five pet-owner account and tools.",
+        "Sign in with your Pack of Five account to access or create your Pet Owner profile.",
       accent:
         COLORS.peach,
       accountNote:
-        "Pet Owner Portal features are being developed.",
+        "Pet Owner access can be added to an existing Pack of Five account.",
     },
 
     foster: {
@@ -384,9 +385,7 @@ export default function LoginPage() {
                 "-.025em",
             }}
           >
-            {
-              portal.title
-            }
+            {portal.title}
           </h1>
 
           <p
@@ -401,9 +400,7 @@ export default function LoginPage() {
                 1.55,
             }}
           >
-            {
-              portal.description
-            }
+            {portal.description}
           </p>
         </div>
 
@@ -434,17 +431,13 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             required
-            value={
-              email
-            }
+            value={email}
             onChange={(e) =>
               setEmail(
                 e.target.value
               )
             }
-            style={
-              inputStyle
-            }
+            style={inputStyle}
           />
 
           <label
@@ -463,17 +456,13 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             required
-            value={
-              password
-            }
+            value={password}
             onChange={(e) =>
               setPassword(
                 e.target.value
               )
             }
-            style={
-              inputStyle
-            }
+            style={inputStyle}
           />
 
           <button
@@ -554,9 +543,7 @@ export default function LoginPage() {
                 11.5,
             }}
           >
-            {
-              portal.accountNote
-            }
+            {portal.accountNote}
           </span>
 
           {requestedPortal ===
@@ -617,12 +604,6 @@ function routeSignedInUser(
       ? user.availablePortals
       : [];
 
-  /*
-    Admin remains a valid destination when someone explicitly
-    enters through the admin route, but an admin account may also
-    hold other portal memberships.
-  */
-
   if (
     requestedPortal ===
     "organization"
@@ -634,7 +615,6 @@ function routeSignedInUser(
     ) {
       window.location.href =
         "/portal";
-
       return;
     }
 
@@ -647,14 +627,12 @@ function routeSignedInUser(
       setStatus(
         "Your organization account is still pending approval."
       );
-
       return;
     }
 
     setStatus(
       "This account does not currently have access to Rescue & Shelter Manager."
     );
-
     return;
   }
 
@@ -669,14 +647,12 @@ function routeSignedInUser(
     ) {
       window.location.href =
         "/foster";
-
       return;
     }
 
     setStatus(
       "This account does not currently have access to the Foster Portal."
     );
-
     return;
   }
 
@@ -684,8 +660,17 @@ function routeSignedInUser(
     requestedPortal ===
     "pet-owner"
   ) {
-    window.location.href =
-      "/pet-owner";
+    if (
+      portals.includes(
+        "pet-owner"
+      )
+    ) {
+      window.location.href =
+        "/pet-owner";
+    } else {
+      window.location.href =
+        "/pet-owner/setup";
+    }
 
     return;
   }
