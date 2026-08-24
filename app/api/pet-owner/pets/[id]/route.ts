@@ -20,8 +20,7 @@ async function requirePetOwner() {
 
   if (
     !session ||
-    session.status !==
-      "approved"
+    session.status !== "approved"
   ) {
     return null;
   }
@@ -41,12 +40,14 @@ async function requirePetOwner() {
   return {
     session,
     ownerProfileId:
-      String(
-        rows[0].id
-      ),
+      String(rows[0].id),
   };
 }
 
+/*
+  GET
+  Load one pet and its records.
+*/
 export async function GET(
   _req: NextRequest,
   {
@@ -173,51 +174,12 @@ export async function GET(
     );
   }
 }
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
 
-import {
-  getSession,
-} from "@/lib/auth";
-
-import {
-  sql,
-} from "@/lib/db";
-
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
-
-async function requirePetOwner() {
-  const session =
-    await getSession();
-
-  if (
-    !session ||
-    session.status !== "approved"
-  ) {
-    return null;
-  }
-
-  const rows =
-    await sql`
-      select id
-      from pet_owner_profiles
-      where user_id = ${session.id}::uuid
-      limit 1
-    `;
-
-  if (!rows[0]?.id) {
-    return null;
-  }
-
-  return {
-    ownerProfileId:
-      String(rows[0].id),
-  };
-}
-
+/*
+  PATCH
+  Update one pet belonging to
+  the signed-in Pet Owner.
+*/
 export async function PATCH(
   req: NextRequest,
   {
@@ -252,10 +214,15 @@ export async function PATCH(
     const body =
       await req.json();
 
-    const name =
-      typeof body?.name === "string"
-        ? body.name.trim()
+    const text = (
+      value: unknown
+    ) =>
+      typeof value === "string"
+        ? value.trim()
         : "";
+
+    const name =
+      text(body?.name);
 
     if (!name) {
       return NextResponse.json(
@@ -268,13 +235,6 @@ export async function PATCH(
         }
       );
     }
-
-    const text = (
-      value: unknown
-    ) =>
-      typeof value === "string"
-        ? value.trim()
-        : "";
 
     const birthDate =
       text(body?.birthDate) ||
@@ -291,7 +251,9 @@ export async function PATCH(
     if (
       weightLbs !== null &&
       (
-        !Number.isFinite(weightLbs) ||
+        !Number.isFinite(
+          weightLbs
+        ) ||
         weightLbs < 0
       )
     ) {
@@ -311,18 +273,17 @@ export async function PATCH(
         body?.spayNeuterStatus
       ) || null;
 
-    const allowed =
-      [
-        "spayed",
-        "neutered",
-        "intact",
-        "unknown",
-        "not_applicable",
-      ];
+    const allowedStatuses = [
+      "spayed",
+      "neutered",
+      "intact",
+      "unknown",
+      "not_applicable",
+    ];
 
     if (
       spayNeuterStatus &&
-      !allowed.includes(
+      !allowedStatuses.includes(
         spayNeuterStatus
       )
     ) {
@@ -340,23 +301,39 @@ export async function PATCH(
     const rows =
       await sql`
         update owned_pets
+
         set
           name = ${name},
-          species = ${text(body?.species) || null},
-          breed_or_type = ${text(body?.breedOrType) || null},
-          birth_date = ${birthDate},
-          approximate_age_text = ${text(body?.approximateAgeText) || null},
-          sex = ${text(body?.sex) || null},
-          color_markings = ${text(body?.colorMarkings) || null},
-          weight_lbs = ${weightLbs},
-          spay_neuter_status = ${spayNeuterStatus},
-          microchip_number = ${text(body?.microchipNumber) || null},
-          microchip_company = ${text(body?.microchipCompany) || null},
-          veterinarian_name = ${text(body?.veterinarianName) || null},
-          veterinarian_phone = ${text(body?.veterinarianPhone) || null},
-          photo_url = ${text(body?.photoUrl) || null},
-          notes = ${text(body?.notes) || null},
-          updated_at = now()
+          species =
+            ${text(body?.species) || null},
+          breed_or_type =
+            ${text(body?.breedOrType) || null},
+          birth_date =
+            ${birthDate},
+          approximate_age_text =
+            ${text(body?.approximateAgeText) || null},
+          sex =
+            ${text(body?.sex) || null},
+          color_markings =
+            ${text(body?.colorMarkings) || null},
+          weight_lbs =
+            ${weightLbs},
+          spay_neuter_status =
+            ${spayNeuterStatus},
+          microchip_number =
+            ${text(body?.microchipNumber) || null},
+          microchip_company =
+            ${text(body?.microchipCompany) || null},
+          veterinarian_name =
+            ${text(body?.veterinarianName) || null},
+          veterinarian_phone =
+            ${text(body?.veterinarianPhone) || null},
+          photo_url =
+            ${text(body?.photoUrl) || null},
+          notes =
+            ${text(body?.notes) || null},
+          updated_at =
+            now()
 
         where
           id = ${petId}
@@ -380,11 +357,15 @@ export async function PATCH(
           veterinarian_phone,
           photo_url,
           notes,
+          archived_at,
           created_at,
           updated_at
       `;
 
-    if (!rows[0]) {
+    const pet =
+      rows[0];
+
+    if (!pet) {
       return NextResponse.json(
         {
           error:
@@ -397,7 +378,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({
-      pet: rows[0],
+      pet,
     });
   } catch (err) {
     console.error(
