@@ -44,6 +44,19 @@ type PetRecord = {
   updated_at: string;
 };
 
+type PetReminder = {
+  id: string;
+  reminder_type: string;
+  title: string;
+  description: string | null;
+  due_date: string;
+  recurrence: string;
+  recurrence_days: number | null;
+  status: string;
+  completed_at: string | null;
+  notes: string | null;
+};
+
 const COLORS = {
   navy: "#1E3A5F",
   coral: "#E85C56",
@@ -79,6 +92,14 @@ export default function PetProfilePage() {
   ] =
     useState<
       PetRecord[]
+    >([]);
+
+  const [
+    reminders,
+    setReminders,
+  ] =
+    useState<
+      PetReminder[]
     >([]);
 
   const [
@@ -146,6 +167,11 @@ export default function PetProfilePage() {
 
       setRecords(
         data.records ??
+          []
+      );
+
+      setReminders(
+        data.reminders ??
           []
       );
     } catch (err) {
@@ -588,6 +614,84 @@ export default function PetProfilePage() {
         )}
       </section>
 
+      <section
+        style={{
+          marginTop: 24,
+          background: COLORS.white,
+          border: `1px solid ${COLORS.border}`,
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 16px",
+            borderBottom: `1px solid ${COLORS.border}`,
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                color: COLORS.navy,
+                fontSize: 18,
+              }}
+            >
+              Care &amp; Reminders
+            </h2>
+
+            <p
+              style={{
+                margin: "4px 0 0",
+                color: COLORS.muted,
+                fontSize: 12.5,
+              }}
+            >
+              Upcoming and overdue care for {pet.name}.
+            </p>
+          </div>
+
+          <a
+            href="/pet-owner/reminders"
+            style={primaryLink}
+          >
+            Manage Reminders
+          </a>
+        </div>
+
+        {reminders.filter(
+          (reminder) =>
+            reminder.status === "active"
+        ).length === 0 ? (
+          <div
+            style={{
+              padding: 18,
+              color: COLORS.muted,
+              fontSize: 13,
+            }}
+          >
+            No active reminders for this pet.
+          </div>
+        ) : (
+          reminders
+            .filter(
+              (reminder) =>
+                reminder.status === "active"
+            )
+            .map(
+              (reminder) => (
+                <ReminderRow
+                  key={reminder.id}
+                  reminder={reminder}
+                />
+              )
+            )
+        )}
+      </section>
+
       <div
         style={{
           display:
@@ -602,10 +706,11 @@ export default function PetProfilePage() {
       >
         <FeatureCard
           title="Care & Reminders"
-          text="Medication, vaccine, preventive care, and appointment reminders will live here."
+          text="Track medications, vaccines, preventive care, appointments, and recurring needs."
           background={
             COLORS.pink
           }
+          href="/pet-owner/reminders"
         />
 
         <FeatureCard
@@ -880,6 +985,104 @@ function RecordRow({
       ) : (
         <span />
       )}
+    </div>
+  );
+}
+
+function ReminderRow({
+  reminder,
+}: {
+  reminder: PetReminder;
+}) {
+  const due =
+    new Date(
+      `${reminder.due_date}T00:00:00`
+    );
+
+  const today =
+    new Date();
+
+  today.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  const overdue =
+    due < today;
+
+  return (
+    <div
+      style={{
+        padding: "12px 16px",
+        borderBottom:
+          `1px solid ${COLORS.border}`,
+        display: "grid",
+        gridTemplateColumns:
+          "minmax(180px, 1fr) auto",
+        gap: 12,
+        alignItems: "center",
+      }}
+    >
+      <div>
+        <strong
+          style={{
+            color: COLORS.navy,
+            fontSize: 13.5,
+          }}
+        >
+          {reminder.title}
+        </strong>
+
+        <div
+          style={{
+            marginTop: 3,
+            color: COLORS.muted,
+            fontSize: 11.5,
+          }}
+        >
+          {formatValue(
+            reminder.reminder_type
+          )}
+          {reminder.recurrence !== "none"
+            ? ` · ${formatValue(
+                reminder.recurrence
+              )}`
+            : ""}
+        </div>
+
+        {reminder.description ? (
+          <div
+            style={{
+              marginTop: 4,
+              color: COLORS.muted,
+              fontSize: 12,
+              lineHeight: 1.45,
+            }}
+          >
+            {reminder.description}
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        style={{
+          color: overdue
+            ? "#B23B2E"
+            : COLORS.muted,
+          fontSize: 11.5,
+          fontWeight: overdue
+            ? 800
+            : 700,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {overdue
+          ? "Overdue · "
+          : ""}
+        {due.toLocaleDateString()}
+      </div>
     </div>
   );
 }
