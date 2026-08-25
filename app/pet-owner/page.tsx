@@ -171,35 +171,20 @@ export default function PetOwnerPage() {
           []
       );
 
-setStats({
-  activePets:
-    Number(
-      data.stats
-        ?.activePets ??
-        0
-    ),
-
-  records:
-    Number(
-      data.stats
-        ?.records ??
-        0
-    ),
-
-  upcomingReminders:
-    Number(
-      data.stats
-        ?.upcomingReminders ??
-        0
-    ),
-
-  overdueReminders:
-    Number(
-      data.stats
-        ?.overdueReminders ??
-        0
-    ),
-});
+      setStats({
+        activePets:
+          Number(
+            data.stats
+              ?.activePets ??
+              0
+          ),
+        records:
+          Number(
+            data.stats
+              ?.records ??
+              0
+          ),
+      });
 
       if (
         data.profile
@@ -677,6 +662,7 @@ setStats({
           }
           title="Records & Documents"
           text="Vaccinations, vet visits, medications, microchip information, insurance, licenses, and other pet records."
+          href="/pet-owner/records"
         />
 
         <FeatureCard
