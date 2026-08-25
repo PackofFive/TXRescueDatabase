@@ -29,6 +29,8 @@ type Pet = {
 type Stats = {
   activePets: number;
   records: number;
+  upcomingReminders: number;
+  overdueReminders: number;
 };
 
 const COLORS = {
@@ -67,6 +69,8 @@ export default function PetOwnerPage() {
     useState<Stats>({
       activePets: 0,
       records: 0,
+      upcomingReminders: 0,
+      overdueReminders: 0,
     });
 
   const [
@@ -536,9 +540,16 @@ export default function PetOwnerPage() {
 
         <StatCard
           value={
-            0
+            stats.upcomingReminders
           }
           label="Upcoming Reminders"
+        />
+
+        <StatCard
+          value={
+            stats.overdueReminders
+          }
+          label="Overdue"
         />
       </div>
 
@@ -658,7 +669,8 @@ export default function PetOwnerPage() {
             COLORS.pink
           }
           title="Care & Reminders"
-          text="Future reminders for medications, vaccines, preventive care, appointments, and other recurring needs."
+          text="Track medications, vaccines, preventatives, appointments, recurring care, and due dates."
+          href="/pet-owner/reminders"
         />
 
         <FeatureCard
