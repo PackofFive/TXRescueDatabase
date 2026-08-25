@@ -45,7 +45,7 @@ export async function GET() {
       );
     }
 
-    const rows =
+    const profileRows =
       await sql`
         select
           id,
@@ -67,9 +67,125 @@ export async function GET() {
         limit 1
       `;
 
+    const profile =
+      profileRows[0] ?? null;
+
+    if (!profile) {
+      return NextResponse.json({
+        profile: null,
+        pets: [],
+        stats: {
+          activePets: 0,
+          records: 0,
+          upcomingReminders: 0,
+          overdueReminders: 0,
+        },
+      });
+    }
+
+    const pets =
+      await sql`
+        select
+          id,
+          name,
+          species,
+          breed_or_type,
+          birth_date,
+          approximate_age_text,
+          sex,
+          photo_url,
+          archived_at,
+          created_at,
+          updated_at
+
+        from owned_pets
+
+        where
+          owner_profile_id =
+            ${profile.id}
+
+        order by
+          case
+            when archived_at is null
+              then 0
+            else 1
+          end,
+          created_at desc
+      `;
+
+    const recordRows =
+      await sql`
+        select
+          count(*)::int as count
+
+        from pet_records pr
+
+        join owned_pets p
+          on p.id =
+            pr.pet_id
+
+        where
+          p.owner_profile_id =
+            ${profile.id}
+      `;
+
+    const reminderRows =
+      await sql`
+        select
+          count(*) filter (
+            where
+              r.status = 'active'
+              and r.due_date >= current_date
+          )::int as upcoming,
+
+          count(*) filter (
+            where
+              r.status = 'active'
+              and r.due_date < current_date
+          )::int as overdue
+
+        from pet_reminders r
+
+        join owned_pets p
+          on p.id =
+            r.pet_id
+
+        where
+          p.owner_profile_id =
+            ${profile.id}
+      `;
+
     return NextResponse.json({
-      profile:
-        rows[0] ?? null,
+      profile,
+      pets,
+      stats: {
+        activePets:
+          pets.filter(
+            (pet) =>
+              !pet.archived_at
+          ).length,
+
+        records:
+          Number(
+            recordRows[0]
+              ?.count ??
+              0
+          ),
+
+        upcomingReminders:
+          Number(
+            reminderRows[0]
+              ?.upcoming ??
+              0
+          ),
+
+        overdueReminders:
+          Number(
+            reminderRows[0]
+              ?.overdue ??
+              0
+          ),
+      },
     });
   } catch (err) {
     console.error(
@@ -114,22 +230,26 @@ export async function POST(
       await req.json();
 
     const displayName =
-      typeof body?.displayName === "string"
+      typeof body?.displayName ===
+        "string"
         ? body.displayName.trim()
         : "";
 
     const phone =
-      typeof body?.phone === "string"
+      typeof body?.phone ===
+        "string"
         ? body.phone.trim()
         : "";
 
     const city =
-      typeof body?.city === "string"
+      typeof body?.city ===
+        "string"
         ? body.city.trim()
         : "";
 
     const state =
-      typeof body?.state === "string" &&
+      typeof body?.state ===
+        "string" &&
       body.state.trim()
         ? body.state
             .trim()
@@ -137,7 +257,8 @@ export async function POST(
         : "TX";
 
     const postalCode =
-      typeof body?.postalCode === "string"
+      typeof body?.postalCode ===
+        "string"
         ? body.postalCode.trim()
         : "";
 
