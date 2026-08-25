@@ -962,16 +962,47 @@ function RecordRow({
           : "No date"}
       </div>
 
-      {record.document_url ? (
+      <div
+        style={{
+          display:
+            "flex",
+          gap:
+            9,
+          alignItems:
+            "center",
+          justifyContent:
+            "flex-end",
+        }}
+      >
+        {record.document_url ? (
+          <a
+            href={
+              record.document_url
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color:
+                COLORS.coral,
+              textDecoration:
+                "none",
+              fontSize:
+                11.5,
+              fontWeight:
+                800,
+            }}
+          >
+            Open
+          </a>
+        ) : null}
+
         <a
-          href={
-            record.document_url
-          }
-          target="_blank"
-          rel="noopener noreferrer"
+          href={`/pet-owner/records/${encodeURIComponent(
+            record.id
+          )}/edit`}
           style={{
             color:
-              COLORS.coral,
+              COLORS.navy,
             textDecoration:
               "none",
             fontSize:
@@ -980,11 +1011,9 @@ function RecordRow({
               800,
           }}
         >
-          Open
+          Edit
         </a>
-      ) : (
-        <span />
-      )}
+      </div>
     </div>
   );
 }
