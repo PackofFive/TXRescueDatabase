@@ -98,6 +98,12 @@ export default function AppShell({
       "/foster/"
     );
 
+  const isPetOwnerArea =
+    pathname === "/pet-owner" ||
+    pathname.startsWith(
+      "/pet-owner/"
+    );
+
   if (
     isHomePage ||
     isLoginArea
@@ -106,7 +112,8 @@ export default function AppShell({
   }
 
   if (
-    isFosterArea &&
+    (isFosterArea ||
+      isPetOwnerArea) &&
     user &&
     user.status === "approved"
   ) {
@@ -118,7 +125,10 @@ export default function AppShell({
     );
   }
 
-  if (isFosterArea) {
+  if (
+    isFosterArea ||
+    isPetOwnerArea
+  ) {
     return children;
   }
 
