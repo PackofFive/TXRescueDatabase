@@ -688,6 +688,15 @@ export default function PetOwnerPage() {
 
         <FeatureCard
           background={
+            COLORS.white
+          }
+          title="Profile & Settings"
+          text="Manage your Pet Owner profile, contact information, and location."
+          href="/pet-owner/profile"
+        />
+
+        <FeatureCard
+          background={
             COLORS.mint
           }
           title="Resources"
