@@ -3,189 +3,58 @@ import {
   NextResponse,
 } from "next/server";
 
-import {
-  getSession,
-} from "@/lib/auth";
-
-import {
-  sql,
-} from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { sql } from "@/lib/db";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-async function requireUser() {
-  const session =
-    await getSession();
+async function requirePetOwner() {
+  const session = await getSession();
 
-  if (
-    !session ||
-    session.status !== "approved"
-  ) {
+  if (!session || session.status !== "approved") {
     return null;
   }
 
-  return session;
+  const rows = await sql`
+    select
+      id,
+      display_name,
+      phone,
+      city,
+      state,
+      postal_code,
+      created_at,
+      updated_at
+    from pet_owner_profiles
+    where user_id = ${session.id}::uuid
+    limit 1
+  `;
+
+  if (!rows[0]?.id) {
+    return null;
+  }
+
+  return {
+    session,
+    profile: rows[0],
+  };
 }
 
 export async function GET() {
   try {
-    const session =
-      await requireUser();
+    const access = await requirePetOwner();
 
-    if (!session) {
+    if (!access) {
       return NextResponse.json(
-        {
-          error:
-            "Sign in required.",
-        },
-        {
-          status: 401,
-        }
+        { error: "Pet Owner access required." },
+        { status: 401 }
       );
     }
 
-    const profileRows =
-      await sql`
-        select
-          id,
-          user_id,
-          display_name,
-          phone,
-          city,
-          state,
-          postal_code,
-          created_at,
-          updated_at
-
-        from pet_owner_profiles
-
-        where
-          user_id =
-            ${session.id}::uuid
-
-        limit 1
-      `;
-
-    const profile =
-      profileRows[0] ?? null;
-
-    if (!profile) {
-      return NextResponse.json({
-        profile: null,
-        pets: [],
-        stats: {
-          activePets: 0,
-          records: 0,
-          upcomingReminders: 0,
-          overdueReminders: 0,
-        },
-      });
-    }
-
-    const pets =
-      await sql`
-        select
-          id,
-          name,
-          species,
-          breed_or_type,
-          birth_date,
-          approximate_age_text,
-          sex,
-          photo_url,
-          archived_at,
-          created_at,
-          updated_at
-
-        from owned_pets
-
-        where
-          owner_profile_id =
-            ${profile.id}
-
-        order by
-          case
-            when archived_at is null
-              then 0
-            else 1
-          end,
-          created_at desc
-      `;
-
-    const recordRows =
-      await sql`
-        select
-          count(*)::int as count
-
-        from pet_records pr
-
-        join owned_pets p
-          on p.id =
-            pr.pet_id
-
-        where
-          p.owner_profile_id =
-            ${profile.id}
-      `;
-
-    const reminderRows =
-      await sql`
-        select
-          count(*) filter (
-            where
-              r.status = 'active'
-              and r.due_date >= current_date
-          )::int as upcoming,
-
-          count(*) filter (
-            where
-              r.status = 'active'
-              and r.due_date < current_date
-          )::int as overdue
-
-        from pet_reminders r
-
-        join owned_pets p
-          on p.id =
-            r.pet_id
-
-        where
-          p.owner_profile_id =
-            ${profile.id}
-      `;
-
     return NextResponse.json({
-      profile,
-      pets,
-      stats: {
-        activePets:
-          pets.filter(
-            (pet) =>
-              !pet.archived_at
-          ).length,
-
-        records:
-          Number(
-            recordRows[0]
-              ?.count ??
-              0
-          ),
-
-        upcomingReminders:
-          Number(
-            reminderRows[0]
-              ?.upcoming ??
-              0
-          ),
-
-        overdueReminders:
-          Number(
-            reminderRows[0]
-              ?.overdue ??
-              0
-          ),
-      },
+      profile: access.profile,
+      email: access.session.email,
     });
   } catch (err) {
     console.error(
@@ -198,132 +67,78 @@ export async function GET() {
         error:
           err instanceof Error
             ? err.message
-            : "Couldn't load Pet Owner profile.",
+            : "Couldn't load profile.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
 
-export async function POST(
+export async function PATCH(
   req: NextRequest
 ) {
   try {
-    const session =
-      await requireUser();
+    const access = await requirePetOwner();
 
-    if (!session) {
+    if (!access) {
       return NextResponse.json(
-        {
-          error:
-            "Sign in required.",
-        },
-        {
-          status: 401,
-        }
+        { error: "Pet Owner access required." },
+        { status: 401 }
       );
     }
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
-    const displayName =
-      typeof body?.displayName ===
-        "string"
-        ? body.displayName.trim()
-        : "";
-
-    const phone =
-      typeof body?.phone ===
-        "string"
-        ? body.phone.trim()
-        : "";
-
-    const city =
-      typeof body?.city ===
-        "string"
-        ? body.city.trim()
+    const text = (value: unknown) =>
+      typeof value === "string"
+        ? value.trim()
         : "";
 
     const state =
-      typeof body?.state ===
-        "string" &&
-      body.state.trim()
-        ? body.state
-            .trim()
-            .toUpperCase()
-        : "TX";
+      text(body?.state).toUpperCase() || "TX";
 
-    const postalCode =
-      typeof body?.postalCode ===
-        "string"
-        ? body.postalCode.trim()
-        : "";
+    if (state.length !== 2) {
+      return NextResponse.json(
+        {
+          error:
+            "State must use a two-letter abbreviation.",
+        },
+        { status: 400 }
+      );
+    }
 
-    const rows =
-      await sql`
-        insert into pet_owner_profiles (
-          user_id,
-          display_name,
-          phone,
-          city,
-          state,
-          postal_code
-        )
+    const rows = await sql`
+      update pet_owner_profiles
+      set
+        display_name =
+          ${text(body?.displayName) || null},
+        phone =
+          ${text(body?.phone) || null},
+        city =
+          ${text(body?.city) || null},
+        state = ${state},
+        postal_code =
+          ${text(body?.postalCode) || null},
+        updated_at = now()
+      where id = ${String(access.profile.id)}
+      returning
+        id,
+        display_name,
+        phone,
+        city,
+        state,
+        postal_code,
+        created_at,
+        updated_at
+    `;
 
-        values (
-          ${session.id}::uuid,
-          ${displayName || null},
-          ${phone || null},
-          ${city || null},
-          ${state},
-          ${postalCode || null}
-        )
-
-        on conflict (user_id)
-        do update
-        set
-          display_name =
-            excluded.display_name,
-          phone =
-            excluded.phone,
-          city =
-            excluded.city,
-          state =
-            excluded.state,
-          postal_code =
-            excluded.postal_code,
-          updated_at =
-            now()
-
-        returning
-          id,
-          user_id,
-          display_name,
-          phone,
-          city,
-          state,
-          postal_code,
-          created_at,
-          updated_at
-      `;
-
-    return NextResponse.json(
-      {
-        profile:
-          rows[0],
-        availablePortal:
-          "pet-owner",
-      },
-      {
-        status: 201,
-      }
-    );
+    return NextResponse.json({
+      profile: rows[0],
+      email: access.session.email,
+    });
   } catch (err) {
     console.error(
-      "POST /api/pet-owner/profile failed:",
+      "PATCH /api/pet-owner/profile failed:",
       err
     );
 
@@ -332,11 +147,9 @@ export async function POST(
         error:
           err instanceof Error
             ? err.message
-            : "Couldn't create Pet Owner profile.",
+            : "Couldn't update profile.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
