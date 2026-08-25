@@ -184,6 +184,18 @@ export default function PetOwnerPage() {
               ?.records ??
               0
           ),
+        upcomingReminders:
+          Number(
+            data.stats
+              ?.upcomingReminders ??
+              0
+          ),
+        overdueReminders:
+          Number(
+            data.stats
+              ?.overdueReminders ??
+              0
+          ),
       });
 
       if (
