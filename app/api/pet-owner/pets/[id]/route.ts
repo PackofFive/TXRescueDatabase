@@ -44,10 +44,6 @@ async function requirePetOwner() {
   };
 }
 
-/*
-  GET
-  Load one pet and its records.
-*/
 export async function GET(
   _req: NextRequest,
   {
@@ -65,19 +61,13 @@ export async function GET(
 
     if (!access) {
       return NextResponse.json(
-        {
-          error:
-            "Pet Owner access required.",
-        },
-        {
-          status: 401,
-        }
+        { error: "Pet Owner access required." },
+        { status: 401 }
       );
     }
 
-    const {
-      id: petId,
-    } = await params;
+    const { id: petId } =
+      await params;
 
     const petRows =
       await sql`
@@ -101,29 +91,20 @@ export async function GET(
           p.archived_at,
           p.created_at,
           p.updated_at
-
         from owned_pets p
-
         where
           p.id = ${petId}
           and p.owner_profile_id =
             ${access.ownerProfileId}
-
         limit 1
       `;
 
-    const pet =
-      petRows[0];
+    const pet = petRows[0];
 
     if (!pet) {
       return NextResponse.json(
-        {
-          error:
-            "Pet profile not found.",
-        },
-        {
-          status: 404,
-        }
+        { error: "Pet profile not found." },
+        { status: 404 }
       );
     }
 
@@ -139,21 +120,47 @@ export async function GET(
           document_url,
           created_at,
           updated_at
-
         from pet_records
-
-        where
-          pet_id = ${petId}
-
+        where pet_id = ${petId}
         order by
           record_date desc nulls last,
           created_at desc
       `;
 
+    const reminderRows =
+      await sql`
+        select
+          id,
+          reminder_type,
+          title,
+          description,
+          due_date,
+          recurrence,
+          recurrence_days,
+          status,
+          completed_at,
+          notes,
+          created_at,
+          updated_at
+        from pet_reminders
+        where pet_id = ${petId}
+        order by
+          case
+            when status = 'active'
+              and due_date < current_date
+              then 0
+            when status = 'active'
+              then 1
+            else 2
+          end,
+          due_date asc,
+          created_at desc
+      `;
+
     return NextResponse.json({
       pet,
-      records:
-        recordRows,
+      records: recordRows,
+      reminders: reminderRows,
     });
   } catch (err) {
     console.error(
@@ -168,18 +175,11 @@ export async function GET(
             ? err.message
             : "Couldn't load pet profile.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
 
-/*
-  PATCH
-  Update one pet belonging to
-  the signed-in Pet Owner.
-*/
 export async function PATCH(
   req: NextRequest,
   {
@@ -197,19 +197,13 @@ export async function PATCH(
 
     if (!access) {
       return NextResponse.json(
-        {
-          error:
-            "Pet Owner access required.",
-        },
-        {
-          status: 401,
-        }
+        { error: "Pet Owner access required." },
+        { status: 401 }
       );
     }
 
-    const {
-      id: petId,
-    } = await params;
+    const { id: petId } =
+      await params;
 
     const body =
       await req.json();
@@ -226,13 +220,8 @@ export async function PATCH(
 
     if (!name) {
       return NextResponse.json(
-        {
-          error:
-            "Pet name is required.",
-        },
-        {
-          status: 400,
-        }
+        { error: "Pet name is required." },
+        { status: 400 }
       );
     }
 
@@ -251,9 +240,7 @@ export async function PATCH(
     if (
       weightLbs !== null &&
       (
-        !Number.isFinite(
-          weightLbs
-        ) ||
+        !Number.isFinite(weightLbs) ||
         weightLbs < 0
       )
     ) {
@@ -262,9 +249,7 @@ export async function PATCH(
           error:
             "Weight must be a valid positive number.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -292,16 +277,13 @@ export async function PATCH(
           error:
             "Invalid spay/neuter status.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
     const rows =
       await sql`
         update owned_pets
-
         set
           name = ${name},
           species =
@@ -332,14 +314,11 @@ export async function PATCH(
             ${text(body?.photoUrl) || null},
           notes =
             ${text(body?.notes) || null},
-          updated_at =
-            now()
-
+          updated_at = now()
         where
           id = ${petId}
           and owner_profile_id =
             ${access.ownerProfileId}
-
         returning
           id,
           name,
@@ -362,18 +341,12 @@ export async function PATCH(
           updated_at
       `;
 
-    const pet =
-      rows[0];
+    const pet = rows[0];
 
     if (!pet) {
       return NextResponse.json(
-        {
-          error:
-            "Pet profile not found.",
-        },
-        {
-          status: 404,
-        }
+        { error: "Pet profile not found." },
+        { status: 404 }
       );
     }
 
@@ -393,9 +366,7 @@ export async function PATCH(
             ? err.message
             : "Couldn't update pet.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
