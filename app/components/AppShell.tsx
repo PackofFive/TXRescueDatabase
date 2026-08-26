@@ -60,7 +60,9 @@ export default function AppShell({
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
     pathname === "/animals" ||
-    pathname.startsWith("/animals/");
+    pathname.startsWith("/animals/") ||
+    pathname === "/fosters" ||
+    pathname.startsWith("/fosters/");
 
   if (isAdminArea) {
     return (
@@ -1501,6 +1503,10 @@ function ManagerShell({
 
             <ManagerLink href="/fosters">
               Fosters
+            </ManagerLink>
+
+            <ManagerLink href="/fosters/updates">
+              Foster Updates
             </ManagerLink>
           </nav>
 
