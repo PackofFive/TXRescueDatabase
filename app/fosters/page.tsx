@@ -541,6 +541,22 @@ export default function FosterManagementPage() {
             relationships.
           </p>
         </div>
+
+        <a
+          href="/fosters/assignments"
+          style={{
+            display: "inline-block",
+            background: COLORS.navy,
+            color: COLORS.white,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            fontWeight: 800,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Animal Assignments
+        </a>
       </div>
 
       <div
