@@ -517,7 +517,7 @@ export default function HomePage() {
         </div>
 
         <a
-          href="/admin"
+          href="/login?portal=admin"
           aria-label="Admin login"
           style={{
             color: "#9A9690",
