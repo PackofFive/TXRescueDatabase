@@ -11,6 +11,7 @@ import {
   RESCUE_WORKBOOK_TEMPLATE_ID,
   type WorkbookPreview,
 } from "@/lib/rescueWorkbookPreview";
+import { mapWorkbookRow } from "@/lib/rescueWorkbookMapping";
 
 export const runtime = "edge";
 
@@ -370,6 +371,8 @@ async function matchPreviewRows(
       ? matches.get(`${entityType}:${row.recordId}`) ?? null
       : null;
     const messages = [...row.messages];
+    const mapping = mapWorkbookRow(row.sheet, row.values);
+    messages.push(...mapping.warnings);
     let proposedAction: "create" | "update" | "warning" | "error";
     const requiresFormulaReview = row.messages.some(
       (message) => message.startsWith("Formula detected")
@@ -414,6 +417,8 @@ async function matchPreviewRows(
       normalized_payload: {
         exactMatch: Boolean(targetEntityId),
         externalId: row.recordId || null,
+        mappedFields: mapping.mappedFields,
+        deferredFields: mapping.deferredFields,
       },
       messages,
     };
