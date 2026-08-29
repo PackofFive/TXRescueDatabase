@@ -219,17 +219,21 @@ export default function DataImportsPage() {
       </h1>
 
       <p style={introStyle}>
-        Inspect the official Pack of Five Rescue
-        Operations Tracker before any records are
-        written. This first release validates and
-        previews Animals, Medical, and Tasks only.
+        Upload the official Pack of Five workbook, review what will change,
+        and import when everything looks right. Animals, Medical, and Tasks
+        are supported in this release.
       </p>
 
+      <div style={stepsStyle} aria-label="Import progress">
+        <span style={activeStepStyle}>1 Upload</span>
+        <span style={pendingStepStyle}>2 Review</span>
+        <span style={pendingStepStyle}>3 Results</span>
+      </div>
+
       <div style={privacyNoticeStyle}>
-        <strong>Private preview only.</strong>{" "}
-        The workbook is read in this browser and is
-        not uploaded or saved. This page cannot
-        change your Rescue Manager records.
+        <strong>Your workbook stays private.</strong>{" "}
+        It is checked in this browser and the file itself is not stored.
+        Nothing changes until you review and confirm the import.
       </div>
 
       <div style={uploadCardStyle}>
@@ -291,8 +295,8 @@ export default function DataImportsPage() {
           }}
         >
           {loading
-            ? "Inspecting Workbook…"
-            : "Validate & Preview"}
+            ? "Checking Workbook…"
+            : "Check Workbook"}
         </button>
 
         {error && (
@@ -418,6 +422,7 @@ function PreviewResults({
   } | null;
 }) {
   const empty = preview.counts.total === 0;
+  const displayedRows = visibleRows.slice(0, 50);
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -427,7 +432,7 @@ function PreviewResults({
           <h2 style={previewHeadingStyle}>
             {empty
               ? "Valid empty template"
-              : "Workbook validation results"}
+              : "Workbook is ready to review"}
           </h2>
           <p style={bodyStyle}>
             {preview.fileName} · Template{" "}
@@ -535,7 +540,7 @@ function PreviewResults({
                 No records match this filter.
               </p>
             ) : (
-              visibleRows.map((row) => (
+              displayedRows.map((row) => (
                 <article key={row.id} style={rowCardStyle}>
                   <div style={rowHeaderStyle}>
                     <div>
@@ -569,15 +574,20 @@ function PreviewResults({
               ))
             )}
           </div>
+          {visibleRows.length > displayedRows.length && (
+            <p style={bodyStyle}>
+              Showing the first {displayedRows.length} matching records here.
+              The full review screen includes search, filters, bulk selection,
+              and pages of 50 records.
+            </p>
+          )}
         </>
       )}
 
       <div style={commitNoticeStyle}>
-        <strong>Animal record changes remain disabled.</strong>
-        {" "}Saving this preview records its validation
-        results for your organization, but does not upload
-        the workbook or create, update, or delete any rescue
-        records.
+        <strong>Nothing has been imported yet.</strong>{" "}
+        Continue to match the workbook against your organization and review
+        every proposed create, update, warning, or error.
       </div>
 
       <button
@@ -590,15 +600,15 @@ function PreviewResults({
         }}
       >
         {savedJobId
-          ? "Secure Preview Saved"
+          ? "Ready for Review"
           : saving
-          ? "Saving Secure Preview…"
-          : "Save Secure Preview"}
+          ? "Preparing Review…"
+          : "Continue to Review"}
       </button>
 
       {savedJobId && (
         <div style={savedResultStyle}>
-          <strong>Preview saved and matched safely.</strong>
+          <strong>Your import review is ready.</strong>
           {matchCounts && (
             <span>
               {matchCounts.creates} create · {matchCounts.updates}{" "}
@@ -611,7 +621,7 @@ function PreviewResults({
             href={`/portal/data-imports/${savedJobId}`}
             style={savedPreviewLinkStyle}
           >
-            Review Saved Preview
+            Open Import Review
           </a>
         </div>
       )}
@@ -703,6 +713,28 @@ const introStyle: React.CSSProperties = {
   color: COLORS.muted,
   fontSize: 15,
   lineHeight: 1.6,
+};
+
+const stepsStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 16,
+};
+
+const activeStepStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  background: COLORS.navy,
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const pendingStepStyle: React.CSSProperties = {
+  ...activeStepStyle,
+  background: "#EEF1F4",
+  color: COLORS.muted,
 };
 
 const bodyStyle: React.CSSProperties = {
