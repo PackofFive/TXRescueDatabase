@@ -186,7 +186,40 @@ export async function PATCH(
     const body = (await request.json()) as {
       rowId?: string;
       selected?: boolean;
+      selectionMode?: "all" | "none";
     };
+
+    if (body.selectionMode === "all" || body.selectionMode === "none") {
+      const selected = body.selectionMode === "all";
+      const rows = await sql`
+        update import_rows row
+        set
+          selected = ${selected},
+          updated_at = now()
+        from import_jobs job
+        where row.job_id = job.id
+          and job.id = ${jobId}::uuid
+          and job.organization_id = ${orgId}::uuid
+          and job.status in ('ready', 'blocked')
+          and row.proposed_action in ('create', 'update')
+        returning row.id
+      `;
+
+      await sql`
+        update import_confirmations
+        set revoked_at = now()
+        where job_id = ${jobId}::uuid
+          and consumed_at is null
+          and revoked_at is null
+      `;
+
+      return NextResponse.json({
+        selection: {
+          selected,
+          updated: rows.length,
+        },
+      });
+    }
 
     if (!body.rowId || !isUuid(body.rowId) || typeof body.selected !== "boolean") {
       return NextResponse.json(
