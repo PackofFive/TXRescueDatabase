@@ -57,6 +57,8 @@ export default function SavedImportPreviewPage() {
   const [data, setData] = useState<SavedPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | Action>("all");
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [choiceError, setChoiceError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +107,51 @@ export default function SavedImportPreviewPage() {
     [data, filter]
   );
 
+  async function changeSelection(row: SavedRow, selected: boolean) {
+    if (!data || savingRowId) return;
+
+    setSavingRowId(row.id);
+    setChoiceError(null);
+
+    try {
+      const response = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rowId: row.id, selected }),
+        }
+      );
+      const result = (await response.json()) as {
+        row?: { id: string; selected: boolean };
+        error?: string;
+      };
+
+      if (!response.ok || !result.row) {
+        throw new Error(
+          result.error || "The preview choice could not be saved."
+        );
+      }
+
+      setData({
+        ...data,
+        rows: data.rows.map((item) =>
+          item.id === result.row?.id
+            ? { ...item, selected: Boolean(result.row.selected) }
+            : item
+        ),
+      });
+    } catch (err) {
+      setChoiceError(
+        err instanceof Error
+          ? err.message
+          : "The preview choice could not be saved."
+      );
+    } finally {
+      setSavingRowId(null);
+    }
+  }
+
   if (error) {
     return (
       <section style={pageStyle}>
@@ -127,6 +174,12 @@ export default function SavedImportPreviewPage() {
     reviews: 0,
     errors: 0,
   };
+  const selectedCount = data.rows.filter(
+    (row) =>
+      row.selected &&
+      (row.proposed_action === "create" ||
+        row.proposed_action === "update")
+  ).length;
 
   return (
     <section style={pageStyle}>
@@ -143,7 +196,17 @@ export default function SavedImportPreviewPage() {
         <Summary label="Update" value={counts.updates} />
         <Summary label="Review" value={counts.reviews} />
         <Summary label="Errors" value={counts.errors} />
+        <Summary label="Selected" value={selectedCount} />
       </div>
+
+      <p style={selectionHelpStyle}>
+        Choose which ready Create and Update rows should be included later.
+        Review and Error rows stay excluded until corrected.
+      </p>
+
+      {choiceError && (
+        <p role="alert" style={errorStyle}>{choiceError}</p>
+      )}
 
       <div style={filterBarStyle}>
         {(["all", "create", "update", "warning", "error"] as const).map(
@@ -169,13 +232,33 @@ export default function SavedImportPreviewPage() {
           <p style={bodyStyle}>No rows match this filter.</p>
         ) : (
           visibleRows.map((row) => (
-            <article key={row.id} style={rowCardStyle}>
+            <article
+              key={row.id}
+              style={{
+                ...rowCardStyle,
+                opacity:
+                  canSelect(row) && !row.selected ? 0.68 : 1,
+              }}
+            >
               <div style={rowHeaderStyle}>
-                <div>
-                  <strong>{rowLabel(row)}</strong>
-                  <div style={rowMetaStyle}>
-                    {row.sheet_name} · Row {row.row_number}
-                    {row.target_entity_id ? " · Exact match found" : ""}
+                <div style={rowChoiceStyle}>
+                  <input
+                    type="checkbox"
+                    checked={row.selected}
+                    disabled={!canSelect(row) || Boolean(savingRowId)}
+                    onChange={(event) =>
+                      void changeSelection(row, event.target.checked)
+                    }
+                    aria-label={`Include ${rowLabel(row)}`}
+                    style={checkboxStyle}
+                  />
+                  <div>
+                    <strong>{rowLabel(row)}</strong>
+                    <div style={rowMetaStyle}>
+                      {row.sheet_name} · Row {row.row_number}
+                      {row.target_entity_id ? " · Exact match found" : ""}
+                      {savingRowId === row.id ? " · Saving choice…" : ""}
+                    </div>
                   </div>
                 </div>
                 <span style={{ ...badgeStyle, ...actionStyle(row.proposed_action) }}>
@@ -241,6 +324,10 @@ function actionStyle(action: Action): React.CSSProperties {
   return { background: "#EEF1F4", color: COLORS.muted };
 }
 
+function canSelect(row: SavedRow) {
+  return row.proposed_action === "create" || row.proposed_action === "update";
+}
+
 const pageStyle: React.CSSProperties = { maxWidth: 1040 };
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 7px", color: COLORS.coral, fontSize: 11.5, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase" };
 const headingStyle: React.CSSProperties = { margin: 0, color: COLORS.navy, fontSize: 30 };
@@ -259,3 +346,6 @@ const lockedStyle: React.CSSProperties = { marginTop: 18, padding: "12px 14px", 
 const disabledButtonStyle: React.CSSProperties = { marginTop: 12, padding: "10px 15px", border: 0, borderRadius: 7, background: COLORS.navy, color: "#fff", opacity: 0.5, fontWeight: 800 };
 const linkStyle: React.CSSProperties = { color: COLORS.navy, fontWeight: 800 };
 const errorStyle: React.CSSProperties = { color: COLORS.error, lineHeight: 1.5 };
+const selectionHelpStyle: React.CSSProperties = { margin: "14px 0 0", color: COLORS.muted, fontSize: 13, lineHeight: 1.5 };
+const rowChoiceStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 10 };
+const checkboxStyle: React.CSSProperties = { width: 17, height: 17, marginTop: 1, accentColor: COLORS.navy };
