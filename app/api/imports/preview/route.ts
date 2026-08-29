@@ -25,6 +25,53 @@ type PreviewRequest = {
   idempotencyKey?: string;
 };
 
+export async function GET() {
+  try {
+    const { session, orgId } =
+      await requireEffectiveOrg();
+
+    await requireImportPermission(session.id, orgId);
+
+    const jobs = await sql`
+      select
+        j.id,
+        j.status,
+        j.template_id,
+        j.schema_version,
+        j.summary,
+        j.created_at,
+        j.updated_at,
+        j.committed_at,
+        j.rolled_back_at,
+        u.email as uploaded_by_email,
+        count(r.id)::int as row_count,
+        count(r.id) filter (where r.selected)::int as selected_count
+      from import_jobs j
+      join users u on u.id = j.uploaded_by
+      left join import_rows r on r.job_id = j.id
+      where j.organization_id = ${orgId}::uuid
+      group by j.id, u.email
+      order by j.created_at desc
+      limit 50
+    `;
+
+    return NextResponse.json({ jobs });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("GET /api/imports/preview failed:", error);
+    return NextResponse.json(
+      { error: "Import history could not be loaded." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   let jobId: string | null = null;
 
@@ -32,25 +79,7 @@ export async function POST(request: Request) {
     const { session, orgId } =
       await requireEffectiveOrg();
 
-    const permissions = await sql`
-      select id
-      from user_permissions
-      where user_id = ${session.id}::uuid
-        and permission_key = 'rescue_workbook_import'
-        and revoked_at is null
-        and (
-          organization_id is null
-          or organization_id = ${orgId}::uuid
-        )
-      limit 1
-    `;
-
-    if (!permissions[0]) {
-      throw new AuthError(
-        "Your account does not have workbook import permission for this organization.",
-        403
-      );
-    }
+    await requireImportPermission(session.id, orgId);
 
     const body = (await request.json()) as PreviewRequest;
     const preview = body.preview;
@@ -236,6 +265,31 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "The secure preview could not be saved." },
       { status: 500 }
+    );
+  }
+}
+
+async function requireImportPermission(
+  userId: string,
+  orgId: string
+) {
+  const permissions = await sql`
+    select id
+    from user_permissions
+    where user_id = ${userId}::uuid
+      and permission_key = 'rescue_workbook_import'
+      and revoked_at is null
+      and (
+        organization_id is null
+        or organization_id = ${orgId}::uuid
+      )
+    limit 1
+  `;
+
+  if (!permissions[0]) {
+    throw new AuthError(
+      "Your account does not have workbook import permission for this organization.",
+      403
     );
   }
 }
