@@ -1501,13 +1501,17 @@ function ManagerShell({
               Urgent Shelter Animals
             </ManagerLink>
 
-            <ManagerLink href="/fosters">
-              Fosters
-            </ManagerLink>
+          <ManagerLink href="/fosters">
+            Fosters
+          </ManagerLink>
 
-            <ManagerLink href="/fosters/updates">
-              Foster Updates
-            </ManagerLink>
+          <ManagerLink href="/fosters/offers">
+            Help Offers
+          </ManagerLink>
+
+          <ManagerLink href="/fosters/updates">
+            Foster Updates
+          </ManagerLink>
           </nav>
 
           <div
