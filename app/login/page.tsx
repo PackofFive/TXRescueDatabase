@@ -26,6 +26,7 @@ const COLORS = {
 };
 
 type RequestedPortal =
+  | "admin"
   | "organization"
   | "pet-owner"
   | "foster";
@@ -53,6 +54,17 @@ const PORTALS:
     RequestedPortal,
     PortalConfig
   > = {
+    admin: {
+      title:
+        "Pack of Five Administration",
+      description:
+        "Sign in to manage organizations, requests, claims, and platform operations.",
+      accent:
+        COLORS.navy,
+      accountNote:
+        "Approved Pack of Five administrators only.",
+    },
+
     organization: {
       title:
         "Rescue & Shelter Manager",
@@ -577,6 +589,8 @@ function normalizePortal(
 ): RequestedPortal {
   if (
     value ===
+      "admin" ||
+    value ===
       "pet-owner" ||
     value ===
       "foster" ||
@@ -603,6 +617,28 @@ function routeSignedInUser(
     )
       ? user.availablePortals
       : [];
+
+  if (
+    requestedPortal ===
+    "admin"
+  ) {
+    if (
+      portals.includes(
+        "admin"
+      ) &&
+      user.status ===
+        "approved"
+    ) {
+      window.location.href =
+        "/admin";
+      return;
+    }
+
+    setStatus(
+      "This account does not have Pack of Five administrator access."
+    );
+    return;
+  }
 
   if (
     requestedPortal ===
