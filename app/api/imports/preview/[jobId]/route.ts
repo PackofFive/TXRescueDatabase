@@ -192,6 +192,14 @@ export async function PATCH(
       );
     }
 
+    await sql`
+      update import_confirmations
+      set revoked_at = now()
+      where job_id = ${jobId}::uuid
+        and consumed_at is null
+        and revoked_at is null
+    `;
+
     return NextResponse.json({ row: rows[0] });
   } catch (error) {
     if (error instanceof AuthError) {
