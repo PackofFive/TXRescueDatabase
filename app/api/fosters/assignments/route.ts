@@ -15,8 +15,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 async function requireOrganization() {
-  const session =
-    await getSession();
+  const session = await getSession();
 
   if (
     !session ||
@@ -28,21 +27,18 @@ async function requireOrganization() {
 
   return {
     session,
-    orgId:
-      String(session.orgId),
+    orgId: String(session.orgId),
   };
 }
 
 export async function GET() {
   try {
-    const access =
-      await requireOrganization();
+    const access = await requireOrganization();
 
     if (!access) {
       return NextResponse.json(
         {
-          error:
-            "Rescue Manager access required.",
+          error: "Rescue Manager access required.",
         },
         {
           status: 401,
@@ -50,96 +46,71 @@ export async function GET() {
       );
     }
 
-    const fosterRows =
-      await sql`
-        select
-          fp.id,
-          fp.full_name,
-          fp.email,
-          fp.phone,
-          fp.city,
-          fp.state,
-          fp.availability_status,
-          fp.max_capacity,
-          fp.species_preferences,
-          fp.size_preferences,
-          r.access_level,
-          r.can_submit_updates,
-          r.can_add_photos,
-          r.can_add_behavior_notes,
-          r.approved_at
+    const fosterRows = await sql`
+      select
+        fp.id,
+        fp.full_name,
+        fp.email,
+        fp.phone,
+        fp.city,
+        fp.state,
+        fp.availability_status,
+        fp.max_capacity,
+        fp.species_preferences,
+        fp.size_preferences,
+        r.access_level,
+        r.can_submit_updates,
+        r.can_add_photos,
+        r.can_add_behavior_notes,
+        r.approved_at
+      from foster_organization_relationships r
+      join foster_profiles fp
+        on fp.id = r.foster_id
+      where
+        r.organization_id = ${access.orgId}::uuid
+        and r.status = 'approved'
+      order by fp.full_name asc
+    `;
 
-        from foster_organization_relationships r
-
-        join foster_profiles fp
-          on fp.id =
-            r.foster_id
-
-        where
-          r.organization_id =
-            ${access.orgId}::uuid
-          and r.status =
-            'approved'
-
-        order by
-          fp.full_name asc
-      `;
-
-    const animalRows =
-      await sql`
-        select
-          a.id,
-          coalesce(
-            nullif(a.name, ''),
-            nullif(a.temporary_name, ''),
-            'Unnamed Animal'
-          ) as display_name,
-          a.species,
-          a.breed_or_type,
-          a.sex,
-          a.age_estimate,
-          a.size,
-          a.urgency,
-          a.placement,
-
-          fa.id as assignment_id,
-          fa.foster_id as assigned_foster_id,
-          fa.started_at,
-          fa.notes as assignment_notes,
-
-          assigned.full_name
-            as assigned_foster_name
-
-        from animals a
-
-        left join foster_assignments fa
-          on fa.animal_id =
-            a.id
-          and fa.ended_at
-            is null
-
-        left join foster_profiles assigned
-          on assigned.id =
-            fa.foster_id
-
-        where
-          a.current_org_id =
-            ${access.orgId}::uuid
-
-        order by
-          case
-            when fa.id is not null
-              then 0
-            else 1
-          end,
-          display_name asc
-      `;
+    const animalRows = await sql`
+      select
+        a.id,
+        coalesce(
+          nullif(a.name, ''),
+          nullif(a.temporary_name, ''),
+          'Unnamed Animal'
+        ) as display_name,
+        a.species,
+        a.breed_or_type,
+        a.sex,
+        a.age_estimate,
+        a.size,
+        a.urgency,
+        a.placement,
+        fa.id as assignment_id,
+        fa.foster_id as assigned_foster_id,
+        fa.started_at,
+        fa.notes as assignment_notes,
+        assigned.full_name as assigned_foster_name
+      from animals a
+      left join foster_assignments fa
+        on fa.animal_id = a.id
+        and fa.ended_at is null
+      left join foster_profiles assigned
+        on assigned.id = fa.foster_id
+      where
+        a.current_org_id = ${access.orgId}::uuid
+      order by
+        case
+          when fa.id is not null then 0
+          else 1
+        end,
+        display_name asc
+    `;
 
     return NextResponse.json({
-      fosters:
-        fosterRows,
-      animals:
-        animalRows,
+      fosters: fosterRows,
+      animals: animalRows,
     });
   } catch (err) {
     console.error(
@@ -161,18 +132,14 @@ export async function GET() {
   }
 }
 
-export async function POST(
-  req: NextRequest
-) {
+export async function POST(req: NextRequest) {
   try {
-    const access =
-      await requireOrganization();
+    const access = await requireOrganization();
 
     if (!access) {
       return NextResponse.json(
         {
-          error:
-            "Rescue Manager access required.",
+          error: "Rescue Manager access required.",
         },
         {
           status: 401,
@@ -180,35 +147,27 @@ export async function POST(
       );
     }
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const fosterId =
-      typeof body?.fosterId ===
-        "string"
+      typeof body?.fosterId === "string"
         ? body.fosterId.trim()
         : "";
 
     const animalId =
-      typeof body?.animalId ===
-        "string"
+      typeof body?.animalId === "string"
         ? body.animalId.trim()
         : "";
 
     const notes =
-      typeof body?.notes ===
-        "string"
+      typeof body?.notes === "string"
         ? body.notes.trim()
         : "";
 
-    if (
-      !fosterId ||
-      !animalId
-    ) {
+    if (!fosterId || !animalId) {
       return NextResponse.json(
         {
-          error:
-            "Foster and animal are required.",
+          error: "Foster and animal are required.",
         },
         {
           status: 400,
@@ -216,21 +175,23 @@ export async function POST(
       );
     }
 
-    const relationship =
-      await sql`
-        select id
-        from foster_organization_relationships
-        where
-          foster_id =
-            ${fosterId}
-          and organization_id =
-            ${access.orgId}::uuid
-          and status =
-            'approved'
-        limit 1
-      `;
+    const relationships = await sql`
+      select
+        id,
+        can_submit_updates,
+        can_add_photos,
+        can_add_behavior_notes
+      from foster_organization_relationships
+      where
+        foster_id = ${fosterId}
+        and organization_id = ${access.orgId}::uuid
+        and status = 'approved'
+      limit 1
+    `;
 
-    if (!relationship[0]) {
+    const relationship = relationships[0];
+
+    if (!relationship) {
       return NextResponse.json(
         {
           error:
@@ -242,23 +203,19 @@ export async function POST(
       );
     }
 
-    const animal =
-      await sql`
-        select id
-        from animals
-        where
-          id =
-            ${animalId}::uuid
-          and current_org_id =
-            ${access.orgId}::uuid
-        limit 1
-      `;
+    const animal = await sql`
+      select id
+      from animals
+      where
+        id = ${animalId}::uuid
+        and current_org_id = ${access.orgId}::uuid
+      limit 1
+    `;
 
     if (!animal[0]) {
       return NextResponse.json(
         {
-          error:
-            "Animal not found for this organization.",
+          error: "Animal not found for this organization.",
         },
         {
           status: 404,
@@ -266,19 +223,16 @@ export async function POST(
       );
     }
 
-    const existing =
-      await sql`
-        select
-          id,
-          foster_id
-        from foster_assignments
-        where
-          animal_id =
-            ${animalId}::uuid
-          and ended_at
-            is null
-        limit 1
-      `;
+    const existing = await sql`
+      select
+        id,
+        foster_id
+      from foster_assignments
+      where
+        animal_id = ${animalId}::uuid
+        and ended_at is null
+      limit 1
+    `;
 
     if (existing[0]) {
       return NextResponse.json(
@@ -292,40 +246,79 @@ export async function POST(
       );
     }
 
-    const rows =
-      await sql`
+    try {
+      const rows = await sql`
         insert into foster_assignments (
           id,
           foster_id,
           animal_id,
+          organization_id,
           started_at,
-          notes
+          notes,
+          can_submit_updates,
+          can_add_photos,
+          can_add_behavior_notes,
+          access_overrides
         )
         values (
           gen_random_uuid(),
           ${fosterId},
           ${animalId}::uuid,
+          ${access.orgId}::uuid,
           now(),
-          ${notes || null}
+          ${notes || null},
+          ${Boolean(relationship.can_submit_updates)},
+          ${Boolean(relationship.can_add_photos)},
+          ${Boolean(relationship.can_add_behavior_notes)},
+          '{}'::jsonb
         )
         returning
           id,
           foster_id,
           animal_id,
+          organization_id,
           started_at,
           ended_at,
-          notes
+          notes,
+          can_submit_updates,
+          can_add_photos,
+          can_add_behavior_notes,
+          access_overrides
       `;
 
-    return NextResponse.json(
-      {
-        assignment:
-          rows[0],
-      },
-      {
-        status: 201,
+      return NextResponse.json(
+        {
+          assignment: rows[0],
+        },
+        {
+          status: 201,
+        }
+      );
+    } catch (insertError) {
+      const message =
+        insertError instanceof Error
+          ? insertError.message
+          : "";
+
+      if (
+        message.includes(
+          "foster_assignments_one_active_per_animal_idx"
+        ) ||
+        message.includes("duplicate key")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This animal received another active foster assignment. Refresh the page and review the current assignment.",
+          },
+          {
+            status: 409,
+          }
+        );
       }
-    );
+
+      throw insertError;
+    }
   } catch (err) {
     console.error(
       "POST /api/fosters/assignments failed:",
@@ -346,18 +339,14 @@ export async function POST(
   }
 }
 
-export async function PATCH(
-  req: NextRequest
-) {
+export async function PATCH(req: NextRequest) {
   try {
-    const access =
-      await requireOrganization();
+    const access = await requireOrganization();
 
     if (!access) {
       return NextResponse.json(
         {
-          error:
-            "Rescue Manager access required.",
+          error: "Rescue Manager access required.",
         },
         {
           status: 401,
@@ -365,20 +354,17 @@ export async function PATCH(
       );
     }
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const assignmentId =
-      typeof body?.assignmentId ===
-        "string"
+      typeof body?.assignmentId === "string"
         ? body.assignmentId.trim()
         : "";
 
     if (!assignmentId) {
       return NextResponse.json(
         {
-          error:
-            "Assignment is required.",
+          error: "Assignment is required.",
         },
         {
           status: 400,
@@ -386,40 +372,31 @@ export async function PATCH(
       );
     }
 
-    const rows =
-      await sql`
-        update foster_assignments fa
-
-        set
-          ended_at =
-            now()
-
-        from animals a
-
-        where
-          fa.id =
-            ${assignmentId}::uuid
-          and fa.animal_id =
-            a.id
-          and a.current_org_id =
-            ${access.orgId}::uuid
-          and fa.ended_at
-            is null
-
-        returning
-          fa.id,
-          fa.foster_id,
-          fa.animal_id,
-          fa.started_at,
-          fa.ended_at,
-          fa.notes
-      `;
+    const rows = await sql`
+      update foster_assignments fa
+      set
+        ended_at = now()
+      from animals a
+      where
+        fa.id = ${assignmentId}::uuid
+        and fa.animal_id = a.id
+        and a.current_org_id = ${access.orgId}::uuid
+        and fa.organization_id = ${access.orgId}::uuid
+        and fa.ended_at is null
+      returning
+        fa.id,
+        fa.foster_id,
+        fa.animal_id,
+        fa.organization_id,
+        fa.started_at,
+        fa.ended_at,
+        fa.notes
+    `;
 
     if (!rows[0]) {
       return NextResponse.json(
         {
-          error:
-            "Active foster assignment not found.",
+          error: "Active foster assignment not found.",
         },
         {
           status: 404,
@@ -428,8 +405,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({
-      assignment:
-        rows[0],
+      assignment: rows[0],
     });
   } catch (err) {
     console.error(
