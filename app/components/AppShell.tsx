@@ -1358,7 +1358,7 @@ function ManagerShell({
   const animalsLabel =
     organizationName
       ? `${organizationName} Animals`
-      : "Our Animals";
+      : "Animals in Our Care";
 
   return (
     <div
@@ -1489,29 +1489,9 @@ function ManagerShell({
           <nav
             aria-label="Rescue Manager navigation"
           >
-            <ManagerLink href="/portal">
-              Overview
-            </ManagerLink>
-
-            <ManagerLink href="/animals">
-              {animalsLabel}
-            </ManagerLink>
-
-            <ManagerLink href="/portal/urgent">
-              Urgent Shelter Animals
-            </ManagerLink>
-
-          <ManagerLink href="/fosters">
-            Fosters
-          </ManagerLink>
-
-          <ManagerLink href="/fosters/offers">
-            Help Offers
-          </ManagerLink>
-
-          <ManagerLink href="/fosters/updates">
-            Foster Updates
-          </ManagerLink>
+            <ManagerNavigation
+              animalsLabel={animalsLabel}
+            />
           </nav>
 
           <div
@@ -1526,7 +1506,14 @@ function ManagerShell({
               href="/organizations"
               style={managerFooterLink}
             >
-              ← Rescue Network
+              Rescue Network
+            </a>
+
+            <a
+              href="/resources"
+              style={managerFooterLink}
+            >
+              Resources
             </a>
 
             {user.role === "admin" && (
@@ -1757,24 +1744,174 @@ function AdminShell({
 }
 
 /* =========================================================
-   MANAGER LINK
+   MANAGER NAVIGATION
 ========================================================= */
+
+function ManagerNavigation({
+  animalsLabel,
+}: {
+  animalsLabel: string;
+}) {
+  const pathname = usePathname();
+  const inAnimalsSection =
+    pathname === "/animals" ||
+    pathname.startsWith("/animals/") ||
+    pathname === "/portal/urgent" ||
+    pathname.startsWith("/portal/urgent/");
+  const inPeopleSection =
+    pathname === "/fosters" ||
+    pathname.startsWith("/fosters/");
+
+  const [animalsOpen, setAnimalsOpen] =
+    useState(true);
+  const [peopleOpen, setPeopleOpen] =
+    useState(true);
+
+  useEffect(() => {
+    if (inAnimalsSection) {
+      setAnimalsOpen(true);
+    }
+  }, [inAnimalsSection]);
+
+  useEffect(() => {
+    if (inPeopleSection) {
+      setPeopleOpen(true);
+    }
+  }, [inPeopleSection]);
+
+  return (
+    <>
+      <ManagerSectionLabel>
+        Overview
+      </ManagerSectionLabel>
+
+      <ManagerLink
+        href="/portal"
+        exact
+      >
+        Dashboard
+      </ManagerLink>
+
+      <ManagerSectionToggle
+        expanded={animalsOpen}
+        controls="manager-animals-navigation"
+        onClick={() =>
+          setAnimalsOpen((open) => !open)
+        }
+      >
+        Animals
+      </ManagerSectionToggle>
+
+      <div
+        id="manager-animals-navigation"
+        hidden={!animalsOpen}
+        style={managerSectionItemsStyle}
+      >
+        <ManagerLink href="/animals">
+          {animalsLabel}
+        </ManagerLink>
+
+        <ManagerLink href="/portal/urgent">
+          Urgent Shelter Animals
+        </ManagerLink>
+      </div>
+
+      <ManagerSectionToggle
+        expanded={peopleOpen}
+        controls="manager-people-navigation"
+        onClick={() =>
+          setPeopleOpen((open) => !open)
+        }
+      >
+        People &amp; Placement
+      </ManagerSectionToggle>
+
+      <div
+        id="manager-people-navigation"
+        hidden={!peopleOpen}
+        style={managerSectionItemsStyle}
+      >
+        <ManagerLink
+          href="/fosters"
+          exact
+        >
+          Fosters
+        </ManagerLink>
+
+        <ManagerLink href="/fosters/offers">
+          Applications &amp; Offers
+        </ManagerLink>
+
+        <ManagerLink href="/fosters/assignments">
+          Foster Assignments
+        </ManagerLink>
+
+        <ManagerLink href="/fosters/updates">
+          Foster Reports
+        </ManagerLink>
+      </div>
+    </>
+  );
+}
+
+function ManagerSectionLabel({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div style={managerSectionLabelStyle}>
+      {children}
+    </div>
+  );
+}
+
+function ManagerSectionToggle({
+  expanded,
+  controls,
+  onClick,
+  children,
+}: {
+  expanded: boolean;
+  controls: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-controls={controls}
+      onClick={onClick}
+      style={managerSectionToggleStyle}
+    >
+      <span>{children}</span>
+      <span aria-hidden="true">
+        {expanded ? "▾" : "▸"}
+      </span>
+    </button>
+  );
+}
 
 function ManagerLink({
   href,
+  exact = false,
   children,
 }: {
   href: string;
+  exact?: boolean;
   children: ReactNode;
 }) {
   const pathname =
     usePathname();
 
   const active =
-    pathname === href ||
-    pathname.startsWith(
-      `${href}/`
-    );
+    exact
+      ? pathname === href
+      : pathname === href ||
+        pathname.startsWith(
+          `${href}/`
+        );
 
   return (
     <a
@@ -1883,3 +2020,68 @@ const managerFooterLink = {
   fontSize: 14,
   marginBottom: 12,
 } as const;
+
+const managerSectionLabelStyle:
+  CSSProperties =
+{
+  color:
+    "rgba(255,255,255,.64)",
+  fontSize:
+    11,
+  fontWeight:
+    800,
+  letterSpacing:
+    ".1em",
+  margin:
+    "20px 12px 7px",
+  textTransform:
+    "uppercase",
+};
+
+const managerSectionToggleStyle:
+  CSSProperties =
+{
+  width:
+    "100%",
+  display:
+    "flex",
+  alignItems:
+    "center",
+  justifyContent:
+    "space-between",
+  gap:
+    12,
+  margin:
+    "20px 0 7px",
+  padding:
+    "0 12px",
+  border:
+    0,
+  background:
+    "transparent",
+  color:
+    "rgba(255,255,255,.72)",
+  cursor:
+    "pointer",
+  fontFamily:
+    "inherit",
+  fontSize:
+    11,
+  fontWeight:
+    800,
+  letterSpacing:
+    ".1em",
+  lineHeight:
+    1.4,
+  textAlign:
+    "left",
+  textTransform:
+    "uppercase",
+};
+
+const managerSectionItemsStyle:
+  CSSProperties =
+{
+  paddingLeft:
+    8,
+};
