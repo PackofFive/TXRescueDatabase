@@ -59,6 +59,12 @@ type PreflightReport = {
   checkedAt: string;
 };
 
+type Confirmation = {
+  id: string;
+  confirmed_at?: string;
+  expires_at: string;
+};
+
 const COLORS = {
   navy: "#1E3A5F",
   coral: "#E85C56",
@@ -82,6 +88,9 @@ export default function SavedImportPreviewPage() {
   const [preflight, setPreflight] = useState<PreflightReport | null>(null);
   const [checking, setChecking] = useState(false);
   const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmationError, setConfirmationError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -136,6 +145,7 @@ export default function SavedImportPreviewPage() {
     setSavingRowId(row.id);
     setChoiceError(null);
     setPreflight(null);
+    setConfirmation(null);
 
     try {
       const response = await fetch(
@@ -198,6 +208,7 @@ export default function SavedImportPreviewPage() {
       }
 
       setPreflight(result.preflight);
+      setConfirmation(null);
     } catch (err) {
       setPreflightError(
         err instanceof Error
@@ -206,6 +217,39 @@ export default function SavedImportPreviewPage() {
       );
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function approveImport() {
+    if (!preflight?.passed || confirming) return;
+    setConfirming(true);
+    setConfirmationError(null);
+
+    try {
+      const response = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/confirm`,
+        { method: "POST" }
+      );
+      const result = (await response.json()) as {
+        confirmation?: Confirmation;
+        error?: string;
+      };
+
+      if (!response.ok || !result.confirmation) {
+        throw new Error(
+          result.error || "The import approval could not be recorded."
+        );
+      }
+
+      setConfirmation(result.confirmation);
+    } catch (err) {
+      setConfirmationError(
+        err instanceof Error
+          ? err.message
+          : "The import approval could not be recorded."
+      );
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -368,8 +412,35 @@ export default function SavedImportPreviewPage() {
           )}
         </div>
       )}
+
+      {preflight?.passed && !confirmation && (
+        <button
+          type="button"
+          onClick={() => void approveImport()}
+          disabled={confirming}
+          style={{ ...approvalButtonStyle, opacity: confirming ? 0.6 : 1 }}
+        >
+          {confirming ? "Recording Approval…" : "Approve Selected Import"}
+        </button>
+      )}
+
+      {confirmationError && (
+        <p role="alert" style={errorStyle}>{confirmationError}</p>
+      )}
+
+      {confirmation && (
+        <div style={approvalReceiptStyle}>
+          <strong>Approval recorded</strong>
+          <span>
+            This one-time approval expires at{" "}
+            {new Date(confirmation.expires_at).toLocaleTimeString()}.
+          </span>
+          <span>Receipt: {confirmation.id}</span>
+        </div>
+      )}
+
       <button type="button" disabled style={disabledButtonStyle}>
-        Confirm Import — Not Yet Enabled
+        Run Import — Transaction Engine Not Yet Enabled
       </button>
       <div style={{ marginTop: 16 }}>
         <Link href="/portal/data-imports" style={linkStyle}>
@@ -483,3 +554,5 @@ const deferredStyle: React.CSSProperties = { color: COLORS.warning, textAlign: "
 const safetyButtonStyle: React.CSSProperties = { marginTop: 12, padding: "10px 15px", border: 0, borderRadius: 7, background: COLORS.coral, color: "#fff", cursor: "pointer", fontWeight: 800 };
 const passedStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, marginTop: 10, padding: "12px 14px", color: COLORS.navy, background: COLORS.mint, border: `1px solid ${COLORS.border}`, borderRadius: 7, fontSize: 13 };
 const failedStyle: React.CSSProperties = { ...passedStyle, color: COLORS.error, background: COLORS.pink };
+const approvalButtonStyle: React.CSSProperties = { marginTop: 12, padding: "10px 15px", border: 0, borderRadius: 7, background: COLORS.navy, color: "#fff", cursor: "pointer", fontWeight: 800 };
+const approvalReceiptStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, marginTop: 10, padding: "12px 14px", color: COLORS.navy, background: COLORS.mint, border: `1px solid ${COLORS.border}`, borderRadius: 7, fontSize: 13, overflowWrap: "anywhere" };
