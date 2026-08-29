@@ -119,6 +119,8 @@ export async function POST(
           }.`
         );
       }
+
+      issues.push(...requiredDestinationIssues(row));
     }
 
     const selectedUpdates = selected.filter(
@@ -189,6 +191,50 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+function requiredDestinationIssues(row: PreviewRow) {
+  const issues: string[] = [];
+  const values = row.source_payload ?? {};
+
+  if (
+    row.sheet_name === "Animals" &&
+    row.proposed_action === "create" &&
+    !values.species_type?.trim()
+  ) {
+    issues.push(
+      `Animals row ${row.row_number} needs Species / Type for Rescue Manager intake.`
+    );
+  }
+
+  if (
+    row.sheet_name === "Medical" &&
+    !values.animal_id?.trim()
+  ) {
+    issues.push(
+      `Medical row ${row.row_number} needs an Animal ID.`
+    );
+  }
+
+  if (
+    row.sheet_name === "Medical" &&
+    !values.service_vaccine?.trim()
+  ) {
+    issues.push(
+      `Medical row ${row.row_number} needs Service / Vaccine for the medical record title.`
+    );
+  }
+
+  if (
+    row.sheet_name === "Tasks" &&
+    !values.animal_id?.trim()
+  ) {
+    issues.push(
+      `Tasks row ${row.row_number} needs an Animal ID because Rescue Manager tasks currently belong to an animal.`
+    );
+  }
+
+  return issues;
 }
 
 async function findMissingUpdateTargets(
