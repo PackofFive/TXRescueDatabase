@@ -50,6 +50,13 @@ export default function DataImportsPage() {
     useState<string | null>(null);
   const [saveError, setSaveError] =
     useState<string | null>(null);
+  const [matchCounts, setMatchCounts] =
+    useState<{
+      creates: number;
+      updates: number;
+      reviews: number;
+      errors: number;
+    } | null>(null);
 
   const visibleRows = useMemo(() => {
     if (!preview) {
@@ -77,6 +84,7 @@ export default function DataImportsPage() {
     setFilter("all");
     setSavedJobId(null);
     setSaveError(null);
+    setMatchCounts(null);
 
     try {
       const result =
@@ -116,6 +124,12 @@ export default function DataImportsPage() {
       const result = (await response.json()) as {
         jobId?: string;
         error?: string;
+        matchCounts?: {
+          creates: number;
+          updates: number;
+          reviews: number;
+          errors: number;
+        };
       };
 
       if (!response.ok || !result.jobId) {
@@ -126,6 +140,7 @@ export default function DataImportsPage() {
       }
 
       setSavedJobId(result.jobId);
+      setMatchCounts(result.matchCounts ?? null);
     } catch (err) {
       setSaveError(
         err instanceof Error
@@ -196,6 +211,7 @@ export default function DataImportsPage() {
               setError(null);
               setSavedJobId(null);
               setSaveError(null);
+              setMatchCounts(null);
             }}
             style={fileInputStyle}
           />
@@ -240,6 +256,7 @@ export default function DataImportsPage() {
           savedJobId={savedJobId}
           saveError={saveError}
           saveSecurePreview={saveSecurePreview}
+          matchCounts={matchCounts}
         />
       )}
     </section>
@@ -255,6 +272,7 @@ function PreviewResults({
   savedJobId,
   saveError,
   saveSecurePreview,
+  matchCounts,
 }: {
   preview: WorkbookPreview;
   filter: PreviewFilter;
@@ -264,6 +282,12 @@ function PreviewResults({
   savedJobId: string | null;
   saveError: string | null;
   saveSecurePreview: () => void;
+  matchCounts: {
+    creates: number;
+    updates: number;
+    reviews: number;
+    errors: number;
+  } | null;
 }) {
   const empty = preview.counts.total === 0;
 
@@ -445,9 +469,23 @@ function PreviewResults({
       </button>
 
       {savedJobId && (
-        <p style={successStyle}>
-          Preview saved safely. Reference: {savedJobId}
-        </p>
+        <div style={savedResultStyle}>
+          <strong>Preview saved and matched safely.</strong>
+          {matchCounts && (
+            <span>
+              {matchCounts.creates} create · {matchCounts.updates}{" "}
+              update · {matchCounts.reviews} review ·{" "}
+              {matchCounts.errors} error
+            </span>
+          )}
+          <span>Reference: {savedJobId}</span>
+          <a
+            href={`/portal/data-imports/${savedJobId}`}
+            style={savedPreviewLinkStyle}
+          >
+            Review Saved Preview
+          </a>
+        </div>
       )}
 
       {saveError && (
@@ -620,6 +658,24 @@ const successStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 750,
   overflowWrap: "anywhere",
+};
+
+const savedResultStyle: React.CSSProperties = {
+  ...successStyle,
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  padding: "11px 13px",
+  background: COLORS.mint,
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: 7,
+};
+
+const savedPreviewLinkStyle: React.CSSProperties = {
+  alignSelf: "flex-start",
+  marginTop: 4,
+  color: COLORS.navy,
+  fontWeight: 800,
 };
 
 const previewHeaderStyle: React.CSSProperties = {
