@@ -46,9 +46,13 @@ type SavedPreview = {
     };
     created_at: string;
     uploaded_by_email: string;
+    committed_at?: string | null;
+    rolled_back_at?: string | null;
+    rollback_expires_at?: string | null;
   };
   rows: SavedRow[];
   commitEnabled: boolean;
+  confirmation?: Confirmation | null;
 };
 
 type PreflightReport = {
@@ -91,6 +95,16 @@ export default function SavedImportPreviewPage() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const [executing, setExecuting] = useState(false);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [executionResult, setExecutionResult] = useState<{
+    created: number;
+    updated: number;
+    rollbackExpiresAt: string;
+  } | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [rollbackError, setRollbackError] = useState<string | null>(null);
+  const [rollbackComplete, setRollbackComplete] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +127,10 @@ export default function SavedImportPreviewPage() {
           );
         }
 
-        if (active) setData(result);
+        if (active) {
+          setData(result);
+          setConfirmation(result.confirmation ?? null);
+        }
       } catch (err) {
         if (active) {
           setError(
@@ -253,6 +270,95 @@ export default function SavedImportPreviewPage() {
     }
   }
 
+  async function executeImport() {
+    if (!confirmation || executing || !data?.commitEnabled) return;
+    if (!window.confirm(
+      "Run this approved import now? The selected records will be created or updated as one atomic transaction."
+    )) return;
+
+    setExecuting(true);
+    setExecutionError(null);
+
+    try {
+      const response = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/execute`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirmationId: confirmation.id }),
+        }
+      );
+      const payload = (await response.json()) as {
+        result?: { created: number; updated: number; rollbackExpiresAt: string };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.result) {
+        throw new Error(payload.error || "The import could not be completed.");
+      }
+
+      setExecutionResult(payload.result);
+      setConfirmation(null);
+      setData({
+        ...data,
+        commitEnabled: false,
+        job: {
+          ...data.job,
+          status: "committed",
+          committed_at: new Date().toISOString(),
+          rollback_expires_at: payload.result.rollbackExpiresAt,
+        },
+      });
+    } catch (err) {
+      setExecutionError(
+        err instanceof Error ? err.message : "The import could not be completed."
+      );
+    } finally {
+      setExecuting(false);
+    }
+  }
+
+  async function rollbackImport() {
+    if (!data || rollingBack) return;
+    if (!window.confirm(
+      "Roll back this entire import? This will reverse all changes only if none of the imported records changed afterward."
+    )) return;
+
+    setRollingBack(true);
+    setRollbackError(null);
+
+    try {
+      const response = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/rollback`,
+        { method: "POST" }
+      );
+      const payload = (await response.json()) as {
+        result?: unknown;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.result) {
+        throw new Error(payload.error || "Rollback could not be completed.");
+      }
+
+      setRollbackComplete(true);
+      setData({
+        ...data,
+        job: {
+          ...data.job,
+          status: "rolled_back",
+          rolled_back_at: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      setRollbackError(
+        err instanceof Error ? err.message : "Rollback could not be completed."
+      );
+    } finally {
+      setRollingBack(false);
+    }
+  }
+
   if (error) {
     return (
       <section style={pageStyle}>
@@ -379,11 +485,13 @@ export default function SavedImportPreviewPage() {
         )}
       </div>
 
-      <div style={lockedStyle}>
-        <strong>Confirmation is locked.</strong>{" "}
-        This review page is read-only. Commit transactions, audit snapshots,
-        and guarded rollback must be completed before confirmation is enabled.
-      </div>
+      {data.job.status === "ready" && (
+        <div style={lockedStyle}>
+          <strong>Review before importing.</strong>{" "}
+          Run the final safety check, record a short-lived approval, then run
+          the import. Neon will apply every selected row or keep none of them.
+        </div>
+      )}
       <button
         type="button"
         onClick={() => void runPreflight()}
@@ -439,9 +547,51 @@ export default function SavedImportPreviewPage() {
         </div>
       )}
 
-      <button type="button" disabled style={disabledButtonStyle}>
-        Run Import — Transaction Engine Not Yet Enabled
-      </button>
+      {confirmation && data.commitEnabled && data.job.status === "ready" && (
+        <button
+          type="button"
+          onClick={() => void executeImport()}
+          disabled={executing}
+          style={{ ...runButtonStyle, opacity: executing ? 0.6 : 1 }}
+        >
+          {executing ? "Running Atomic Import…" : "Run Approved Import"}
+        </button>
+      )}
+
+      {executionError && <p role="alert" style={errorStyle}>{executionError}</p>}
+
+      {(executionResult || data.job.status === "committed") && (
+        <div style={commitSuccessStyle}>
+          <strong>Import committed successfully</strong>
+          {executionResult && (
+            <span>
+              {executionResult.created} created · {executionResult.updated} updated
+            </span>
+          )}
+          {data.job.rollback_expires_at && (
+            <span>
+              Rollback available until{" "}
+              {new Date(data.job.rollback_expires_at).toLocaleString()}.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void rollbackImport()}
+            disabled={rollingBack}
+            style={rollbackButtonStyle}
+          >
+            {rollingBack ? "Checking & Rolling Back…" : "Roll Back Entire Import"}
+          </button>
+        </div>
+      )}
+
+      {rollbackError && <p role="alert" style={errorStyle}>{rollbackError}</p>}
+      {(rollbackComplete || data.job.status === "rolled_back") && (
+        <div style={passedStyle}>
+          <strong>Import rolled back successfully</strong>
+          <span>The audit history was preserved.</span>
+        </div>
+      )}
       <div style={{ marginTop: 16 }}>
         <Link href="/portal/data-imports" style={linkStyle}>
           Return to Data &amp; Imports
@@ -556,3 +706,6 @@ const passedStyle: React.CSSProperties = { display: "flex", flexDirection: "colu
 const failedStyle: React.CSSProperties = { ...passedStyle, color: COLORS.error, background: COLORS.pink };
 const approvalButtonStyle: React.CSSProperties = { marginTop: 12, padding: "10px 15px", border: 0, borderRadius: 7, background: COLORS.navy, color: "#fff", cursor: "pointer", fontWeight: 800 };
 const approvalReceiptStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, marginTop: 10, padding: "12px 14px", color: COLORS.navy, background: COLORS.mint, border: `1px solid ${COLORS.border}`, borderRadius: 7, fontSize: 13, overflowWrap: "anywhere" };
+const runButtonStyle: React.CSSProperties = { marginTop: 12, padding: "11px 16px", border: 0, borderRadius: 7, background: "#16705A", color: "#fff", cursor: "pointer", fontWeight: 850 };
+const commitSuccessStyle: React.CSSProperties = { ...passedStyle, marginTop: 14 };
+const rollbackButtonStyle: React.CSSProperties = { alignSelf: "flex-start", marginTop: 6, padding: "8px 11px", border: `1px solid ${COLORS.error}`, borderRadius: 6, background: COLORS.surface, color: COLORS.error, cursor: "pointer", fontWeight: 800 };
