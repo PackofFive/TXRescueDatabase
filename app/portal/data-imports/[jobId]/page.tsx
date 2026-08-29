@@ -14,6 +14,18 @@ type SavedRow = {
   selected: boolean;
   target_entity_id: string | null;
   source_payload: Record<string, unknown>;
+  normalized_payload: {
+    mappedFields?: Array<{
+      source: string;
+      destination: string;
+      value: string;
+    }>;
+    deferredFields?: Array<{
+      source: string;
+      value: string;
+      reason: string;
+    }>;
+  };
   messages: string[];
 };
 
@@ -272,6 +284,7 @@ export default function SavedImportPreviewPage() {
                   ))}
                 </ul>
               )}
+              <FieldMapping row={row} />
             </article>
           ))
         )}
@@ -291,6 +304,45 @@ export default function SavedImportPreviewPage() {
         </Link>
       </div>
     </section>
+  );
+}
+
+function FieldMapping({ row }: { row: SavedRow }) {
+  const mapped = row.normalized_payload.mappedFields ?? [];
+  const deferred = row.normalized_payload.deferredFields ?? [];
+
+  if (mapped.length === 0 && deferred.length === 0) return null;
+
+  return (
+    <details style={mappingDetailsStyle}>
+      <summary style={mappingSummaryStyle}>
+        View field mapping ({mapped.length} mapped, {deferred.length} deferred)
+      </summary>
+
+      {mapped.length > 0 && (
+        <div style={mappingGroupStyle}>
+          <strong>Mapped exactly</strong>
+          {mapped.map((field, index) => (
+            <div key={`${field.destination}-${index}`} style={mappingLineStyle}>
+              <span>{field.source}: {field.value}</span>
+              <span style={destinationStyle}>→ {field.destination}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {deferred.length > 0 && (
+        <div style={mappingGroupStyle}>
+          <strong style={{ color: COLORS.warning }}>Deferred</strong>
+          {deferred.map((field, index) => (
+            <div key={`${field.source}-${index}`} style={mappingLineStyle}>
+              <span>{field.source}: {field.value}</span>
+              <span style={deferredStyle}>Not imported yet</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </details>
   );
 }
 
@@ -349,3 +401,9 @@ const errorStyle: React.CSSProperties = { color: COLORS.error, lineHeight: 1.5 }
 const selectionHelpStyle: React.CSSProperties = { margin: "14px 0 0", color: COLORS.muted, fontSize: 13, lineHeight: 1.5 };
 const rowChoiceStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 10 };
 const checkboxStyle: React.CSSProperties = { width: 17, height: 17, marginTop: 1, accentColor: COLORS.navy };
+const mappingDetailsStyle: React.CSSProperties = { marginTop: 12, paddingTop: 10, borderTop: `1px solid ${COLORS.border}` };
+const mappingSummaryStyle: React.CSSProperties = { color: COLORS.navy, cursor: "pointer", fontSize: 12, fontWeight: 800 };
+const mappingGroupStyle: React.CSSProperties = { display: "grid", gap: 6, marginTop: 10, color: COLORS.navy, fontSize: 12 };
+const mappingLineStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, padding: "6px 8px", background: "#F8FAFC", borderRadius: 5, overflowWrap: "anywhere" };
+const destinationStyle: React.CSSProperties = { color: COLORS.muted, textAlign: "right" };
+const deferredStyle: React.CSSProperties = { color: COLORS.warning, textAlign: "right", fontWeight: 750 };
