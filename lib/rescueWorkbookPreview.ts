@@ -1,0 +1,852 @@
+export const RESCUE_WORKBOOK_TEMPLATE_ID =
+  "POF-RESCUE-OPS";
+export const RESCUE_WORKBOOK_SCHEMA_VERSION =
+  "1.0";
+export const RESCUE_WORKBOOK_MAX_BYTES =
+  5 * 1024 * 1024;
+export const RESCUE_WORKBOOK_MAX_ROWS =
+  5000;
+
+export type PreviewSeverity =
+  | "ready"
+  | "warning"
+  | "error";
+
+export type PreviewRow = {
+  id: string;
+  sheet: PhaseOneSheet;
+  rowNumber: number;
+  action: "create" | "review" | "error";
+  severity: PreviewSeverity;
+  recordId: string;
+  label: string;
+  messages: string[];
+  values: Record<string, string>;
+};
+
+export type SheetPreview = {
+  sheet: PhaseOneSheet;
+  total: number;
+  ready: number;
+  warnings: number;
+  errors: number;
+};
+
+export type WorkbookPreview = {
+  fileName: string;
+  fileSize: number;
+  templateId: string;
+  schemaVersion: string;
+  sheets: SheetPreview[];
+  rows: PreviewRow[];
+  counts: {
+    total: number;
+    ready: number;
+    warnings: number;
+    errors: number;
+  };
+  deferredSheets: string[];
+};
+
+type PhaseOneSheet =
+  | "Animals"
+  | "Medical"
+  | "Tasks";
+
+type SheetDefinition = {
+  sheet: PhaseOneSheet;
+  headers: string[];
+  fields: string[];
+  idField: string;
+  labelField: string;
+};
+
+const PHASE_ONE_SHEETS: SheetDefinition[] = [
+  {
+    sheet: "Animals",
+    headers: [
+      "Animal ID",
+      "Name",
+      "Species / Type",
+      "Breed / Description",
+      "Sex",
+      "Estimated DOB",
+      "Intake Date",
+      "Intake Source",
+      "Current Location",
+      "Status",
+      "Coordinator",
+      "Microchip",
+      "Priority",
+      "Next Action",
+      "Due Date",
+      "Notes",
+    ],
+    fields: [
+      "animal_id",
+      "name",
+      "species_type",
+      "breed_description",
+      "sex",
+      "estimated_dob",
+      "intake_date",
+      "intake_source",
+      "current_location",
+      "status",
+      "coordinator",
+      "microchip",
+      "priority",
+      "next_action",
+      "due_date",
+      "notes",
+    ],
+    idField: "animal_id",
+    labelField: "name",
+  },
+  {
+    sheet: "Medical",
+    headers: [
+      "Medical Record ID",
+      "Animal ID",
+      "Animal Name",
+      "Date",
+      "Provider",
+      "Service / Vaccine",
+      "Medication / Dose",
+      "Result / Lot",
+      "Next Due",
+      "Cost",
+      "Document Link",
+      "Notes",
+    ],
+    fields: [
+      "external_medical_record_id",
+      "animal_id",
+      "animal_name",
+      "service_date",
+      "provider",
+      "service_vaccine",
+      "medication_dose",
+      "result_lot",
+      "next_due",
+      "cost",
+      "document_link",
+      "notes",
+    ],
+    idField: "external_medical_record_id",
+    labelField: "service_vaccine",
+  },
+  {
+    sheet: "Tasks",
+    headers: [
+      "Task ID",
+      "Area",
+      "Animal ID",
+      "Task",
+      "Owner",
+      "Priority",
+      "Status",
+      "Created Date",
+      "Due Date",
+      "Completed Date",
+      "Overdue?",
+      "Notes",
+    ],
+    fields: [
+      "task_id",
+      "area",
+      "animal_id",
+      "task",
+      "owner",
+      "priority",
+      "status",
+      "created_date",
+      "due_date",
+      "completed_date",
+      "overdue_display_only",
+      "notes",
+    ],
+    idField: "task_id",
+    labelField: "task",
+  },
+];
+
+const DEFERRED_SHEETS = [
+  "Foster Placements",
+  "Adoption Pipeline",
+  "Volunteers",
+  "Donations",
+];
+
+const DATE_FIELDS = new Set([
+  "intake_date",
+  "due_date",
+  "service_date",
+  "next_due",
+  "created_date",
+  "completed_date",
+]);
+
+export async function previewRescueWorkbook(
+  file: File
+): Promise<WorkbookPreview> {
+  validateFile(file);
+
+  const bytes = await file.arrayBuffer();
+  const signature = new Uint8Array(bytes.slice(0, 4));
+
+  if (
+    signature[0] !== 0x50 ||
+    signature[1] !== 0x4b ||
+    signature[2] !== 0x03 ||
+    signature[3] !== 0x04
+  ) {
+    throw new Error(
+      "This file is not a valid XLSX workbook."
+    );
+  }
+
+  const workbook = await readOfficialXlsx(file);
+  const schemaSheet = workbook.get("Import Schema");
+
+  if (!schemaSheet) {
+    throw new Error(
+      "The official Import Schema worksheet is missing."
+    );
+  }
+
+  const templateId =
+    schemaSheet.get("B3")?.text ?? "";
+  const schemaVersion =
+    schemaSheet.get("B5")?.text ?? "";
+
+  if (
+    templateId !==
+    RESCUE_WORKBOOK_TEMPLATE_ID
+  ) {
+    throw new Error(
+      `Unsupported template. Expected ${RESCUE_WORKBOOK_TEMPLATE_ID}.`
+    );
+  }
+
+  if (
+    schemaVersion !==
+    RESCUE_WORKBOOK_SCHEMA_VERSION
+  ) {
+    throw new Error(
+      `Unsupported schema version. Expected ${RESCUE_WORKBOOK_SCHEMA_VERSION}.`
+    );
+  }
+
+  const rows: PreviewRow[] = [];
+  const animalIds = new Map<string, number[]>();
+
+  for (const definition of PHASE_ONE_SHEETS) {
+    const worksheet =
+      workbook.get(definition.sheet);
+
+    if (!worksheet) {
+      throw new Error(
+        `Required worksheet “${definition.sheet}” is missing.`
+      );
+    }
+
+    validateHeaders(worksheet, definition);
+
+    const lastRow = Math.max(
+      ...Array.from(worksheet.values()).map(
+        (cell) => cell.row
+      ),
+      3
+    );
+
+    if (
+      lastRow - 3 >
+      RESCUE_WORKBOOK_MAX_ROWS
+    ) {
+      throw new Error(
+        `${definition.sheet} exceeds the ${RESCUE_WORKBOOK_MAX_ROWS.toLocaleString()}-row preview limit.`
+      );
+    }
+
+    for (
+      let rowNumber = 4;
+      rowNumber <= lastRow;
+      rowNumber += 1
+    ) {
+      const values: Record<string, string> = {};
+      const formulaFields: string[] = [];
+
+      definition.fields.forEach((field, index) => {
+        const address =
+          `${columnName(index + 1)}${rowNumber}`;
+        const cell = worksheet.get(address);
+        let text = cell?.text ?? "";
+
+        if (
+          text &&
+          DATE_FIELDS.has(field) &&
+          /^\d+(?:\.\d+)?$/.test(text)
+        ) {
+          text = excelSerialToIsoDate(Number(text));
+        }
+
+        values[field] = text;
+
+        if (
+          cell?.hadFormula &&
+          field !== "overdue_display_only"
+        ) {
+          formulaFields.push(
+            definition.headers[index]
+          );
+        }
+      });
+
+      if (isBlankRecord(values)) {
+        continue;
+      }
+
+      const messages: string[] = [];
+
+      if (formulaFields.length > 0) {
+        messages.push(
+          `Formula detected in ${formulaFields.join(", ")}; only its saved display value was read.`
+        );
+      }
+
+      for (const field of DATE_FIELDS) {
+        if (
+          values[field] &&
+          !isIsoDate(values[field])
+        ) {
+          messages.push(
+            `${fieldLabel(field)} must use yyyy-mm-dd.`
+          );
+        }
+      }
+
+      validateRequiredValues(
+        definition.sheet,
+        values,
+        messages
+      );
+
+      const recordId =
+        values[definition.idField] ?? "";
+
+      if (
+        definition.sheet === "Animals" &&
+        recordId
+      ) {
+        const occurrences =
+          animalIds.get(recordId) ?? [];
+        occurrences.push(rowNumber);
+        animalIds.set(recordId, occurrences);
+      }
+
+      const hasError = messages.some(
+        (message) =>
+          message.startsWith("Required:") ||
+          message.includes("must use yyyy-mm-dd")
+      );
+      const needsMatch = Boolean(recordId);
+      const severity: PreviewSeverity = hasError
+        ? "error"
+        : formulaFields.length > 0 || needsMatch
+        ? "warning"
+        : "ready";
+
+      if (needsMatch && !hasError) {
+        messages.push(
+          "This stable ID must be matched inside the organization before an update can be approved."
+        );
+      }
+
+      rows.push({
+        id: `${definition.sheet}-${rowNumber}`,
+        sheet: definition.sheet,
+        rowNumber,
+        action: hasError
+          ? "error"
+          : needsMatch || formulaFields.length > 0
+          ? "review"
+          : "create",
+        severity,
+        recordId,
+        label:
+          values[definition.labelField] ||
+          values.animal_name ||
+          `${definition.sheet} row ${rowNumber}`,
+        messages,
+        values,
+      });
+    }
+  }
+
+  for (const [animalId, rowNumbers] of animalIds) {
+    if (rowNumbers.length < 2) {
+      continue;
+    }
+
+    for (const row of rows) {
+      if (
+        row.sheet === "Animals" &&
+        row.recordId === animalId
+      ) {
+        row.severity = "error";
+        row.action = "error";
+        row.messages.push(
+          `Duplicate Animal ID appears on rows ${rowNumbers.join(", ")}.`
+        );
+      }
+    }
+  }
+
+  const workbookAnimalIds = new Set(
+    rows
+      .filter(
+        (row) =>
+          row.sheet === "Animals" &&
+          Boolean(row.recordId)
+      )
+      .map((row) => row.recordId)
+  );
+
+  for (const row of rows) {
+    if (
+      row.sheet === "Animals" ||
+      !row.values.animal_id ||
+      workbookAnimalIds.has(row.values.animal_id)
+    ) {
+      continue;
+    }
+
+    row.severity = "error";
+    row.action = "error";
+    row.messages.push(
+      "Animal ID is not present on the Animals worksheet."
+    );
+  }
+
+  const sheets = PHASE_ONE_SHEETS.map(
+    ({ sheet }) => summarizeSheet(sheet, rows)
+  );
+  const counts = summarizeRows(rows);
+
+  return {
+    fileName: file.name,
+    fileSize: file.size,
+    templateId,
+    schemaVersion,
+    sheets,
+    rows,
+    counts,
+    deferredSheets: DEFERRED_SHEETS,
+  };
+}
+
+function validateFile(file: File) {
+  if (!file.name.toLowerCase().endsWith(".xlsx")) {
+    throw new Error(
+      "Choose the official .xlsx workbook."
+    );
+  }
+
+  if (file.size === 0) {
+    throw new Error("The workbook is empty.");
+  }
+
+  if (file.size > RESCUE_WORKBOOK_MAX_BYTES) {
+    throw new Error(
+      "The workbook is larger than the 5 MB preview limit."
+    );
+  }
+}
+
+function validateHeaders(
+  worksheet: ParsedWorksheet,
+  definition: SheetDefinition
+) {
+  const actual = definition.headers.map((_, index) =>
+    worksheet.get(
+      `${columnName(index + 1)}3`
+    )?.text ?? ""
+  );
+
+  definition.headers.forEach((expected, index) => {
+    if (actual[index] !== expected) {
+      throw new Error(
+        `${definition.sheet} column ${index + 1} must be “${expected}”.`
+      );
+    }
+  });
+}
+
+function validateRequiredValues(
+  sheet: PhaseOneSheet,
+  values: Record<string, string>,
+  messages: string[]
+) {
+  if (
+    sheet === "Animals" &&
+    !values.animal_id &&
+    !values.name
+  ) {
+    messages.push(
+      "Required: provide an Animal ID or Name."
+    );
+  }
+
+  if (
+    sheet === "Medical" &&
+    !values.animal_id
+  ) {
+    messages.push(
+      "Required: Medical rows need an Animal ID."
+    );
+  }
+
+  if (
+    sheet === "Medical" &&
+    !values.service_date
+  ) {
+    messages.push(
+      "Required: Medical rows need a Date."
+    );
+  }
+
+  if (
+    sheet === "Tasks" &&
+    !values.task
+  ) {
+    messages.push(
+      "Required: Task rows need a Task description."
+    );
+  }
+}
+
+function isBlankRecord(
+  values: Record<string, string>
+) {
+  return Object.entries(values).every(
+    ([field, value]) =>
+      field === "overdue_display_only" ||
+      value === ""
+  );
+}
+
+function isIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00Z`);
+
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
+}
+
+function fieldLabel(field: string) {
+  return field
+    .split("_")
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1)
+    )
+    .join(" ");
+}
+
+function summarizeSheet(
+  sheet: PhaseOneSheet,
+  rows: PreviewRow[]
+): SheetPreview {
+  const sheetRows = rows.filter(
+    (row) => row.sheet === sheet
+  );
+  const counts = summarizeRows(sheetRows);
+
+  return {
+    sheet,
+    total: counts.total,
+    ready: counts.ready,
+    warnings: counts.warnings,
+    errors: counts.errors,
+  };
+}
+
+function summarizeRows(rows: PreviewRow[]) {
+  return {
+    total: rows.length,
+    ready: rows.filter(
+      (row) => row.severity === "ready"
+    ).length,
+    warnings: rows.filter(
+      (row) => row.severity === "warning"
+    ).length,
+    errors: rows.filter(
+      (row) => row.severity === "error"
+    ).length,
+  };
+}
+
+type ParsedCell = {
+  address: string;
+  row: number;
+  text: string;
+  hadFormula: boolean;
+};
+
+type ParsedWorksheet = Map<string, ParsedCell>;
+
+async function readOfficialXlsx(file: File) {
+  const {
+    BlobReader,
+    TextWriter,
+    ZipReader,
+  } = await import("@zip.js/zip.js");
+
+  const zipReader = new ZipReader(
+    new BlobReader(file)
+  );
+
+  try {
+    const entries = await zipReader.getEntries();
+
+    if (
+      entries.some(
+        (entry) =>
+          entry.filename === "xl/vbaProject.bin" ||
+          entry.filename.startsWith(
+            "xl/externalLinks/"
+          )
+      )
+    ) {
+      throw new Error(
+        "Macros and external workbook links are not supported."
+      );
+    }
+
+    const totalUncompressed = entries.reduce(
+      (total, entry) =>
+        total + (entry.uncompressedSize ?? 0),
+      0
+    );
+
+    if (totalUncompressed > 20 * 1024 * 1024) {
+      throw new Error(
+        "The workbook expands beyond the safe preview limit."
+      );
+    }
+
+    const entryMap = new Map(
+      entries.map((entry) => [entry.filename, entry])
+    );
+    const readText = async (path: string) => {
+      const entry = entryMap.get(path);
+
+      if (!entry || entry.directory || !entry.getData) {
+        throw new Error(
+          `The workbook is missing ${path}.`
+        );
+      }
+
+      if ((entry.uncompressedSize ?? 0) > 5 * 1024 * 1024) {
+        throw new Error(
+          `${path} exceeds the safe worksheet limit.`
+        );
+      }
+
+      return entry.getData(new TextWriter());
+    };
+
+    const workbookXml = parseXml(
+      await readText("xl/workbook.xml")
+    );
+    const relationshipsXml = parseXml(
+      await readText("xl/_rels/workbook.xml.rels")
+    );
+    const sharedStrings = entryMap.has(
+      "xl/sharedStrings.xml"
+    )
+      ? parseSharedStrings(
+          parseXml(
+            await readText("xl/sharedStrings.xml")
+          )
+        )
+      : [];
+
+    const relationshipTargets = new Map<string, string>();
+
+    for (const relationship of Array.from(
+      relationshipsXml.getElementsByTagNameNS(
+        "*",
+        "Relationship"
+      )
+    )) {
+      relationshipTargets.set(
+        relationship.getAttribute("Id") ?? "",
+        relationship.getAttribute("Target") ?? ""
+      );
+    }
+
+    const worksheets = new Map<
+      string,
+      ParsedWorksheet
+    >();
+
+    for (const sheet of Array.from(
+      workbookXml.getElementsByTagNameNS("*", "sheet")
+    )) {
+      const name = sheet.getAttribute("name") ?? "";
+      const relationshipId =
+        sheet.getAttributeNS(
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+          "id"
+        ) ??
+        sheet.getAttribute("r:id") ??
+        "";
+      const target =
+        relationshipTargets.get(relationshipId) ?? "";
+
+      if (!name || !target) {
+        throw new Error(
+          "The workbook contains an invalid worksheet relationship."
+        );
+      }
+
+      const normalizedTarget = target.startsWith("/")
+        ? target.slice(1)
+        : target.startsWith("xl/")
+        ? target
+        : `xl/${target}`;
+
+      worksheets.set(
+        name,
+        parseWorksheet(
+          parseXml(await readText(normalizedTarget)),
+          sharedStrings
+        )
+      );
+    }
+
+    return worksheets;
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message.startsWith("The workbook")
+    ) {
+      throw err;
+    }
+
+    throw new Error(
+      err instanceof Error
+        ? `The workbook could not be read: ${err.message}`
+        : "The workbook could not be read."
+    );
+  } finally {
+    await zipReader.close();
+  }
+}
+
+function parseXml(xml: string) {
+  const document = new DOMParser().parseFromString(
+    xml,
+    "application/xml"
+  );
+
+  if (
+    document.getElementsByTagName("parsererror").length > 0
+  ) {
+    throw new Error(
+      "The workbook contains malformed XML."
+    );
+  }
+
+  return document;
+}
+
+function parseSharedStrings(document: Document) {
+  return Array.from(
+    document.getElementsByTagNameNS("*", "si")
+  ).map((item) =>
+    Array.from(
+      item.getElementsByTagNameNS("*", "t")
+    )
+      .map((text) => text.textContent ?? "")
+      .join("")
+  );
+}
+
+function parseWorksheet(
+  document: Document,
+  sharedStrings: string[]
+): ParsedWorksheet {
+  const cells: ParsedWorksheet = new Map();
+
+  for (const cell of Array.from(
+    document.getElementsByTagNameNS("*", "c")
+  )) {
+    const address = cell.getAttribute("r") ?? "";
+    const rowMatch = address.match(/\d+$/);
+
+    if (!address || !rowMatch) {
+      continue;
+    }
+
+    const type = cell.getAttribute("t") ?? "";
+    const value =
+      cell.getElementsByTagNameNS("*", "v")[0]
+        ?.textContent ?? "";
+    const inlineText = Array.from(
+      cell.getElementsByTagNameNS("*", "t")
+    )
+      .map((text) => text.textContent ?? "")
+      .join("");
+    let text = value;
+
+    if (type === "s") {
+      text = sharedStrings[Number(value)] ?? "";
+    } else if (type === "inlineStr") {
+      text = inlineText;
+    } else if (type === "b") {
+      text = value === "1" ? "TRUE" : "FALSE";
+    }
+
+    cells.set(address, {
+      address,
+      row: Number(rowMatch[0]),
+      text: text.trim(),
+      hadFormula:
+        cell.getElementsByTagNameNS("*", "f").length > 0,
+    });
+  }
+
+  return cells;
+}
+
+function columnName(columnNumber: number) {
+  let number = columnNumber;
+  let name = "";
+
+  while (number > 0) {
+    const remainder = (number - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    number = Math.floor((number - 1) / 26);
+  }
+
+  return name;
+}
+
+function excelSerialToIsoDate(serial: number) {
+  const milliseconds =
+    Math.round(serial - 25569) * 86400000;
+  const date = new Date(milliseconds);
+
+  return Number.isNaN(date.getTime())
+    ? String(serial)
+    : date.toISOString().slice(0, 10);
+}
