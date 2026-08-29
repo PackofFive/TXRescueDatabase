@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -17,6 +19,24 @@ import {
 type PreviewFilter =
   | "all"
   | PreviewSeverity;
+
+type ImportHistoryJob = {
+  id: string;
+  status: string;
+  summary: {
+    fileName?: string;
+    matchCounts?: {
+      creates: number;
+      updates: number;
+      reviews: number;
+      errors: number;
+    };
+  };
+  created_at: string;
+  uploaded_by_email: string;
+  row_count: number;
+  selected_count: number;
+};
 
 const COLORS = {
   navy: "#1E3A5F",
@@ -57,6 +77,41 @@ export default function DataImportsPage() {
       reviews: number;
       errors: number;
     } | null>(null);
+  const [history, setHistory] =
+    useState<ImportHistoryJob[]>([]);
+  const [historyError, setHistoryError] =
+    useState<string | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const response = await fetch("/api/imports/preview", {
+        cache: "no-store",
+      });
+      const result = (await response.json()) as {
+        jobs?: ImportHistoryJob[];
+        error?: string;
+      };
+
+      if (!response.ok || !result.jobs) {
+        throw new Error(
+          result.error || "Import history could not be loaded."
+        );
+      }
+
+      setHistory(result.jobs);
+      setHistoryError(null);
+    } catch (err) {
+      setHistoryError(
+        err instanceof Error
+          ? err.message
+          : "Import history could not be loaded."
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   const visibleRows = useMemo(() => {
     if (!preview) {
@@ -141,6 +196,7 @@ export default function DataImportsPage() {
 
       setSavedJobId(result.jobId);
       setMatchCounts(result.matchCounts ?? null);
+      await loadHistory();
     } catch (err) {
       setSaveError(
         err instanceof Error
@@ -259,8 +315,80 @@ export default function DataImportsPage() {
           matchCounts={matchCounts}
         />
       )}
+
+      <ImportHistory
+        jobs={history}
+        error={historyError}
+      />
     </section>
   );
+}
+
+function ImportHistory({
+  jobs,
+  error,
+}: {
+  jobs: ImportHistoryJob[];
+  error: string | null;
+}) {
+  return (
+    <section style={historySectionStyle}>
+      <p style={eyebrowStyle}>Audit trail</p>
+      <h2 style={previewHeadingStyle}>Import History</h2>
+      <p style={bodyStyle}>
+        Saved previews for the currently selected organization. Workbook files
+        are not stored.
+      </p>
+
+      {error && <p role="alert" style={errorStyle}>{error}</p>}
+
+      {!error && jobs.length === 0 && (
+        <p style={emptyHistoryStyle}>No saved previews yet.</p>
+      )}
+
+      <div style={historyListStyle}>
+        {jobs.map((job) => {
+          const counts = job.summary.matchCounts;
+
+          return (
+            <a
+              key={job.id}
+              href={`/portal/data-imports/${job.id}`}
+              style={historyCardStyle}
+            >
+              <div>
+                <strong>
+                  {job.summary.fileName || "Pack of Five workbook"}
+                </strong>
+                <div style={rowMetaStyle}>
+                  {new Date(job.created_at).toLocaleString()} ·{" "}
+                  {job.uploaded_by_email}
+                </div>
+                <div style={historyDetailStyle}>
+                  {counts
+                    ? `${counts.creates} create · ${counts.updates} update · ${counts.reviews} review · ${counts.errors} error`
+                    : `${job.row_count} preview rows`}
+                  {` · ${job.selected_count} selected`}
+                </div>
+              </div>
+              <span style={historyStatusStyle}>
+                {historyStatusLabel(job.status)}
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function historyStatusLabel(status: string) {
+  if (status === "blocked") return "Needs correction";
+  if (status === "ready") return "Ready for review";
+  if (status === "committed") return "Imported";
+  if (status === "rolled_back") return "Rolled back";
+  if (status === "failed") return "Failed";
+  return status.replaceAll("_", " ");
 }
 
 function PreviewResults({
@@ -676,6 +804,59 @@ const savedPreviewLinkStyle: React.CSSProperties = {
   marginTop: 4,
   color: COLORS.navy,
   fontWeight: 800,
+};
+
+const historySectionStyle: React.CSSProperties = {
+  marginTop: 34,
+  paddingTop: 24,
+  borderTop: `1px solid ${COLORS.border}`,
+};
+
+const historyListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 9,
+  marginTop: 14,
+};
+
+const historyCardStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 14,
+  padding: 14,
+  color: COLORS.navy,
+  background: COLORS.surface,
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: 8,
+  textDecoration: "none",
+};
+
+const historyDetailStyle: React.CSSProperties = {
+  marginTop: 6,
+  color: COLORS.muted,
+  fontSize: 12,
+  lineHeight: 1.45,
+};
+
+const historyStatusStyle: React.CSSProperties = {
+  flex: "0 0 auto",
+  padding: "5px 8px",
+  color: COLORS.navy,
+  background: COLORS.mint,
+  borderRadius: 999,
+  fontSize: 10.5,
+  fontWeight: 800,
+  textTransform: "capitalize",
+};
+
+const emptyHistoryStyle: React.CSSProperties = {
+  marginTop: 14,
+  padding: 14,
+  color: COLORS.muted,
+  background: COLORS.surface,
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: 8,
+  fontSize: 13,
 };
 
 const previewHeaderStyle: React.CSSProperties = {
