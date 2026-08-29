@@ -51,6 +51,14 @@ type SavedPreview = {
   commitEnabled: boolean;
 };
 
+type PreflightReport = {
+  passed: boolean;
+  selectedCount: number;
+  issues: string[];
+  digest: string;
+  checkedAt: string;
+};
+
 const COLORS = {
   navy: "#1E3A5F",
   coral: "#E85C56",
@@ -71,6 +79,9 @@ export default function SavedImportPreviewPage() {
   const [filter, setFilter] = useState<"all" | Action>("all");
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [choiceError, setChoiceError] = useState<string | null>(null);
+  const [preflight, setPreflight] = useState<PreflightReport | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -124,6 +135,7 @@ export default function SavedImportPreviewPage() {
 
     setSavingRowId(row.id);
     setChoiceError(null);
+    setPreflight(null);
 
     try {
       const response = await fetch(
@@ -161,6 +173,39 @@ export default function SavedImportPreviewPage() {
       );
     } finally {
       setSavingRowId(null);
+    }
+  }
+
+  async function runPreflight() {
+    if (checking) return;
+    setChecking(true);
+    setPreflightError(null);
+
+    try {
+      const response = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/preflight`,
+        { method: "POST" }
+      );
+      const result = (await response.json()) as {
+        preflight?: PreflightReport;
+        error?: string;
+      };
+
+      if (!response.ok || !result.preflight) {
+        throw new Error(
+          result.error || "The final safety check could not be completed."
+        );
+      }
+
+      setPreflight(result.preflight);
+    } catch (err) {
+      setPreflightError(
+        err instanceof Error
+          ? err.message
+          : "The final safety check could not be completed."
+      );
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -295,6 +340,34 @@ export default function SavedImportPreviewPage() {
         This review page is read-only. Commit transactions, audit snapshots,
         and guarded rollback must be completed before confirmation is enabled.
       </div>
+      <button
+        type="button"
+        onClick={() => void runPreflight()}
+        disabled={checking}
+        style={{ ...safetyButtonStyle, opacity: checking ? 0.6 : 1 }}
+      >
+        {checking ? "Running Final Safety Check…" : "Run Final Safety Check"}
+      </button>
+
+      {preflightError && (
+        <p role="alert" style={errorStyle}>{preflightError}</p>
+      )}
+
+      {preflight && (
+        <div style={preflight.passed ? passedStyle : failedStyle}>
+          <strong>
+            {preflight.passed
+              ? "Safety check passed"
+              : "Safety check needs attention"}
+          </strong>
+          <span>{preflight.selectedCount} selected row(s) checked.</span>
+          {preflight.issues.length > 0 && (
+            <ul style={messageListStyle}>
+              {preflight.issues.map((issue) => <li key={issue}>{issue}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
       <button type="button" disabled style={disabledButtonStyle}>
         Confirm Import — Not Yet Enabled
       </button>
@@ -407,3 +480,6 @@ const mappingGroupStyle: React.CSSProperties = { display: "grid", gap: 6, margin
 const mappingLineStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, padding: "6px 8px", background: "#F8FAFC", borderRadius: 5, overflowWrap: "anywhere" };
 const destinationStyle: React.CSSProperties = { color: COLORS.muted, textAlign: "right" };
 const deferredStyle: React.CSSProperties = { color: COLORS.warning, textAlign: "right", fontWeight: 750 };
+const safetyButtonStyle: React.CSSProperties = { marginTop: 12, padding: "10px 15px", border: 0, borderRadius: 7, background: COLORS.coral, color: "#fff", cursor: "pointer", fontWeight: 800 };
+const passedStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, marginTop: 10, padding: "12px 14px", color: COLORS.navy, background: COLORS.mint, border: `1px solid ${COLORS.border}`, borderRadius: 7, fontSize: 13 };
+const failedStyle: React.CSSProperties = { ...passedStyle, color: COLORS.error, background: COLORS.pink };
