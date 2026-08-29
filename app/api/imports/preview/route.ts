@@ -115,6 +115,13 @@ export async function POST(request: Request) {
 
     jobId = String(jobs[0].id);
 
+    let matchCounts = {
+      creates: 0,
+      updates: 0,
+      reviews: 0,
+      errors: 0,
+    };
+
     if (preview.rows.length > 0) {
       const rows = preview.rows.map((row) => ({
         sheet_name: row.sheet,
@@ -165,10 +172,30 @@ export async function POST(request: Request) {
           messages jsonb
         )
       `;
+
+      matchCounts = await matchPreviewRows(
+        jobId,
+        orgId,
+        preview
+      );
+
+      await sql`
+        update import_jobs
+        set
+          summary = summary || ${JSON.stringify({ matchCounts })}::jsonb,
+          updated_at = now()
+        where id = ${jobId}::uuid
+      `;
     }
 
     return NextResponse.json(
-      { jobId, status, reused: false },
+      {
+        jobId,
+        status:
+          matchCounts.errors > 0 ? "blocked" : status,
+        reused: false,
+        matchCounts,
+      },
       { status: 201 }
     );
   } catch (error) {
@@ -211,6 +238,204 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function matchPreviewRows(
+  jobId: string,
+  orgId: string,
+  preview: WorkbookPreview
+) {
+  const requestedKeys = preview.rows
+    .filter((row) => Boolean(row.recordId))
+    .map((row) => ({
+      entity_type: entityTypeForSheet(row.sheet),
+      external_id: row.recordId,
+    }));
+
+  const animalReferences = preview.rows
+    .map((row) => row.values.animal_id)
+    .filter(Boolean)
+    .map((externalId) => ({
+      entity_type: "animal",
+      external_id: externalId,
+    }));
+
+  const requested = uniqueRequestedKeys([
+    ...requestedKeys,
+    ...animalReferences,
+  ]);
+  const matches = new Map<string, string>();
+
+  if (requested.length > 0) {
+    const keyRows = await sql`
+      with requested as (
+        select *
+        from jsonb_to_recordset(${JSON.stringify(requested)}::jsonb)
+          as item(entity_type text, external_id text)
+      )
+      select
+        k.entity_type,
+        k.external_id,
+        k.entity_id::text as entity_id
+      from import_entity_keys k
+      join requested r
+        on r.entity_type = k.entity_type
+       and r.external_id = k.external_id
+      where k.organization_id = ${orgId}::uuid
+
+      union all
+
+      select
+        'animal' as entity_type,
+        a.id::text as external_id,
+        a.id::text as entity_id
+      from animals a
+      join requested r
+        on r.entity_type = 'animal'
+       and r.external_id = a.id::text
+      where a.current_org_id = ${orgId}::uuid
+    `;
+
+    for (const row of keyRows) {
+      matches.set(
+        `${String(row.entity_type)}:${String(row.external_id)}`,
+        String(row.entity_id)
+      );
+    }
+  }
+
+  const workbookAnimalIds = new Set(
+    preview.rows
+      .filter((row) => row.sheet === "Animals")
+      .map((row) => row.recordId)
+      .filter(Boolean)
+  );
+  const matchedRows = preview.rows.map((row) => {
+    const entityType = entityTypeForSheet(row.sheet);
+    const targetEntityId = row.recordId
+      ? matches.get(`${entityType}:${row.recordId}`) ?? null
+      : null;
+    const messages = [...row.messages];
+    let proposedAction: "create" | "update" | "warning" | "error";
+    const requiresFormulaReview = row.messages.some(
+      (message) => message.startsWith("Formula detected")
+    );
+
+    if (row.action === "error") {
+      proposedAction = "error";
+    } else if (
+      row.sheet !== "Animals" &&
+      row.values.animal_id &&
+      !workbookAnimalIds.has(row.values.animal_id) &&
+      !matches.has(`animal:${row.values.animal_id}`)
+    ) {
+      proposedAction = "error";
+      messages.push(
+        "Animal ID did not exactly match an animal in this organization or the workbook."
+      );
+    } else if (requiresFormulaReview) {
+      proposedAction = "warning";
+    } else if (targetEntityId) {
+      proposedAction = "update";
+      messages.push(
+        "Stable ID exactly matched a record in this organization."
+      );
+    } else {
+      proposedAction = "create";
+      if (row.recordId) {
+        messages.push(
+          "Stable ID is new for this organization and will be reserved for a new record after confirmation."
+        );
+      }
+    }
+
+    return {
+      sheet_name: row.sheet,
+      row_number: row.rowNumber,
+      proposed_action: proposedAction,
+      selected:
+        proposedAction === "create" ||
+        proposedAction === "update",
+      target_entity_id: targetEntityId,
+      normalized_payload: {
+        exactMatch: Boolean(targetEntityId),
+        externalId: row.recordId || null,
+      },
+      messages,
+    };
+  });
+
+  await sql`
+    update import_rows target
+    set
+      proposed_action = matched.proposed_action,
+      selected = matched.selected,
+      target_entity_id = matched.target_entity_id,
+      normalized_payload = matched.normalized_payload,
+      messages = matched.messages,
+      updated_at = now()
+    from jsonb_to_recordset(${JSON.stringify(matchedRows)}::jsonb) as matched(
+      sheet_name text,
+      row_number integer,
+      proposed_action text,
+      selected boolean,
+      target_entity_id text,
+      normalized_payload jsonb,
+      messages jsonb
+    )
+    where target.job_id = ${jobId}::uuid
+      and target.sheet_name = matched.sheet_name
+      and target.row_number = matched.row_number
+  `;
+
+  const counts = {
+    creates: matchedRows.filter(
+      (row) => row.proposed_action === "create"
+    ).length,
+    updates: matchedRows.filter(
+      (row) => row.proposed_action === "update"
+    ).length,
+    reviews: matchedRows.filter(
+      (row) => row.proposed_action === "warning"
+    ).length,
+    errors: matchedRows.filter(
+      (row) => row.proposed_action === "error"
+    ).length,
+  };
+
+  await sql`
+    update import_jobs
+    set
+      status = ${counts.errors > 0 ? "blocked" : "ready"},
+      updated_at = now()
+    where id = ${jobId}::uuid
+  `;
+
+  return counts;
+}
+
+function entityTypeForSheet(sheet: string) {
+  if (sheet === "Animals") return "animal";
+  if (sheet === "Medical") return "medical";
+  return "task";
+}
+
+function uniqueRequestedKeys(
+  keys: Array<{
+    entity_type: string;
+    external_id: string;
+  }>
+) {
+  const unique = new Map<string, (typeof keys)[number]>();
+
+  for (const key of keys) {
+    unique.set(
+      `${key.entity_type}:${key.external_id}`,
+      key
+    );
+  }
+
+  return Array.from(unique.values());
 }
 
 class PreviewRequestError extends Error {}
