@@ -54,6 +54,9 @@ export async function GET(
         j.summary,
         j.created_at,
         j.updated_at,
+        j.committed_at,
+        j.rolled_back_at,
+        j.rollback_expires_at,
         u.email as uploaded_by_email
       from import_jobs j
       join users u on u.id = j.uploaded_by
@@ -93,10 +96,35 @@ export async function GET(
         row_number
     `;
 
+    const commitPermissions = await sql`
+      select id
+      from user_permissions
+      where user_id = ${session.id}::uuid
+        and permission_key = 'rescue_workbook_commit'
+        and revoked_at is null
+        and (organization_id is null or organization_id = ${orgId}::uuid)
+      limit 1
+    `;
+
+    const confirmations = await sql`
+      select id, confirmed_at, expires_at
+      from import_confirmations
+      where job_id = ${jobId}::uuid
+        and organization_id = ${orgId}::uuid
+        and consumed_at is null
+        and revoked_at is null
+        and expires_at > now()
+      order by confirmed_at desc
+      limit 1
+    `;
+
     return NextResponse.json({
       job: jobs[0],
       rows,
-      commitEnabled: false,
+      commitEnabled:
+        Boolean(commitPermissions[0]) &&
+        String(jobs[0].status) === "ready",
+      confirmation: confirmations[0] ?? null,
     });
   } catch (error) {
     if (error instanceof AuthError) {
