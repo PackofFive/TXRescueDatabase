@@ -82,8 +82,7 @@ const IDENTIFIER_FIELDS = new Set([
 
 const VALID_ANIMAL_URGENCIES = new Set([
   "normal",
-  "monitor",
-  "priority",
+  "elevated",
   "urgent",
   "critical",
 ]);
