@@ -72,7 +72,21 @@ begin
     where change.job_id = p_job_id
       and change.organization_id = p_organization_id
       and change.rolled_back_at is null
-    order by change.applied_at desc, change.id desc
+    -- now() is transaction-stable, so every change recorded by one import can
+    -- have the same applied_at value. Order explicitly by dependency to ensure
+    -- children are reversed before a created parent animal. Otherwise deleting
+    -- the animal can cascade-delete its custody event before that event is
+    -- checked and reversed.
+    order by
+      case change.entity_type
+        when 'task' then 1
+        when 'medical' then 2
+        when 'custody_event' then 3
+        when 'animal' then 4
+        else 5
+      end,
+      change.applied_at desc,
+      change.id desc
     for update
   loop
     v_current := null;
