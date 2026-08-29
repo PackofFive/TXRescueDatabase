@@ -10,7 +10,7 @@ import {
   RESCUE_WORKBOOK_SCHEMA_VERSION,
   RESCUE_WORKBOOK_TEMPLATE_ID,
   type WorkbookPreview,
-} from "@/lib/rescueWorkbookPreview";
+} from "@/lib/rescueWorkbookTypes";
 import { mapWorkbookRow } from "@/lib/rescueWorkbookMapping";
 
 export const runtime = "edge";
