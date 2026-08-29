@@ -1761,10 +1761,17 @@ function ManagerNavigation({
   const inPeopleSection =
     pathname === "/fosters" ||
     pathname.startsWith("/fosters/");
+  const inOrganizationSection =
+    pathname === "/portal/data-imports" ||
+    pathname.startsWith(
+      "/portal/data-imports/"
+    );
 
   const [animalsOpen, setAnimalsOpen] =
     useState(true);
   const [peopleOpen, setPeopleOpen] =
+    useState(true);
+  const [organizationOpen, setOrganizationOpen] =
     useState(true);
 
   useEffect(() => {
@@ -1778,6 +1785,12 @@ function ManagerNavigation({
       setPeopleOpen(true);
     }
   }, [inPeopleSection]);
+
+  useEffect(() => {
+    if (inOrganizationSection) {
+      setOrganizationOpen(true);
+    }
+  }, [inOrganizationSection]);
 
   return (
     <>
@@ -1848,6 +1861,26 @@ function ManagerNavigation({
 
         <ManagerLink href="/fosters/updates">
           Foster Reports
+        </ManagerLink>
+      </div>
+
+      <ManagerSectionToggle
+        expanded={organizationOpen}
+        controls="manager-organization-navigation"
+        onClick={() =>
+          setOrganizationOpen((open) => !open)
+        }
+      >
+        Organization
+      </ManagerSectionToggle>
+
+      <div
+        id="manager-organization-navigation"
+        hidden={!organizationOpen}
+        style={managerSectionItemsStyle}
+      >
+        <ManagerLink href="/portal/data-imports">
+          Data &amp; Imports
         </ManagerLink>
       </div>
     </>
