@@ -82,12 +82,17 @@ const COLORS = {
   warning: "#8A5A00",
 };
 
+const ROWS_PER_PAGE = 50;
+
 export default function SavedImportPreviewPage() {
   const params = useParams<{ jobId: string }>();
   const [data, setData] = useState<SavedPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | Action>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [pageNumber, setPageNumber] = useState(1);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [savingBulkChoice, setSavingBulkChoice] = useState(false);
   const [choiceError, setChoiceError] = useState<string | null>(null);
   const [preflight, setPreflight] = useState<PreflightReport | null>(null);
   const [checking, setChecking] = useState(false);
@@ -105,6 +110,7 @@ export default function SavedImportPreviewPage() {
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
   const [rollbackComplete, setRollbackComplete] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -148,13 +154,33 @@ export default function SavedImportPreviewPage() {
     };
   }, [params.jobId]);
 
-  const visibleRows = useMemo(
-    () =>
-      data?.rows.filter(
-        (row) => filter === "all" || row.proposed_action === filter
-      ) ?? [],
-    [data, filter]
+  const filteredRows = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return data?.rows.filter((row) => {
+      if (filter !== "all" && row.proposed_action !== filter) return false;
+      if (!query) return true;
+      return [
+        rowLabel(row),
+        row.sheet_name,
+        String(row.row_number),
+        ...row.messages,
+      ].some((value) => value.toLowerCase().includes(query));
+    }) ?? [];
+  }, [data, filter, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+  const visibleRows = filteredRows.slice(
+    (pageNumber - 1) * ROWS_PER_PAGE,
+    pageNumber * ROWS_PER_PAGE
   );
+
+  useEffect(() => {
+    setPageNumber(1);
+  }, [filter, searchTerm]);
+
+  useEffect(() => {
+    setPageNumber((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   async function changeSelection(row: SavedRow, selected: boolean) {
     if (!data || savingRowId) return;
@@ -200,6 +226,135 @@ export default function SavedImportPreviewPage() {
       );
     } finally {
       setSavingRowId(null);
+    }
+  }
+
+  async function changeAllSelections(selected: boolean) {
+    if (!data || savingBulkChoice || data.job.status !== "ready") return;
+    setSavingBulkChoice(true);
+    setChoiceError(null);
+    setPreflight(null);
+    setConfirmation(null);
+
+    try {
+      const response = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selectionMode: selected ? "all" : "none" }),
+        }
+      );
+      const result = (await response.json()) as {
+        selection?: { selected: boolean; updated: number };
+        error?: string;
+      };
+
+      if (!response.ok || !result.selection) {
+        throw new Error(result.error || "The bulk selection could not be saved.");
+      }
+
+      setData({
+        ...data,
+        rows: data.rows.map((row) =>
+          canSelect(row) ? { ...row, selected } : row
+        ),
+      });
+    } catch (err) {
+      setChoiceError(
+        err instanceof Error ? err.message : "The bulk selection could not be saved."
+      );
+    } finally {
+      setSavingBulkChoice(false);
+    }
+  }
+
+  async function importSelectedRecords() {
+    if (!data || importing || data.job.status !== "ready") return;
+    const selected = data.rows.filter((row) => row.selected && canSelect(row)).length;
+    if (selected === 0) {
+      setExecutionError("Select at least one ready record before importing.");
+      return;
+    }
+    if (!window.confirm(
+      `Import ${selected} selected record${selected === 1 ? "" : "s"}? Every record will be applied together, or none will be kept.`
+    )) return;
+
+    setImporting(true);
+    setPreflightError(null);
+    setConfirmationError(null);
+    setExecutionError(null);
+
+    try {
+      const preflightResponse = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/preflight`,
+        { method: "POST" }
+      );
+      const preflightPayload = (await preflightResponse.json()) as {
+        preflight?: PreflightReport;
+        error?: string;
+      };
+      if (!preflightResponse.ok || !preflightPayload.preflight) {
+        throw new Error(
+          preflightPayload.error || "The final safety check could not be completed."
+        );
+      }
+      setPreflight(preflightPayload.preflight);
+      if (!preflightPayload.preflight.passed) {
+        setPreflightError(
+          "Resolve the issues shown below before importing. No records were changed."
+        );
+        return;
+      }
+
+      const confirmationResponse = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/confirm`,
+        { method: "POST" }
+      );
+      const confirmationPayload = (await confirmationResponse.json()) as {
+        confirmation?: Confirmation;
+        error?: string;
+      };
+      if (!confirmationResponse.ok || !confirmationPayload.confirmation) {
+        throw new Error(
+          confirmationPayload.error || "The secure import approval could not be recorded."
+        );
+      }
+
+      const executeResponse = await fetch(
+        `/api/imports/preview/${encodeURIComponent(params.jobId)}/execute`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirmationId: confirmationPayload.confirmation.id }),
+        }
+      );
+      const executePayload = (await executeResponse.json()) as {
+        result?: { created: number; updated: number; rollbackExpiresAt: string };
+        error?: string;
+      };
+      if (!executeResponse.ok || !executePayload.result) {
+        throw new Error(executePayload.error || "The import could not be completed.");
+      }
+
+      setExecutionResult(executePayload.result);
+      setConfirmation(null);
+      setData({
+        ...data,
+        commitEnabled: false,
+        job: {
+          ...data.job,
+          status: "committed",
+          committed_at: new Date().toISOString(),
+          rollback_expires_at: executePayload.result.rollbackExpiresAt,
+        },
+      });
+    } catch (err) {
+      setExecutionError(
+        err instanceof Error ? err.message : "The import could not be completed."
+      );
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -391,29 +546,68 @@ export default function SavedImportPreviewPage() {
   return (
     <section style={pageStyle}>
       <p style={eyebrowStyle}>Data &amp; Imports</p>
-      <h1 style={headingStyle}>Review Saved Preview</h1>
+      <h1 style={headingStyle}>Review Import</h1>
       <p style={bodyStyle}>
-        {data.job.summary.fileName ?? "Pack of Five workbook"} · Saved{" "}
+        {data.job.summary.fileName ?? "Pack of Five workbook"} · Prepared{" "}
         {new Date(data.job.created_at).toLocaleString()} · By{" "}
         {data.job.uploaded_by_email}
       </p>
 
+      <div style={stepsStyle} aria-label="Import progress">
+        <span style={completedStepStyle}>1 Upload</span>
+        <span style={activeStepStyle}>2 Review</span>
+        <span style={data.job.status === "committed" || data.job.status === "rolled_back" ? completedStepStyle : pendingStepStyle}>
+          3 Results
+        </span>
+      </div>
+
       <div style={summaryGridStyle}>
         <Summary label="Create" value={counts.creates} />
         <Summary label="Update" value={counts.updates} />
-        <Summary label="Review" value={counts.reviews} />
+        <Summary label="Needs Attention" value={counts.reviews} />
         <Summary label="Errors" value={counts.errors} />
         <Summary label="Selected" value={selectedCount} />
       </div>
 
       <p style={selectionHelpStyle}>
-        Choose which ready Create and Update rows should be included later.
-        Review and Error rows stay excluded until corrected.
+        Ready records are selected automatically. Search or filter to inspect a
+        large workbook, and clear any record you do not want to import.
       </p>
 
       {choiceError && (
         <p role="alert" style={errorStyle}>{choiceError}</p>
       )}
+
+      <div style={reviewToolbarStyle}>
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Search names, sheets, rows, or issues"
+          aria-label="Search import records"
+          style={searchInputStyle}
+        />
+        {data.job.status === "ready" && (
+          <div style={bulkActionsStyle}>
+            <button
+              type="button"
+              onClick={() => void changeAllSelections(true)}
+              disabled={savingBulkChoice}
+              style={secondaryButtonStyle}
+            >
+              Select all ready
+            </button>
+            <button
+              type="button"
+              onClick={() => void changeAllSelections(false)}
+              disabled={savingBulkChoice}
+              style={secondaryButtonStyle}
+            >
+              Clear selection
+            </button>
+          </div>
+        )}
+      </div>
 
       <div style={filterBarStyle}>
         {(["all", "create", "update", "warning", "error"] as const).map(
@@ -433,6 +627,10 @@ export default function SavedImportPreviewPage() {
           )
         )}
       </div>
+
+      <p style={resultCountStyle}>
+        Showing {filteredRows.length === 0 ? 0 : (pageNumber - 1) * ROWS_PER_PAGE + 1}–{Math.min(pageNumber * ROWS_PER_PAGE, filteredRows.length)} of {filteredRows.length} matching records
+      </p>
 
       <div style={rowsStyle}>
         {visibleRows.length === 0 ? (
@@ -485,32 +683,60 @@ export default function SavedImportPreviewPage() {
         )}
       </div>
 
-      {data.job.status === "ready" && (
-        <div style={lockedStyle}>
-          <strong>Review before importing.</strong>{" "}
-          Run the final safety check, record a short-lived approval, then run
-          the import. Neon will apply every selected row or keep none of them.
+      {totalPages > 1 && (
+        <div style={paginationStyle}>
+          <button
+            type="button"
+            onClick={() => setPageNumber((page) => Math.max(1, page - 1))}
+            disabled={pageNumber === 1}
+            style={secondaryButtonStyle}
+          >
+            Previous
+          </button>
+          <span>Page {pageNumber} of {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => setPageNumber((page) => Math.min(totalPages, page + 1))}
+            disabled={pageNumber === totalPages}
+            style={secondaryButtonStyle}
+          >
+            Next
+          </button>
         </div>
       )}
-      <button
-        type="button"
-        onClick={() => void runPreflight()}
-        disabled={checking}
-        style={{ ...safetyButtonStyle, opacity: checking ? 0.6 : 1 }}
-      >
-        {checking ? "Running Final Safety Check…" : "Run Final Safety Check"}
-      </button>
+
+      {data.job.status === "ready" && (
+        <div style={lockedStyle}>
+          <strong>Ready when you are.</strong>{" "}
+          The app will run its final safety checks automatically. Every selected
+          record will be imported together, or no changes will be kept.
+        </div>
+      )}
+
+      {data.job.status === "ready" && (
+        <button
+          type="button"
+          onClick={() => void importSelectedRecords()}
+          disabled={importing || selectedCount === 0}
+          style={{
+            ...runButtonStyle,
+            opacity: importing || selectedCount === 0 ? 0.6 : 1,
+          }}
+        >
+          {importing
+            ? "Checking and Importing…"
+            : `Import ${selectedCount} Selected Record${selectedCount === 1 ? "" : "s"}`}
+        </button>
+      )}
 
       {preflightError && (
         <p role="alert" style={errorStyle}>{preflightError}</p>
       )}
 
-      {preflight && (
+      {preflight && !preflight.passed && (
         <div style={preflight.passed ? passedStyle : failedStyle}>
           <strong>
-            {preflight.passed
-              ? "Safety check passed"
-              : "Safety check needs attention"}
+            Some records need attention
           </strong>
           <span>{preflight.selectedCount} selected row(s) checked.</span>
           {preflight.issues.length > 0 && (
@@ -521,42 +747,10 @@ export default function SavedImportPreviewPage() {
         </div>
       )}
 
-      {preflight?.passed && !confirmation && (
-        <button
-          type="button"
-          onClick={() => void approveImport()}
-          disabled={confirming}
-          style={{ ...approvalButtonStyle, opacity: confirming ? 0.6 : 1 }}
-        >
-          {confirming ? "Recording Approval…" : "Approve Selected Import"}
-        </button>
-      )}
-
       {confirmationError && (
         <p role="alert" style={errorStyle}>{confirmationError}</p>
       )}
 
-      {confirmation && (
-        <div style={approvalReceiptStyle}>
-          <strong>Approval recorded</strong>
-          <span>
-            This one-time approval expires at{" "}
-            {new Date(confirmation.expires_at).toLocaleTimeString()}.
-          </span>
-          <span>Receipt: {confirmation.id}</span>
-        </div>
-      )}
-
-      {confirmation && data.commitEnabled && data.job.status === "ready" && (
-        <button
-          type="button"
-          onClick={() => void executeImport()}
-          disabled={executing}
-          style={{ ...runButtonStyle, opacity: executing ? 0.6 : 1 }}
-        >
-          {executing ? "Running Atomic Import…" : "Run Approved Import"}
-        </button>
-      )}
 
       {executionError && <p role="alert" style={errorStyle}>{executionError}</p>}
 
@@ -678,11 +872,21 @@ const pageStyle: React.CSSProperties = { maxWidth: 1040 };
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 7px", color: COLORS.coral, fontSize: 11.5, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase" };
 const headingStyle: React.CSSProperties = { margin: 0, color: COLORS.navy, fontSize: 30 };
 const bodyStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 13.5, lineHeight: 1.55 };
+const stepsStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 };
+const completedStepStyle: React.CSSProperties = { padding: "6px 10px", borderRadius: 999, background: COLORS.mint, color: COLORS.navy, fontSize: 12, fontWeight: 800 };
+const activeStepStyle: React.CSSProperties = { ...completedStepStyle, background: COLORS.navy, color: "#fff" };
+const pendingStepStyle: React.CSSProperties = { ...completedStepStyle, background: "#EEF1F4", color: COLORS.muted };
 const summaryGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 18 };
 const summaryCardStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4, padding: 14, color: COLORS.navy, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8 };
 const filterBarStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 };
+const reviewToolbarStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 16 };
+const searchInputStyle: React.CSSProperties = { flex: "1 1 300px", minWidth: 0, padding: "10px 12px", border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.navy, background: COLORS.surface, fontSize: 13 };
+const bulkActionsStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
+const secondaryButtonStyle: React.CSSProperties = { padding: "8px 11px", border: `1px solid ${COLORS.border}`, borderRadius: 7, background: COLORS.surface, color: COLORS.navy, cursor: "pointer", fontSize: 12, fontWeight: 800 };
 const filterButtonStyle: React.CSSProperties = { padding: "7px 10px", border: `1px solid ${COLORS.border}`, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 750 };
+const resultCountStyle: React.CSSProperties = { margin: "10px 0 0", color: COLORS.muted, fontSize: 12 };
 const rowsStyle: React.CSSProperties = { display: "grid", gap: 9, marginTop: 14 };
+const paginationStyle: React.CSSProperties = { display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 14, color: COLORS.muted, fontSize: 12 };
 const rowCardStyle: React.CSSProperties = { padding: 14, color: COLORS.navy, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8 };
 const rowHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 };
 const rowMetaStyle: React.CSSProperties = { marginTop: 4, color: COLORS.muted, fontSize: 11.5 };
