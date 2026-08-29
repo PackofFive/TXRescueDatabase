@@ -1,57 +1,28 @@
-export const RESCUE_WORKBOOK_TEMPLATE_ID =
-  "POF-RESCUE-OPS";
-export const RESCUE_WORKBOOK_SCHEMA_VERSION =
-  "1.0";
-export const RESCUE_WORKBOOK_MAX_BYTES =
-  5 * 1024 * 1024;
-export const RESCUE_WORKBOOK_MAX_ROWS =
-  5000;
+import {
+  RESCUE_WORKBOOK_MAX_BYTES,
+  RESCUE_WORKBOOK_MAX_ROWS,
+  RESCUE_WORKBOOK_SCHEMA_VERSION,
+  RESCUE_WORKBOOK_TEMPLATE_ID,
+  type PhaseOneSheet,
+  type PreviewRow,
+  type PreviewSeverity,
+  type SheetPreview,
+  type WorkbookPreview,
+} from "@/lib/rescueWorkbookTypes";
 
-export type PreviewSeverity =
-  | "ready"
-  | "warning"
-  | "error";
-
-export type PreviewRow = {
-  id: string;
-  sheet: PhaseOneSheet;
-  rowNumber: number;
-  action: "create" | "review" | "error";
-  severity: PreviewSeverity;
-  recordId: string;
-  label: string;
-  messages: string[];
-  values: Record<string, string>;
+export {
+  RESCUE_WORKBOOK_MAX_BYTES,
+  RESCUE_WORKBOOK_MAX_ROWS,
+  RESCUE_WORKBOOK_SCHEMA_VERSION,
+  RESCUE_WORKBOOK_TEMPLATE_ID,
 };
-
-export type SheetPreview = {
-  sheet: PhaseOneSheet;
-  total: number;
-  ready: number;
-  warnings: number;
-  errors: number;
+export type {
+  PhaseOneSheet,
+  PreviewRow,
+  PreviewSeverity,
+  SheetPreview,
+  WorkbookPreview,
 };
-
-export type WorkbookPreview = {
-  fileName: string;
-  fileSize: number;
-  templateId: string;
-  schemaVersion: string;
-  sheets: SheetPreview[];
-  rows: PreviewRow[];
-  counts: {
-    total: number;
-    ready: number;
-    warnings: number;
-    errors: number;
-  };
-  deferredSheets: string[];
-};
-
-type PhaseOneSheet =
-  | "Animals"
-  | "Medical"
-  | "Tasks";
 
 type SheetDefinition = {
   sheet: PhaseOneSheet;
@@ -603,78 +574,66 @@ type ParsedCell = {
 type ParsedWorksheet = Map<string, ParsedCell>;
 
 async function readOfficialXlsx(file: File) {
-  const {
-    BlobReader,
-    TextWriter,
-    ZipReader,
-  } = await import("@zip.js/zip.js");
-
-  const zipReader = new ZipReader(
-    new BlobReader(file)
-  );
+  const { strFromU8, unzipSync } = await import("fflate");
 
   try {
-    const entries = await zipReader.getEntries();
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let totalUncompressed = 0;
+    const entries = unzipSync(bytes, {
+      filter(entry) {
+        if (
+          entry.name === "xl/vbaProject.bin" ||
+          entry.name.startsWith("xl/externalLinks/")
+        ) {
+          throw new Error(
+            "Macros and external workbook links are not supported."
+          );
+        }
 
-    if (
-      entries.some(
-        (entry) =>
-          entry.filename === "xl/vbaProject.bin" ||
-          entry.filename.startsWith(
-            "xl/externalLinks/"
-          )
-      )
-    ) {
-      throw new Error(
-        "Macros and external workbook links are not supported."
-      );
-    }
+        totalUncompressed += entry.originalSize;
 
-    const totalUncompressed = entries.reduce(
-      (total, entry) =>
-        total + (entry.uncompressedSize ?? 0),
-      0
-    );
+        if (totalUncompressed > 20 * 1024 * 1024) {
+          throw new Error(
+            "The workbook expands beyond the safe preview limit."
+          );
+        }
 
-    if (totalUncompressed > 20 * 1024 * 1024) {
-      throw new Error(
-        "The workbook expands beyond the safe preview limit."
-      );
-    }
+        if (entry.originalSize > 5 * 1024 * 1024) {
+          throw new Error(
+            `${entry.name} exceeds the safe worksheet limit.`
+          );
+        }
 
-    const entryMap = new Map(
-      entries.map((entry) => [entry.filename, entry])
-    );
-    const readText = async (path: string) => {
-      const entry = entryMap.get(path);
+        return (
+          entry.name === "xl/workbook.xml" ||
+          entry.name === "xl/_rels/workbook.xml.rels" ||
+          entry.name === "xl/sharedStrings.xml" ||
+          entry.name.startsWith("xl/worksheets/")
+        );
+      },
+    });
+    const readText = (path: string) => {
+      const entry = entries[path];
 
-      if (!entry || entry.directory || !entry.getData) {
+      if (!entry) {
         throw new Error(
           `The workbook is missing ${path}.`
         );
       }
 
-      if ((entry.uncompressedSize ?? 0) > 5 * 1024 * 1024) {
-        throw new Error(
-          `${path} exceeds the safe worksheet limit.`
-        );
-      }
-
-      return entry.getData(new TextWriter());
+      return strFromU8(entry);
     };
 
     const workbookXml = parseXml(
-      await readText("xl/workbook.xml")
+      readText("xl/workbook.xml")
     );
     const relationshipsXml = parseXml(
-      await readText("xl/_rels/workbook.xml.rels")
+      readText("xl/_rels/workbook.xml.rels")
     );
-    const sharedStrings = entryMap.has(
-      "xl/sharedStrings.xml"
-    )
+    const sharedStrings = entries["xl/sharedStrings.xml"]
       ? parseSharedStrings(
           parseXml(
-            await readText("xl/sharedStrings.xml")
+            readText("xl/sharedStrings.xml")
           )
         )
       : [];
@@ -727,7 +686,7 @@ async function readOfficialXlsx(file: File) {
       worksheets.set(
         name,
         parseWorksheet(
-          parseXml(await readText(normalizedTarget)),
+          parseXml(readText(normalizedTarget)),
           sharedStrings
         )
       );
@@ -747,8 +706,6 @@ async function readOfficialXlsx(file: File) {
         ? `The workbook could not be read: ${err.message}`
         : "The workbook could not be read."
     );
-  } finally {
-    await zipReader.close();
   }
 }
 
