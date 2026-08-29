@@ -148,6 +148,14 @@ export async function POST(
     };
 
     await sql`
+      update import_confirmations
+      set revoked_at = now()
+      where job_id = ${jobId}::uuid
+        and consumed_at is null
+        and revoked_at is null
+    `;
+
+    await sql`
       update import_jobs
       set
         summary = summary || ${JSON.stringify({ preflight: report })}::jsonb,
