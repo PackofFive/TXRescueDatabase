@@ -483,14 +483,30 @@ export default function SavedImportPreviewPage() {
     setRollbackError(null);
 
     try {
+      const rollbackUrl = `${window.location.origin}/api/imports/preview/${encodeURIComponent(data.job.id)}/rollback`;
       const response = await fetch(
-        `/api/imports/preview/${encodeURIComponent(params.jobId)}/rollback`,
-        { method: "POST" }
+        rollbackUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
       );
-      const payload = (await response.json()) as {
+      const responseText = await response.text();
+      let payload: {
         result?: unknown;
         error?: string;
       };
+
+      try {
+        payload = JSON.parse(responseText) as typeof payload;
+      } catch {
+        throw new Error(
+          response.ok
+            ? "Rollback finished, but the result could not be displayed. Refresh this page to verify its status."
+            : "Rollback could not be completed. No partial rollback was kept."
+        );
+      }
 
       if (!response.ok || !payload.result) {
         throw new Error(payload.error || "Rollback could not be completed.");
