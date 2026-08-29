@@ -80,12 +80,19 @@ const IDENTIFIER_FIELDS = new Set([
   "animal_name",
 ]);
 
-const VALID_PRIORITIES = new Set([
+const VALID_ANIMAL_URGENCIES = new Set([
   "normal",
   "monitor",
   "priority",
   "urgent",
   "critical",
+]);
+
+const VALID_TASK_PRIORITIES = new Set([
+  "critical",
+  "high",
+  "normal",
+  "info",
 ]);
 
 export function mapWorkbookRow(
@@ -116,14 +123,23 @@ export function mapWorkbookRow(
       continue;
     }
 
-    if (field === "priority" && VALID_PRIORITIES.has(value.toLowerCase())) {
+    const normalizedPriority = value.toLowerCase();
+    const priorityIsSupported =
+      field === "priority" &&
+      (sheet === "Animals"
+        ? VALID_ANIMAL_URGENCIES.has(normalizedPriority)
+        : sheet === "Tasks"
+        ? VALID_TASK_PRIORITIES.has(normalizedPriority)
+        : false);
+
+    if (priorityIsSupported) {
       mappedFields.push({
         source: fieldLabel(field),
         destination:
           sheet === "Animals"
             ? "animals.urgency"
             : "animal_reminders.priority",
-        value: value.toLowerCase(),
+        value: normalizedPriority,
       });
       continue;
     }
