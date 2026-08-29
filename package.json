@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "@zip.js/zip.js": "^2.7.72",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
     "next": "15.2.3",
