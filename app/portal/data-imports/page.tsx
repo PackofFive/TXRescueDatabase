@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   previewRescueWorkbook,
@@ -54,6 +55,7 @@ const COLORS = {
 };
 
 export default function DataImportsPage() {
+  const router = useRouter();
   const [file, setFile] =
     useState<File | null>(null);
   const [preview, setPreview] =
@@ -125,7 +127,7 @@ export default function DataImportsPage() {
         );
   }, [filter, preview]);
 
-  async function inspectWorkbook() {
+  async function prepareImportReview() {
     if (!file) {
       setError(
         "Choose the official Pack of Five workbook first."
@@ -142,14 +144,46 @@ export default function DataImportsPage() {
     setMatchCounts(null);
 
     try {
-      const result =
-        await previewRescueWorkbook(file);
+      const result = await previewRescueWorkbook(file);
       setPreview(result);
+
+      if (result.counts.errors > 0) {
+        setError(
+          "Fix the workbook errors shown below, then choose the corrected file and try again."
+        );
+        return;
+      }
+
+      const response = await fetch(
+        "/api/imports/preview",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            preview: result,
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        }
+      );
+      const saved = (await response.json()) as {
+        jobId?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !saved.jobId) {
+        throw new Error(
+          saved.error || "The import review could not be prepared."
+        );
+      }
+
+      router.push(`/portal/data-imports/${saved.jobId}`);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "The workbook could not be inspected."
+          : "The import review could not be prepared."
       );
     } finally {
       setLoading(false);
@@ -287,7 +321,7 @@ export default function DataImportsPage() {
 
         <button
           type="button"
-          onClick={inspectWorkbook}
+          onClick={prepareImportReview}
           disabled={!file || loading}
           style={{
             ...primaryButtonStyle,
@@ -295,8 +329,8 @@ export default function DataImportsPage() {
           }}
         >
           {loading
-            ? "Checking Workbook…"
-            : "Check Workbook"}
+            ? "Preparing Import Review…"
+            : "Review Import"}
         </button>
 
         {error && (
@@ -306,7 +340,7 @@ export default function DataImportsPage() {
         )}
       </div>
 
-      {preview && (
+      {preview && preview.counts.errors > 0 && (
         <PreviewResults
           preview={preview}
           filter={filter}
@@ -585,26 +619,10 @@ function PreviewResults({
       )}
 
       <div style={commitNoticeStyle}>
-        <strong>Nothing has been imported yet.</strong>{" "}
-        Continue to match the workbook against your organization and review
-        every proposed create, update, warning, or error.
+        <strong>Nothing has been imported.</strong>{" "}
+        Correct the errors shown above, then choose the corrected workbook and
+        click Review Import again.
       </div>
-
-      <button
-        type="button"
-        onClick={saveSecurePreview}
-        disabled={saving || Boolean(savedJobId)}
-        style={{
-          ...primaryButtonStyle,
-          opacity: saving || savedJobId ? 0.6 : 1,
-        }}
-      >
-        {savedJobId
-          ? "Ready for Review"
-          : saving
-          ? "Preparing Review…"
-          : "Continue to Review"}
-      </button>
 
       {savedJobId && (
         <div style={savedResultStyle}>
