@@ -1879,8 +1879,12 @@ function ManagerNavigation({
         hidden={!organizationOpen}
         style={managerSectionItemsStyle}
       >
-        <ManagerLink href="/portal/data-imports">
+        <ManagerLink href="/portal/data-imports" exact>
           Data &amp; Imports
+        </ManagerLink>
+
+        <ManagerLink href="/portal/data-imports/audit">
+          Import Audit
         </ManagerLink>
       </div>
     </>
