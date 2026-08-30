@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     verifySameOrigin(request);
     const { session, orgId } = await requireEffectiveOrg();
-    const body = (await request.json()) as { jobId?: string };
+    const body = (await request.json()) as { jobId?: string; reason?: string };
 
     if (!body.jobId || !isUuid(body.jobId)) {
       return NextResponse.json(
@@ -18,11 +18,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const reason = body.reason?.trim() ?? "";
+    if (reason.length < 10 || reason.length > 500) {
+      return NextResponse.json(
+        { error: "Enter a rollback reason between 10 and 500 characters." },
+        { status: 400 }
+      );
+    }
+
     const rows = await sql`
       select pof_rollback_rescue_workbook_import(
         ${body.jobId}::uuid,
         ${session.id}::uuid,
-        ${orgId}::uuid
+        ${orgId}::uuid,
+        ${reason}::text
       ) as result
     `;
 
