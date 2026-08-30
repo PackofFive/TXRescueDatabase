@@ -83,6 +83,10 @@ export default function DataImportsPage() {
     useState<ImportHistoryJob[]>([]);
   const [historyError, setHistoryError] =
     useState<string | null>(null);
+  const [archivingJobId, setArchivingJobId] =
+    useState<string | null>(null);
+  const [archiveError, setArchiveError] =
+    useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -114,6 +118,47 @@ export default function DataImportsPage() {
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+
+  async function archivePreview(jobId: string) {
+    const confirmed = window.confirm(
+      "Archive this unimported preview? It will leave this list, but its audit record will be kept."
+    );
+
+    if (!confirmed) return;
+
+    setArchivingJobId(jobId);
+    setArchiveError(null);
+
+    try {
+      const response = await fetch("/api/imports/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId }),
+      });
+      const result = (await response.json()) as {
+        archived?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !result.archived) {
+        throw new Error(
+          result.error || "The preview could not be archived."
+        );
+      }
+
+      setHistory((current) =>
+        current.filter((job) => job.id !== jobId)
+      );
+    } catch (err) {
+      setArchiveError(
+        err instanceof Error
+          ? err.message
+          : "The preview could not be archived."
+      );
+    } finally {
+      setArchivingJobId(null);
+    }
+  }
 
   const visibleRows = useMemo(() => {
     if (!preview) {
@@ -357,6 +402,9 @@ export default function DataImportsPage() {
       <ImportHistory
         jobs={history}
         error={historyError}
+        archiveError={archiveError}
+        archivingJobId={archivingJobId}
+        onArchive={archivePreview}
       />
     </section>
   );
@@ -365,9 +413,15 @@ export default function DataImportsPage() {
 function ImportHistory({
   jobs,
   error,
+  archiveError,
+  archivingJobId,
+  onArchive,
 }: {
   jobs: ImportHistoryJob[];
   error: string | null;
+  archiveError: string | null;
+  archivingJobId: string | null;
+  onArchive: (jobId: string) => void;
 }) {
   return (
     <section style={historySectionStyle}>
@@ -379,6 +433,9 @@ function ImportHistory({
       </p>
 
       {error && <p role="alert" style={errorStyle}>{error}</p>}
+      {archiveError && (
+        <p role="alert" style={errorStyle}>{archiveError}</p>
+      )}
 
       {!error && jobs.length === 0 && (
         <p style={emptyHistoryStyle}>No saved previews yet.</p>
@@ -389,34 +446,55 @@ function ImportHistory({
           const counts = job.summary.matchCounts;
 
           return (
-            <a
-              key={job.id}
-              href={`/portal/data-imports/${job.id}`}
-              style={historyCardStyle}
-            >
-              <div>
-                <strong>
-                  {job.summary.fileName || "Pack of Five workbook"}
-                </strong>
-                <div style={rowMetaStyle}>
-                  {new Date(job.created_at).toLocaleString()} ·{" "}
-                  {job.uploaded_by_email}
+            <div key={job.id} style={historyCardStyle}>
+              <a
+                href={`/portal/data-imports/${job.id}`}
+                style={historyMainLinkStyle}
+              >
+                <div>
+                  <strong>
+                    {job.summary.fileName || "Pack of Five workbook"}
+                  </strong>
+                  <div style={rowMetaStyle}>
+                    {new Date(job.created_at).toLocaleString()} ·{" "}
+                    {job.uploaded_by_email}
+                  </div>
+                  <div style={historyDetailStyle}>
+                    {counts
+                      ? `${counts.creates} create · ${counts.updates} update · ${counts.reviews} review · ${counts.errors} error`
+                      : `${job.row_count} preview rows`}
+                    {` · ${job.selected_count} selected`}
+                  </div>
                 </div>
-                <div style={historyDetailStyle}>
-                  {counts
-                    ? `${counts.creates} create · ${counts.updates} update · ${counts.reviews} review · ${counts.errors} error`
-                    : `${job.row_count} preview rows`}
-                  {` · ${job.selected_count} selected`}
-                </div>
-              </div>
-              <span style={historyStatusStyle}>
-                {historyStatusLabel(job.status)}
-              </span>
-            </a>
+                <span style={historyStatusStyle}>
+                  {historyStatusLabel(job.status)}
+                </span>
+              </a>
+
+              {canArchivePreview(job.status) && (
+                <button
+                  type="button"
+                  onClick={() => onArchive(job.id)}
+                  disabled={archivingJobId === job.id}
+                  style={{
+                    ...archiveButtonStyle,
+                    opacity: archivingJobId === job.id ? 0.55 : 1,
+                  }}
+                >
+                  {archivingJobId === job.id ? "Archiving…" : "Archive"}
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function canArchivePreview(status: string) {
+  return ["created", "ready", "blocked", "failed", "expired"].includes(
+    status
   );
 }
 
@@ -878,7 +956,29 @@ const historyCardStyle: React.CSSProperties = {
   background: COLORS.surface,
   border: `1px solid ${COLORS.border}`,
   borderRadius: 8,
+};
+
+const historyMainLinkStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  flex: "1 1 auto",
+  minWidth: 0,
+  gap: 14,
+  color: COLORS.navy,
   textDecoration: "none",
+};
+
+const archiveButtonStyle: React.CSSProperties = {
+  flex: "0 0 auto",
+  padding: "6px 10px",
+  color: COLORS.error,
+  background: COLORS.surface,
+  border: `1px solid ${COLORS.error}`,
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 11,
+  fontWeight: 800,
 };
 
 const historyDetailStyle: React.CSSProperties = {
