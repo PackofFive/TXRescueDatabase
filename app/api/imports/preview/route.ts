@@ -51,6 +51,7 @@ export async function GET() {
       join users u on u.id = j.uploaded_by
       left join import_rows r on r.job_id = j.id
       where j.organization_id = ${orgId}::uuid
+        and j.status <> 'archived'
       group by j.id, u.email
       order by j.created_at desc
       limit 50
