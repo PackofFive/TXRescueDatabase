@@ -43,6 +43,7 @@ type SavedPreview = {
         reviews: number;
         errors: number;
       };
+      rollbackReason?: string;
     };
     created_at: string;
     uploaded_by_email: string;
@@ -110,6 +111,7 @@ export default function SavedImportPreviewPage() {
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
   const [rollbackComplete, setRollbackComplete] = useState(false);
+  const [rollbackReason, setRollbackReason] = useState("");
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
@@ -475,8 +477,13 @@ export default function SavedImportPreviewPage() {
 
   async function rollbackImport() {
     if (!data || rollingBack) return;
+    const reason = rollbackReason.trim();
+    if (reason.length < 10) {
+      setRollbackError("Enter a brief rollback reason of at least 10 characters.");
+      return;
+    }
     if (!window.confirm(
-      "Roll back this entire import? This will reverse all changes only if none of the imported records changed afterward."
+      `Roll back this entire import?\n\nReason: ${reason}\n\nThis will reverse all changes only if none of the imported records changed afterward.`
     )) return;
 
     setRollingBack(true);
@@ -488,7 +495,7 @@ export default function SavedImportPreviewPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobId: data.job.id }),
+          body: JSON.stringify({ jobId: data.job.id, reason }),
         }
       );
       const responseText = await response.text();
@@ -518,6 +525,10 @@ export default function SavedImportPreviewPage() {
           ...data.job,
           status: "rolled_back",
           rolled_back_at: new Date().toISOString(),
+          summary: {
+            ...data.job.summary,
+            rollbackReason: reason,
+          },
         },
       });
     } catch (err) {
@@ -783,14 +794,37 @@ export default function SavedImportPreviewPage() {
               {new Date(data.job.rollback_expires_at).toLocaleString()}.
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => void rollbackImport()}
-            disabled={rollingBack}
-            style={rollbackButtonStyle}
-          >
-            {rollingBack ? "Checking & Rolling Back…" : "Roll Back Entire Import"}
-          </button>
+          {data.job.status === "committed" && !rollbackComplete && (
+            <div style={rollbackFormStyle}>
+              <label htmlFor="rollback-reason" style={rollbackLabelStyle}>
+                Reason for rollback
+              </label>
+              <textarea
+                id="rollback-reason"
+                value={rollbackReason}
+                onChange={(event) => setRollbackReason(event.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Example: This workbook contained duplicate animal records."
+                style={rollbackReasonStyle}
+              />
+              <span style={rollbackHelpStyle}>
+                Required for the audit history · {rollbackReason.trim().length}/500
+              </span>
+              <button
+                type="button"
+                onClick={() => void rollbackImport()}
+                disabled={rollingBack || rollbackReason.trim().length < 10}
+                style={{
+                  ...rollbackButtonStyle,
+                  opacity:
+                    rollingBack || rollbackReason.trim().length < 10 ? 0.55 : 1,
+                }}
+              >
+                {rollingBack ? "Checking & Rolling Back…" : "Roll Back Entire Import"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -799,6 +833,9 @@ export default function SavedImportPreviewPage() {
         <div style={passedStyle}>
           <strong>Import rolled back successfully</strong>
           <span>The audit history was preserved.</span>
+          {data.job.summary.rollbackReason && (
+            <span><strong>Reason:</strong> {data.job.summary.rollbackReason}</span>
+          )}
         </div>
       )}
       <div style={{ marginTop: 16 }}>
@@ -930,3 +967,7 @@ const approvalReceiptStyle: React.CSSProperties = { display: "flex", flexDirecti
 const runButtonStyle: React.CSSProperties = { marginTop: 12, padding: "11px 16px", border: 0, borderRadius: 7, background: "#16705A", color: "#fff", cursor: "pointer", fontWeight: 850 };
 const commitSuccessStyle: React.CSSProperties = { ...passedStyle, marginTop: 14 };
 const rollbackButtonStyle: React.CSSProperties = { alignSelf: "flex-start", marginTop: 6, padding: "8px 11px", border: `1px solid ${COLORS.error}`, borderRadius: 6, background: COLORS.surface, color: COLORS.error, cursor: "pointer", fontWeight: 800 };
+const rollbackFormStyle: React.CSSProperties = { display: "grid", gap: 6, width: "min(100%, 620px)", marginTop: 8 };
+const rollbackLabelStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 13, fontWeight: 800 };
+const rollbackReasonStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "9px 10px", border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.navy, background: COLORS.surface, font: "inherit", resize: "vertical" };
+const rollbackHelpStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 11.5 };
