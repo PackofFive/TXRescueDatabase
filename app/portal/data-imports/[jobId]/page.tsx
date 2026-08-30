@@ -82,7 +82,7 @@ const COLORS = {
   warning: "#8A5A00",
 };
 
-const ROWS_PER_PAGE = 50;
+const ROWS_PER_PAGE = 25;
 
 export default function SavedImportPreviewPage() {
   const params = useParams<{ jobId: string }>();
@@ -673,12 +673,12 @@ export default function SavedImportPreviewPage() {
                     style={checkboxStyle}
                   />
                   <div>
-                    <strong>{rowLabel(row)}</strong>
-                    <div style={rowMetaStyle}>
+                    <strong style={rowLabelStyle}>{rowLabel(row)}</strong>
+                    <span style={rowMetaStyle}>
                       {row.sheet_name} · Row {row.row_number}
                       {row.target_entity_id ? " · Exact match found" : ""}
                       {savingRowId === row.id ? " · Saving choice…" : ""}
-                    </div>
+                    </span>
                   </div>
                 </div>
                 <span style={{ ...badgeStyle, ...actionStyle(row.proposed_action) }}>
@@ -819,7 +819,8 @@ function FieldMapping({ row }: { row: SavedRow }) {
   return (
     <details style={mappingDetailsStyle}>
       <summary style={mappingSummaryStyle}>
-        View field mapping ({mapped.length} mapped, {deferred.length} deferred)
+        View details · {mapped.length} mapped
+        {deferred.length > 0 ? ` · ${deferred.length} deferred` : ""}
       </summary>
 
       {mapped.length > 0 && (
@@ -900,11 +901,12 @@ const bulkActionsStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap
 const secondaryButtonStyle: React.CSSProperties = { padding: "8px 11px", border: `1px solid ${COLORS.border}`, borderRadius: 7, background: COLORS.surface, color: COLORS.navy, cursor: "pointer", fontSize: 12, fontWeight: 800 };
 const filterButtonStyle: React.CSSProperties = { padding: "7px 10px", border: `1px solid ${COLORS.border}`, borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 750 };
 const resultCountStyle: React.CSSProperties = { margin: "10px 0 0", color: COLORS.muted, fontSize: 12 };
-const rowsStyle: React.CSSProperties = { display: "grid", gap: 9, marginTop: 14 };
+const rowsStyle: React.CSSProperties = { display: "grid", gap: 5, marginTop: 12 };
 const paginationStyle: React.CSSProperties = { display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 14, color: COLORS.muted, fontSize: 12 };
-const rowCardStyle: React.CSSProperties = { padding: 14, color: COLORS.navy, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8 };
-const rowHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 };
-const rowMetaStyle: React.CSSProperties = { marginTop: 4, color: COLORS.muted, fontSize: 11.5 };
+const rowCardStyle: React.CSSProperties = { padding: "9px 11px", color: COLORS.navy, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 7 };
+const rowHeaderStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8 };
+const rowLabelStyle: React.CSSProperties = { marginRight: 8, fontSize: 13.5 };
+const rowMetaStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 11.5, whiteSpace: "nowrap" };
 const badgeStyle: React.CSSProperties = { flex: "0 0 auto", padding: "4px 7px", borderRadius: 999, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase" };
 const messageListStyle: React.CSSProperties = { margin: "10px 0 0", paddingLeft: 20, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
 const lockedStyle: React.CSSProperties = { marginTop: 18, padding: "12px 14px", color: COLORS.navy, background: COLORS.peach, border: `1px solid ${COLORS.border}`, lineHeight: 1.5, fontSize: 13 };
@@ -912,9 +914,9 @@ const disabledButtonStyle: React.CSSProperties = { marginTop: 12, padding: "10px
 const linkStyle: React.CSSProperties = { color: COLORS.navy, fontWeight: 800 };
 const errorStyle: React.CSSProperties = { color: COLORS.error, lineHeight: 1.5 };
 const selectionHelpStyle: React.CSSProperties = { margin: "14px 0 0", color: COLORS.muted, fontSize: 13, lineHeight: 1.5 };
-const rowChoiceStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 10 };
+const rowChoiceStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 9, minWidth: 0 };
 const checkboxStyle: React.CSSProperties = { width: 17, height: 17, marginTop: 1, accentColor: COLORS.navy };
-const mappingDetailsStyle: React.CSSProperties = { marginTop: 12, paddingTop: 10, borderTop: `1px solid ${COLORS.border}` };
+const mappingDetailsStyle: React.CSSProperties = { marginTop: 7, paddingTop: 7, borderTop: `1px solid ${COLORS.border}` };
 const mappingSummaryStyle: React.CSSProperties = { color: COLORS.navy, cursor: "pointer", fontSize: 12, fontWeight: 800 };
 const mappingGroupStyle: React.CSSProperties = { display: "grid", gap: 6, marginTop: 10, color: COLORS.navy, fontSize: 12 };
 const mappingLineStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, padding: "6px 8px", background: "#F8FAFC", borderRadius: 5, overflowWrap: "anywhere" };
