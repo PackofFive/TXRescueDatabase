@@ -483,13 +483,12 @@ export default function SavedImportPreviewPage() {
     setRollbackError(null);
 
     try {
-      const rollbackUrl = `${window.location.origin}/api/imports/preview/${encodeURIComponent(data.job.id)}/rollback`;
       const response = await fetch(
-        rollbackUrl,
+        "/api/imports/rollback",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ jobId: data.job.id }),
         }
       );
       const responseText = await response.text();
