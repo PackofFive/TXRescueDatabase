@@ -299,8 +299,8 @@ export default function DataImportsPage() {
 
       <p style={introStyle}>
         Upload the official Pack of Five workbook, review what will change,
-        and import when everything looks right. Animals, Medical, and Tasks
-        are supported in this release.
+        and import when everything looks right. Animals, Medical, Foster
+        Placements, and Tasks are supported in this release.
       </p>
 
       <div style={stepsStyle} aria-label="Import progress">
