@@ -7,6 +7,27 @@ export const runtime = "edge";
 
 const CAP_FIELD_KEYS = new Set(CAPABILITY_FIELDS.map((f) => f.key));
 
+const ORGANIZATION_FIELD_KEYS = new Set([
+  "name",
+  "org_type",
+  "focus",
+  "specialty",
+  "c3_status",
+  "city",
+  "county",
+  "state",
+  "service_area",
+  "region",
+  "statewide",
+  "intake_status",
+  "intake_restrictions",
+  "intake_form_url",
+  "website",
+  "social_media",
+  "public_email",
+  "public_phone",
+]);
+
 async function requireOrganizationSettingsAccess(
   orgId: string
 ) {
@@ -75,6 +96,13 @@ export async function POST(req: NextRequest) {
         `;
         queued.push(label);
       } else if (table === "organizations") {
+        if (!ORGANIZATION_FIELD_KEYS.has(field)) {
+          return NextResponse.json(
+            { error: `Unknown organization field: ${field}` },
+            { status: 400 }
+          );
+        }
+
         const current = await sql`select ${sql(field)} as val from organizations where id = ${orgId}`;
         const oldValue = current[0]?.val ?? "";
         if (oldValue === newValue) continue;
