@@ -7,6 +7,38 @@ export const runtime = "edge";
 
 const CAP_FIELD_KEYS = new Set(CAPABILITY_FIELDS.map((f) => f.key));
 
+async function requireOrganizationSettingsAccess(
+  orgId: string
+) {
+  const user = await requireOrgAccess(orgId);
+
+  if (user.role === "admin") {
+    return user;
+  }
+
+  const memberships = await sql`
+    select access_level
+    from organization_memberships
+    where org_id = ${orgId}::uuid
+      and user_id = ${user.id}::uuid
+      and status = 'active'
+    limit 1
+  `;
+
+  const accessLevel = memberships[0]?.access_level
+    ? String(memberships[0].access_level)
+    : null;
+
+  if (!accessLevel || !["owner", "administrator"].includes(accessLevel)) {
+    throw new AuthError(
+      "Organization Owner or Administrator access is required to change organization settings or public profile information.",
+      403
+    );
+  }
+
+  return user;
+}
+
 // POST body: { orgId, changes: [{ table: 'organizations'|'capabilities', field, label, newValue }] }
 //
 // This is the one route that decides auto-publish vs. review-queue —
@@ -21,7 +53,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "orgId and a non-empty changes array are required." }, { status: 400 });
     }
 
-    const user = await requireOrgAccess(orgId);
+    const user = await requireOrganizationSettingsAccess(orgId);
 
     const published: string[] = [];
     const queued: string[] = [];
