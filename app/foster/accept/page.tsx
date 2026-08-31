@@ -330,7 +330,7 @@ export default function FosterAcceptPage() {
             The rescue or shelter
             can now review and
             approve the relationship.
-            Foster Portal account
+            Volunteer Portal account
             access will be connected
             in a later step.
           </p>
