@@ -297,7 +297,7 @@ export default function HomePage() {
             compact={isMobile}
             background={COLORS.foster}
             symbol="FOS"
-            title="Foster Portal"
+            title="Volunteer Portal"
             text="For approved foster relationships, applications, animals, and foster tools."
             href="/login?portal=foster"
           />
