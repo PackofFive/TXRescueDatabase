@@ -1805,6 +1805,10 @@ function ManagerNavigation({
         Dashboard
       </ManagerLink>
 
+      <ManagerLink href="/fosters/offers">
+        Applications &amp; Offers
+      </ManagerLink>
+
       <ManagerSectionToggle
         expanded={animalsOpen}
         controls="manager-animals-navigation"
@@ -1849,10 +1853,6 @@ function ManagerNavigation({
           exact
         >
           Fosters
-        </ManagerLink>
-
-        <ManagerLink href="/fosters/offers">
-          Applications &amp; Offers
         </ManagerLink>
 
         <ManagerLink href="/fosters/assignments">
