@@ -74,7 +74,7 @@ export async function GET() {
       If an email match is found with no user_id, link it to the
       signed-in user account.
 
-      Foster Portal access is granted only when the foster has at
+      Volunteer Portal access is granted only when the volunteer or foster has at
       least one approved organization relationship.
     */
 
@@ -157,7 +157,7 @@ export async function GET() {
         or Admin access from loading.
       */
       console.error(
-        "Foster portal access lookup failed:",
+        "Volunteer Portal access lookup failed:",
         fosterErr
       );
     }
