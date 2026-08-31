@@ -62,7 +62,9 @@ export default function AppShell({
     pathname === "/animals" ||
     pathname.startsWith("/animals/") ||
     pathname === "/fosters" ||
-    pathname.startsWith("/fosters/");
+    pathname.startsWith("/fosters/") ||
+    pathname === "/volunteers" ||
+    pathname.startsWith("/volunteers/");
 
   if (isAdminArea) {
     return (
@@ -381,6 +383,11 @@ function SignedInHeader({
                     "/fosters" ||
                   pathname.startsWith(
                     "/fosters/"
+                  ) ||
+                  pathname ===
+                    "/volunteers" ||
+                  pathname.startsWith(
+                    "/volunteers/"
                   )
                 }
               >
