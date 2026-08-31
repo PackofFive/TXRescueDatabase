@@ -108,6 +108,43 @@ const PHASE_ONE_SHEETS: SheetDefinition[] = [
     labelField: "service_vaccine",
   },
   {
+    sheet: "Foster Placements",
+    headers: [
+      "Foster Assignment ID",
+      "Animal ID",
+      "Animal Name",
+      "Foster Name",
+      "Foster Email",
+      "Foster Phone",
+      "Start Date",
+      "Review Date",
+      "Expected End",
+      "Status",
+      "Coordinator",
+      "Supplies Issued",
+      "Next Check-In",
+      "Notes",
+    ],
+    fields: [
+      "external_foster_assignment_id",
+      "animal_id",
+      "animal_name",
+      "foster_name",
+      "foster_email",
+      "foster_phone",
+      "start_date",
+      "review_date",
+      "expected_end",
+      "status",
+      "coordinator",
+      "supplies_issued",
+      "next_check_in",
+      "notes",
+    ],
+    idField: "external_foster_assignment_id",
+    labelField: "foster_name",
+  },
+  {
     sheet: "Tasks",
     headers: [
       "Task ID",
@@ -143,7 +180,6 @@ const PHASE_ONE_SHEETS: SheetDefinition[] = [
 ];
 
 const DEFERRED_SHEETS = [
-  "Foster Placements",
   "Adoption Pipeline",
   "Volunteers",
   "Donations",
@@ -156,6 +192,8 @@ const DATE_FIELDS = new Set([
   "next_due",
   "created_date",
   "completed_date",
+  "start_date",
+  "review_date",
 ]);
 
 export async function previewRescueWorkbook(
@@ -210,7 +248,7 @@ export async function previewRescueWorkbook(
   }
 
   const rows: PreviewRow[] = [];
-  const animalIds = new Map<string, number[]>();
+  const stableIds = new Map<string, number[]>();
 
   for (const definition of PHASE_ONE_SHEETS) {
     const worksheet =
@@ -306,14 +344,11 @@ export async function previewRescueWorkbook(
       const recordId =
         values[definition.idField] ?? "";
 
-      if (
-        definition.sheet === "Animals" &&
-        recordId
-      ) {
-        const occurrences =
-          animalIds.get(recordId) ?? [];
+      if (recordId) {
+        const stableKey = `${definition.sheet}:${recordId}`;
+        const occurrences = stableIds.get(stableKey) ?? [];
         occurrences.push(rowNumber);
-        animalIds.set(recordId, occurrences);
+        stableIds.set(stableKey, occurrences);
       }
 
       const hasError = messages.some(
@@ -355,21 +390,18 @@ export async function previewRescueWorkbook(
     }
   }
 
-  for (const [animalId, rowNumbers] of animalIds) {
-    if (rowNumbers.length < 2) {
-      continue;
-    }
+  for (const [stableKey, rowNumbers] of stableIds) {
+    if (rowNumbers.length < 2) continue;
+    const separator = stableKey.indexOf(":");
+    const sheet = stableKey.slice(0, separator);
+    const recordId = stableKey.slice(separator + 1);
 
     for (const row of rows) {
-      if (
-        row.sheet === "Animals" &&
-        row.recordId === animalId
-      ) {
+      if (row.sheet === sheet && row.recordId === recordId) {
         row.severity = "error";
         row.action = "error";
-        row.messages.push(
-          `Duplicate Animal ID appears on rows ${rowNumbers.join(", ")}.`
-        );
+        const message = `Duplicate stable ID appears on rows ${rowNumbers.join(", ")}.`;
+        if (!row.messages.includes(message)) row.messages.push(message);
       }
     }
   }
@@ -484,6 +516,33 @@ function validateRequiredValues(
   ) {
     messages.push(
       "Required: Medical rows need a Date."
+    );
+  }
+
+  if (
+    sheet === "Foster Placements" &&
+    !values.animal_id
+  ) {
+    messages.push(
+      "Required: Foster Placement rows need an Animal ID."
+    );
+  }
+
+  if (
+    sheet === "Foster Placements" &&
+    !values.foster_email
+  ) {
+    messages.push(
+      "Required: Foster Placement rows need a Foster Email for safe matching."
+    );
+  }
+
+  if (
+    sheet === "Foster Placements" &&
+    !values.start_date
+  ) {
+    messages.push(
+      "Required: Foster Placement rows need a Start Date."
     );
   }
 
