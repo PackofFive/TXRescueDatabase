@@ -37,10 +37,22 @@ const TASK_DESTINATIONS: Record<string, string> = {
   notes: "animal_reminders.notes",
 };
 
+const FOSTER_PLACEMENT_DESTINATIONS: Record<string, string> = {
+  start_date: "foster_assignments.started_at",
+  review_date: "foster_assignments.review_date",
+  expected_end: "foster_assignments.expected_end",
+  status: "foster_assignments.placement_status",
+  coordinator: "foster_assignments.coordinator",
+  supplies_issued: "foster_assignments.supplies_issued",
+  next_check_in: "foster_assignments.next_check_in",
+  notes: "foster_assignments.notes",
+};
+
 const FIELD_LABELS: Record<string, string> = {
   animal_id: "Animal ID",
   external_medical_record_id: "Medical Record ID",
   task_id: "Task ID",
+  external_foster_assignment_id: "Foster Assignment ID",
   name: "Name",
   species_type: "Species / Type",
   breed_description: "Breed / Description",
@@ -71,13 +83,25 @@ const FIELD_LABELS: Record<string, string> = {
   created_date: "Created Date",
   completed_date: "Completed Date",
   overdue_display_only: "Overdue?",
+  foster_name: "Foster Name",
+  foster_email: "Foster Email",
+  foster_phone: "Foster Phone",
+  start_date: "Start Date",
+  review_date: "Review Date",
+  expected_end: "Expected End",
+  supplies_issued: "Supplies Issued",
+  next_check_in: "Next Check-In",
 };
 
 const IDENTIFIER_FIELDS = new Set([
   "animal_id",
   "external_medical_record_id",
   "task_id",
+  "external_foster_assignment_id",
   "animal_name",
+  "foster_name",
+  "foster_email",
+  "foster_phone",
 ]);
 
 const VALID_ANIMAL_URGENCIES = new Set([
@@ -95,7 +119,7 @@ const VALID_TASK_PRIORITIES = new Set([
 ]);
 
 export function mapWorkbookRow(
-  sheet: "Animals" | "Medical" | "Tasks",
+  sheet: "Animals" | "Medical" | "Foster Placements" | "Tasks",
   values: Record<string, string>
 ): ImportMapping {
   const mappedFields: ImportMapping["mappedFields"] = [];
@@ -106,6 +130,8 @@ export function mapWorkbookRow(
       ? ANIMAL_DESTINATIONS
       : sheet === "Medical"
       ? MEDICAL_DESTINATIONS
+      : sheet === "Foster Placements"
+      ? FOSTER_PLACEMENT_DESTINATIONS
       : TASK_DESTINATIONS;
 
   for (const [field, rawValue] of Object.entries(values)) {
