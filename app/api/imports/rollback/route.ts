@@ -31,7 +31,8 @@ export async function POST(request: Request) {
         ${body.jobId}::uuid,
         ${session.id}::uuid,
         ${orgId}::uuid,
-        ${reason}::text
+        ${reason}::text,
+        true
       ) as result
     `;
 
