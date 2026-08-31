@@ -15,6 +15,7 @@ export type PreviewSeverity =
 export type PhaseOneSheet =
   | "Animals"
   | "Medical"
+  | "Foster Placements"
   | "Tasks";
 
 export type PreviewRow = {
