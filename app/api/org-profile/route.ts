@@ -7,7 +7,26 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { orgId } = await requireEffectiveOrg();
+    const { session, orgId } = await requireEffectiveOrg();
+
+    let accessLevel: string | null = null;
+
+    if (session.role === "admin") {
+      accessLevel = "platform_admin";
+    } else {
+      const membershipRows = await sql`
+        select access_level
+        from organization_memberships
+        where org_id = ${orgId}::uuid
+          and user_id = ${session.id}::uuid
+          and status = 'active'
+        limit 1
+      `;
+
+      accessLevel = membershipRows[0]?.access_level
+        ? String(membershipRows[0].access_level)
+        : null;
+    }
 
     const rows = await sql`
       select
@@ -47,7 +66,19 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { organization: rows[0] },
+      {
+        organization: rows[0],
+        access: {
+          level: accessLevel,
+          canEditOrganizationProfile:
+            accessLevel === "owner" ||
+            accessLevel === "administrator" ||
+            accessLevel === "platform_admin",
+          canManageOrganizationAccess:
+            accessLevel === "owner" ||
+            accessLevel === "platform_admin",
+        },
+      },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
