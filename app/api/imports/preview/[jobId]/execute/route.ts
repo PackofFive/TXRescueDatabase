@@ -27,7 +27,8 @@ export async function POST(
         ${jobId}::uuid,
         ${body.confirmationId}::uuid,
         ${session.id}::uuid,
-        ${orgId}::uuid
+        ${orgId}::uuid,
+        true
       ) as result
     `;
 
