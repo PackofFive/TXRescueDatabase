@@ -399,7 +399,7 @@ function SignedInHeader({
                   )
                 }
               >
-                Foster Portal
+                Volunteer Portal
               </TopPortalLink>
             )}
 
@@ -722,7 +722,7 @@ function PawMark() {
 }
 
 /* =========================================================
-   FOSTER PORTAL
+   VOLUNTEER PORTAL
 ========================================================= */
 
 function FosterShell({
@@ -791,11 +791,11 @@ function FosterShell({
                 ".08em",
             }}
           >
-            FOSTER PORTAL
+            VOLUNTEER PORTAL
           </div>
 
           <nav
-            aria-label="Foster Portal navigation"
+            aria-label="Volunteer Portal navigation"
           >
             <FosterLink
               href="/foster"
@@ -905,7 +905,7 @@ function FosterShell({
                     COLORS.navy,
                 }}
               >
-                Foster Portal
+                Volunteer Portal
               </div>
 
               <div
@@ -916,7 +916,7 @@ function FosterShell({
                     COLORS.muted,
                 }}
               >
-                Private foster workspace
+                Private volunteer and foster workspace
               </div>
             </div>
           </header>
