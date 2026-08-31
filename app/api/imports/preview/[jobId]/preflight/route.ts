@@ -138,6 +138,12 @@ export async function POST(
     );
     issues.push(...keyConflicts);
 
+    const fosterPlacementIssues = await findFosterPlacementIssues(
+      selected.filter((row) => row.sheet_name === "Foster Placements"),
+      orgId
+    );
+    issues.push(...fosterPlacementIssues);
+
     const uniqueIssues = Array.from(new Set(issues));
     const digest = await createDigest(selected);
     const report = {
@@ -226,6 +232,33 @@ function requiredDestinationIssues(row: PreviewRow) {
   }
 
   if (
+    row.sheet_name === "Foster Placements" &&
+    !values.animal_id?.trim()
+  ) {
+    issues.push(
+      `Foster Placements row ${row.row_number} needs an Animal ID.`
+    );
+  }
+
+  if (
+    row.sheet_name === "Foster Placements" &&
+    !values.foster_email?.trim()
+  ) {
+    issues.push(
+      `Foster Placements row ${row.row_number} needs a Foster Email.`
+    );
+  }
+
+  if (
+    row.sheet_name === "Foster Placements" &&
+    !values.start_date?.trim()
+  ) {
+    issues.push(
+      `Foster Placements row ${row.row_number} needs a Start Date.`
+    );
+  }
+
+  if (
     row.sheet_name === "Tasks" &&
     !values.animal_id?.trim()
   ) {
@@ -274,6 +307,11 @@ async function findMissingUpdateTargets(
         where r.id::text = t.entity_id
           and r.org_id = ${orgId}::uuid
       ))
+      or (t.sheet_name = 'Foster Placements' and exists (
+        select 1 from foster_assignments fa
+        where fa.id::text = t.entity_id
+          and fa.organization_id = ${orgId}::uuid
+      ))
   `;
   const found = new Set(
     existing.map(
@@ -306,12 +344,16 @@ async function findNewKeyConflicts(
           ? "animal"
           : row.sheet_name === "Medical"
           ? "medical"
+          : row.sheet_name === "Foster Placements"
+          ? "foster_assignment"
           : "task",
       external_id:
         row.sheet_name === "Animals"
           ? row.source_payload.animal_id
           : row.sheet_name === "Medical"
           ? row.source_payload.external_medical_record_id
+          : row.sheet_name === "Foster Placements"
+          ? row.source_payload.external_foster_assignment_id
           : row.source_payload.task_id,
     }))
     .filter((key) => Boolean(key.external_id));
@@ -340,6 +382,85 @@ async function findNewKeyConflicts(
     (row) =>
       `${String(row.sheet_name)} row ${Number(row.row_number)} now conflicts with an existing stable ID.`
   );
+}
+
+async function findFosterPlacementIssues(rows: PreviewRow[], orgId: string) {
+  if (rows.length === 0) return [];
+
+  const requested = rows.map((row) => ({
+    row_number: row.row_number,
+    proposed_action: row.proposed_action,
+    target_entity_id: row.target_entity_id,
+    animal_id: row.source_payload.animal_id?.trim() || null,
+    foster_email: row.source_payload.foster_email?.trim().toLowerCase() || null,
+  }));
+
+  const checks = await sql`
+    with requested as (
+      select *
+      from jsonb_to_recordset(${JSON.stringify(requested)}::jsonb) as item(
+        row_number integer,
+        proposed_action text,
+        target_entity_id text,
+        animal_id text,
+        foster_email text
+      )
+    ), resolved as (
+      select
+        r.*,
+        coalesce(animal_by_key.id, animal_by_id.id) as resolved_animal_id,
+        (
+          select count(*)
+          from foster_profiles fp
+          join foster_organization_relationships relationship
+            on relationship.foster_id = fp.id
+           and relationship.organization_id = ${orgId}::uuid
+           and relationship.status = 'approved'
+          where lower(fp.email) = r.foster_email
+        ) as foster_matches
+      from requested r
+      left join import_entity_keys animal_key
+        on animal_key.organization_id = ${orgId}::uuid
+       and animal_key.entity_type = 'animal'
+       and animal_key.external_id = r.animal_id
+      left join animals animal_by_key
+        on animal_by_key.id = animal_key.entity_id
+       and animal_by_key.current_org_id = ${orgId}::uuid
+      left join animals animal_by_id
+        on animal_by_id.id::text = r.animal_id
+       and animal_by_id.current_org_id = ${orgId}::uuid
+    )
+    select
+      resolved.*,
+      exists (
+        select 1
+        from foster_assignments active
+        where active.animal_id = resolved.resolved_animal_id
+          and active.organization_id = ${orgId}::uuid
+          and active.ended_at is null
+      ) as has_active_assignment
+    from resolved
+  `;
+
+  const issues: string[] = [];
+  for (const check of checks) {
+    const rowNumber = Number(check.row_number);
+    if (Number(check.foster_matches) !== 1) {
+      issues.push(
+        `Foster Placements row ${rowNumber} no longer matches exactly one approved foster relationship.`
+      );
+    }
+    if (
+      String(check.proposed_action) === "create" &&
+      Boolean(check.has_active_assignment)
+    ) {
+      issues.push(
+        `Foster Placements row ${rowNumber} conflicts with an active assignment created after preview.`
+      );
+    }
+  }
+
+  return issues;
 }
 
 async function createDigest(rows: PreviewRow[]) {
