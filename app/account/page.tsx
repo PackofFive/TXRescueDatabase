@@ -107,7 +107,10 @@ export default function AccountPage() {
             <ProfileCard
               title="Rescue Manager"
               description="Open the private workspace for your approved rescue or shelter organization."
-              links={[{ href: "/portal", label: "Open Rescue Manager" }]}
+              links={[
+                { href: "/portal", label: "Open Rescue Manager" },
+                { href: "/portal/organization-profile", label: "Organization Profile" },
+              ]}
             />
           )}
 
