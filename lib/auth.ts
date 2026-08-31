@@ -1,9 +1,9 @@
-import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { sql } from "./db";
 
 let cachedSecretKey: Uint8Array | null = null;
+let cachedHmacKey: CryptoKey | null = null;
 
 function getSecretKey(): Uint8Array {
   if (cachedSecretKey) return cachedSecretKey;
@@ -19,6 +19,98 @@ function getSecretKey(): Uint8Array {
 
 const COOKIE_NAME = "txard_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 14;
+
+function encodeBase64Url(value: string | Uint8Array): string {
+  const bytes =
+    typeof value === "string"
+      ? new TextEncoder().encode(value)
+      : value;
+
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  const normalized = value
+    .replaceAll("-", "+")
+    .replaceAll("_", "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "="
+  );
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function getHmacKey(): Promise<CryptoKey> {
+  if (cachedHmacKey) return cachedHmacKey;
+
+  cachedHmacKey = await crypto.subtle.importKey(
+    "raw",
+    getSecretKey().slice().buffer as ArrayBuffer,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
+
+  return cachedHmacKey;
+}
+
+async function createSessionToken(user: SessionUser): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = encodeBase64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = encodeBase64Url(
+    JSON.stringify({
+      ...user,
+      iat: now,
+      exp: now + SESSION_DURATION_SECONDS,
+    })
+  );
+  const unsignedToken = `${header}.${payload}`;
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await getHmacKey(),
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  return `${unsignedToken}.${encodeBase64Url(new Uint8Array(signature))}`;
+}
+
+async function readSessionToken(token: string): Promise<SessionUser> {
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new Error("Invalid session token.");
+
+  const [headerPart, payloadPart, signaturePart] = parts;
+  const header = JSON.parse(
+    new TextDecoder().decode(decodeBase64Url(headerPart))
+  ) as { alg?: string };
+
+  if (header.alg !== "HS256") throw new Error("Invalid session algorithm.");
+
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    await getHmacKey(),
+    decodeBase64Url(signaturePart).slice().buffer as ArrayBuffer,
+    new TextEncoder().encode(`${headerPart}.${payloadPart}`)
+  );
+
+  if (!valid) throw new Error("Invalid session signature.");
+
+  const payload = JSON.parse(
+    new TextDecoder().decode(decodeBase64Url(payloadPart))
+  ) as SessionUser & { exp?: number };
+
+  if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
+    throw new Error("Session expired.");
+  }
+
+  return payload;
+}
 
 export type SessionUser = {
   id: string;
@@ -37,11 +129,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export async function createSession(user: SessionUser) {
-  const token = await new SignJWT({ ...user })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(getSecretKey());
+  const token = await createSessionToken(user);
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -65,8 +153,7 @@ export async function getSession(): Promise<SessionUser | null> {
 
     if (!token) return null;
 
-    const { payload } = await jwtVerify(token, getSecretKey());
-    return payload as unknown as SessionUser;
+    return await readSessionToken(token);
   } catch {
     return null;
   }
