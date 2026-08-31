@@ -163,6 +163,68 @@ export async function GET() {
     }
 
     /*
+      VOLUNTEER ACCESS
+
+      Volunteer profiles and rescue approvals remain separate from
+      foster profiles. The existing internal "foster" portal key is
+      retained temporarily so established /foster links and sessions
+      continue to open the newly named Volunteer Portal.
+    */
+
+    let volunteerId: string | null = null;
+
+    try {
+      if (session.id && session.email) {
+        const normalizedEmail = session.email.trim().toLowerCase();
+        const volunteerRows = await sql`
+          select
+            profile.id,
+            profile.user_id,
+            exists (
+              select 1
+              from volunteer_organization_relationships relationship
+              where relationship.volunteer_id = profile.id
+                and relationship.status = 'approved'
+                and relationship.portal_access_level <> 'none'
+            ) as has_portal_access
+          from volunteer_profiles profile
+          where profile.user_id = ${session.id}::uuid
+            or (
+              lower(profile.email) = ${normalizedEmail}
+              and (
+                profile.user_id is null
+                or profile.user_id = ${session.id}::uuid
+              )
+            )
+          order by
+            case when profile.user_id = ${session.id}::uuid then 0 else 1 end,
+            profile.created_at asc
+          limit 1
+        `;
+
+        const volunteerProfile = volunteerRows[0] ?? null;
+
+        if (volunteerProfile?.id) {
+          volunteerId = String(volunteerProfile.id);
+
+          if (!volunteerProfile.user_id) {
+            await sql`
+              update volunteer_profiles
+              set user_id = ${session.id}::uuid, updated_at = now()
+              where id = ${volunteerId}::uuid and user_id is null
+            `;
+          }
+
+          if (Boolean(volunteerProfile.has_portal_access)) {
+            availablePortals.push("foster");
+          }
+        }
+      }
+    } catch (volunteerErr) {
+      console.error("Volunteer access lookup failed:", volunteerErr);
+    }
+
+    /*
       PET OWNER ACCESS
 
       Pet Owner access is additive. A user receives the Pet Owner
@@ -221,6 +283,7 @@ export async function GET() {
           orgName,
 
           fosterId,
+          volunteerId,
           petOwnerId,
 
           status: session.status,
