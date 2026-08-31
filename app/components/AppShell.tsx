@@ -1760,7 +1760,9 @@ function ManagerNavigation({
     pathname.startsWith("/portal/urgent/");
   const inPeopleSection =
     pathname === "/fosters" ||
-    pathname.startsWith("/fosters/");
+    pathname.startsWith("/fosters/") ||
+    pathname === "/volunteers" ||
+    pathname.startsWith("/volunteers/");
   const inOrganizationSection =
     pathname === "/portal/data-imports" ||
     pathname.startsWith(
@@ -1853,6 +1855,13 @@ function ManagerNavigation({
           exact
         >
           Fosters
+        </ManagerLink>
+
+        <ManagerLink
+          href="/volunteers"
+          exact
+        >
+          Volunteers
         </ManagerLink>
 
         <ManagerLink href="/fosters/assignments">
