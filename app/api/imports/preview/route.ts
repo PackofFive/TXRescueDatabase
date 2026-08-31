@@ -18,6 +18,7 @@ export const runtime = "edge";
 const ALLOWED_SHEETS = new Set([
   "Animals",
   "Medical",
+  "Foster Placements",
   "Tasks",
 ]);
 
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
       const rows = preview.rows.map((row) => ({
         sheet_name: row.sheet,
         row_number: row.rowNumber,
-        entity_type: row.sheet.toLowerCase(),
+        entity_type: entityTypeForSheet(row.sheet),
         proposed_action:
           row.action === "review" ? "warning" : row.action,
         selected: row.action === "create",
@@ -350,6 +351,18 @@ async function matchPreviewRows(
         on r.entity_type = 'animal'
        and r.external_id = a.id::text
       where a.current_org_id = ${orgId}::uuid
+
+      union all
+
+      select
+        'foster_assignment' as entity_type,
+        fa.id::text as external_id,
+        fa.id::text as entity_id
+      from foster_assignments fa
+      join requested r
+        on r.entity_type = 'foster_assignment'
+       and r.external_id = fa.id::text
+      where fa.organization_id = ${orgId}::uuid
     `;
 
     for (const row of keyRows) {
@@ -366,6 +379,71 @@ async function matchPreviewRows(
       .map((row) => row.recordId)
       .filter(Boolean)
   );
+  const fosterEmails = Array.from(
+    new Set(
+      preview.rows
+        .filter((row) => row.sheet === "Foster Placements")
+        .map((row) => row.values.foster_email?.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  ).map((email) => ({ email }));
+  const fosterMatches = new Map<string, string>();
+
+  if (fosterEmails.length > 0) {
+    const fosterRows = await sql`
+      with requested as (
+        select *
+        from jsonb_to_recordset(${JSON.stringify(fosterEmails)}::jsonb)
+          as item(email text)
+      )
+      select lower(fp.email) as email, min(fp.id::text) as foster_id
+      from requested requested_email
+      join foster_profiles fp
+        on lower(fp.email) = requested_email.email
+      join foster_organization_relationships relationship
+        on relationship.foster_id = fp.id
+       and relationship.organization_id = ${orgId}::uuid
+       and relationship.status = 'approved'
+      group by lower(fp.email)
+      having count(*) = 1
+    `;
+
+    for (const foster of fosterRows) {
+      fosterMatches.set(String(foster.email), String(foster.foster_id));
+    }
+  }
+
+  const resolvedAnimalIds = Array.from(
+    new Set(
+      preview.rows
+        .filter((row) => row.sheet === "Foster Placements")
+        .map((row) => matches.get(`animal:${row.values.animal_id}`))
+        .filter(Boolean)
+    )
+  ).map((animalId) => ({ animal_id: animalId }));
+  const activeAssignments = new Map<string, string>();
+
+  if (resolvedAnimalIds.length > 0) {
+    const assignmentRows = await sql`
+      with requested as (
+        select *
+        from jsonb_to_recordset(${JSON.stringify(resolvedAnimalIds)}::jsonb)
+          as item(animal_id text)
+      )
+      select fa.animal_id::text, fa.id::text
+      from foster_assignments fa
+      join requested r on r.animal_id = fa.animal_id::text
+      where fa.organization_id = ${orgId}::uuid
+        and fa.ended_at is null
+    `;
+
+    for (const assignment of assignmentRows) {
+      activeAssignments.set(
+        String(assignment.animal_id),
+        String(assignment.id)
+      );
+    }
+  }
   const matchedRows = preview.rows.map((row) => {
     const entityType = entityTypeForSheet(row.sheet);
     const targetEntityId = row.recordId
@@ -378,6 +456,11 @@ async function matchPreviewRows(
     const requiresFormulaReview = row.messages.some(
       (message) => message.startsWith("Formula detected")
     );
+    const fosterEmail = row.values.foster_email?.trim().toLowerCase() ?? "";
+    const fosterId = fosterEmail ? fosterMatches.get(fosterEmail) ?? null : null;
+    const resolvedAnimalId = row.values.animal_id
+      ? matches.get(`animal:${row.values.animal_id}`) ?? null
+      : null;
 
     if (row.action === "error") {
       proposedAction = "error";
@@ -393,6 +476,21 @@ async function matchPreviewRows(
       );
     } else if (requiresFormulaReview) {
       proposedAction = "warning";
+    } else if (row.sheet === "Foster Placements" && !fosterId) {
+      proposedAction = "warning";
+      messages.push(
+        "Foster Email did not match exactly one approved foster relationship for this organization. No portal access or assignment will be created."
+      );
+    } else if (
+      row.sheet === "Foster Placements" &&
+      !targetEntityId &&
+      resolvedAnimalId &&
+      activeAssignments.has(resolvedAnimalId)
+    ) {
+      proposedAction = "error";
+      messages.push(
+        "This animal already has an active foster assignment. End or correct that assignment before importing another placement."
+      );
     } else if (targetEntityId) {
       proposedAction = "update";
       messages.push(
@@ -418,6 +516,7 @@ async function matchPreviewRows(
       normalized_payload: {
         exactMatch: Boolean(targetEntityId),
         externalId: row.recordId || null,
+        fosterId,
         mappedFields: mapping.mappedFields,
         deferredFields: mapping.deferredFields,
       },
@@ -477,6 +576,7 @@ async function matchPreviewRows(
 function entityTypeForSheet(sheet: string) {
   if (sheet === "Animals") return "animal";
   if (sheet === "Medical") return "medical";
+  if (sheet === "Foster Placements") return "foster_assignment";
   return "task";
 }
 
@@ -529,7 +629,7 @@ function validatePreview(
 
   if (
     !Array.isArray(preview.rows) ||
-    preview.rows.length > RESCUE_WORKBOOK_MAX_ROWS * 3
+    preview.rows.length > RESCUE_WORKBOOK_MAX_ROWS * 4
   ) {
     throw new PreviewRequestError(
       "The workbook preview contains too many rows."
