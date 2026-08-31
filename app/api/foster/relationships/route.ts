@@ -13,7 +13,7 @@ import {
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-async function resolveFosterProfile() {
+async function resolvePortalProfiles() {
   const session =
     await getSession();
 
@@ -81,19 +81,42 @@ async function resolveFosterProfile() {
     `;
   }
 
+  const volunteerRows = await sql`
+    select id, user_id
+    from volunteer_profiles
+    where user_id = ${session.id}::uuid
+      or (
+        user_id is null
+        and lower(email) = ${email}
+      )
+    order by
+      case when user_id = ${session.id}::uuid then 0 else 1 end,
+      created_at asc
+    limit 1
+  `;
+
+  const volunteerProfile = volunteerRows[0] ?? null;
+
+  if (volunteerProfile && !volunteerProfile.user_id) {
+    await sql`
+      update volunteer_profiles
+      set user_id = ${session.id}::uuid, updated_at = now()
+      where id = ${String(volunteerProfile.id)}::uuid
+        and user_id is null
+    `;
+  }
+
   return {
     session,
-    fosterId:
-      profile?.id
-        ? String(profile.id)
-        : null,
+    fosterId: profile?.id ? String(profile.id) : null,
+    volunteerId: volunteerProfile?.id ? String(volunteerProfile.id) : null,
   };
 }
 
 export async function GET() {
   try {
     const access =
-      await resolveFosterProfile();
+      await resolvePortalProfiles();
 
     if (!access) {
       return NextResponse.json(
@@ -107,16 +130,17 @@ export async function GET() {
       );
     }
 
-    if (!access.fosterId) {
+    if (!access.fosterId && !access.volunteerId) {
       return NextResponse.json(
         {
           relationships: [],
+          volunteerRelationships: [],
         }
       );
     }
 
-    const relationships =
-      await sql`
+    const relationships = access.fosterId
+      ? await sql`
         select
           r.id,
           r.foster_id,
@@ -156,10 +180,49 @@ export async function GET() {
             else 2
           end,
           o.name asc
-      `;
+      `
+      : [];
+
+    const volunteerRelationships = access.volunteerId
+      ? await sql`
+        select
+          relationship.id,
+          relationship.organization_id,
+          relationship.status,
+          relationship.portal_access_level,
+          relationship.capacity_status,
+          relationship.verified_weekly_hours,
+          relationship.approved_at,
+          organization.name as organization_name,
+          organization.city as organization_city,
+          organization.county as organization_county,
+          coalesce(categories.items, '[]'::json) as categories
+        from volunteer_organization_relationships relationship
+        join organizations organization
+          on organization.id = relationship.organization_id
+        left join lateral (
+          select json_agg(
+            json_build_object(
+              'category', approval.category,
+              'status', approval.status,
+              'permissionLevel', approval.permission_level
+            )
+            order by approval.category
+          ) as items
+          from volunteer_category_approvals approval
+          where approval.relationship_id = relationship.id
+            and approval.status = 'approved'
+        ) categories on true
+        where relationship.volunteer_id = ${access.volunteerId}::uuid
+        order by
+          case when relationship.status = 'approved' then 0 else 1 end,
+          organization.name asc
+      `
+      : [];
 
     return NextResponse.json({
       relationships,
+      volunteerRelationships,
     });
   } catch (err) {
     console.error(
