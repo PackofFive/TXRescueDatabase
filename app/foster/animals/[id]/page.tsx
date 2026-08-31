@@ -98,7 +98,7 @@ export default function FosterAnimalFilePage() {
         ← My Foster Animals
       </a>
 
-      <p style={eyebrow}>Foster Portal</p>
+      <p style={eyebrow}>Volunteer Portal</p>
 
       <h1 style={heading}>{animal.display_name}</h1>
 
