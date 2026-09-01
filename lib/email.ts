@@ -91,3 +91,44 @@ export async function sendOrganizationTeamInviteEmail(
     );
   }
 }
+
+export async function sendPasswordResetEmail(
+  to: string,
+  resetUrl: string,
+  expiresAt: Date
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not set. See README.md for setup steps.");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject: "Reset your Pack of Five password",
+      text:
+        `A password reset was requested for your Pack of Five account.\n\n` +
+        `Choose a new password using this secure link:\n${resetUrl}\n\n` +
+        `This one-time link expires ${expiresAt.toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+          timeZoneName: "short",
+        })}.\n\n` +
+        `If you did not request this change, you can safely ignore this email. ` +
+        `Your password will remain unchanged. Never forward this reset link to anyone.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Password reset email failed (${response.status}):`, errorText);
+    throw new Error(
+      "Password reset email delivery is not configured for this recipient yet."
+    );
+  }
+}
