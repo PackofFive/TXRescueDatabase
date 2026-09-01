@@ -1807,16 +1807,20 @@ export default function DirectoryPage() {
                       )}
 
                       {o.is_claimed ? (
-                        o.last_org_update && (
-                          <div className="txdir-update-note">
-                            Last updated
-                            by this
-                            organization:{" "}
-                            {formatDate(
-                              o.last_org_update
-                            )}
-                          </div>
-                        )
+                        <div className="txdir-claim-row">
+                          {o.last_org_update && (
+                            <div className="txdir-update-note">
+                              Last updated by this organization: {formatDate(o.last_org_update)}
+                            </div>
+                          )}
+                          <a
+                            href={`/claim?orgId=${o.id}&name=${encodeURIComponent(o.name)}`}
+                            className="txdir-claim-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Report a listing or access issue
+                          </a>
+                        </div>
                       ) : (
                         <a
                           href={`/claim?orgId=${o.id}&name=${encodeURIComponent(
