@@ -82,6 +82,12 @@ export async function sendOrganizationTeamInviteEmail(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Resend API request failed (${response.status}): ${errorText}`);
+    console.error(
+      `Organization invitation email failed (${response.status}):`,
+      errorText
+    );
+    throw new Error(
+      "Email delivery is not configured for this recipient yet. Verify the Pack of Five sending domain, then try again."
+    );
   }
 }
