@@ -157,7 +157,7 @@ export default function TeamAccessPage() {
       <h1 style={headingStyle}>Team & Access</h1>
       <p style={introStyle}>Only the Organization Owner can change team access. Volunteer Portal permissions remain completely separate.</p>
 
-      <details style={detailsStyle}>
+      <details style={accessLevelsDetailsStyle}>
         <summary style={summaryStyle}>What each access level means</summary>
         <div style={levelGridStyle}>
           {LEVELS.map((item) => <article key={item.level} style={levelCardStyle}><strong style={{ color: COLORS.navy }}>{item.level}</strong><span style={descriptionStyle}>{item.description}</span></article>)}
@@ -177,22 +177,8 @@ export default function TeamAccessPage() {
         </form>
       </section>
 
-      {invites.length > 0 ? (
-        <details style={detailsStyle}>
-          <summary style={summaryStyle}>Team invitation history ({invites.length})</summary>
-          <div style={memberListStyle}>
-            {invites.map((invite) => (
-              <article key={invite.id} style={inviteCardStyle}>
-                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span></div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}</p></div>
-                <div style={buttonRowStyle}>{invite.status === "sent" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "cancel_invite")} style={dangerButtonStyle}>Cancel Invitation</button> : null}{invite.status !== "accepted" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "resend_invite")} style={secondaryButtonStyle}>Resend Invitation</button> : null}</div>
-              </article>
-            ))}
-          </div>
-        </details>
-      ) : null}
-
-      <section style={{ marginTop: 24 }}>
-        <h2 style={sectionHeadingStyle}>Organization team</h2>
+      <details style={detailsStyle}>
+        <summary style={summaryStyle}>Organization team ({members.length})</summary>
         <div style={memberListStyle}>
           {members.map((member) => {
             const isOwner = member.access_level === "owner" && member.status === "active";
@@ -221,7 +207,21 @@ export default function TeamAccessPage() {
             );
           })}
         </div>
-      </section>
+      </details>
+
+      {invites.length > 0 ? (
+        <details style={detailsStyle}>
+          <summary style={summaryStyle}>Team invitation history ({invites.length})</summary>
+          <div style={memberListStyle}>
+            {invites.map((invite) => (
+              <article key={invite.id} style={inviteCardStyle}>
+                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span></div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}</p></div>
+                <div style={buttonRowStyle}>{invite.status === "sent" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "cancel_invite")} style={dangerButtonStyle}>Cancel Invitation</button> : null}{invite.status !== "accepted" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "resend_invite")} style={secondaryButtonStyle}>Resend Invitation</button> : null}</div>
+              </article>
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       <details style={auditSectionStyle}>
         <summary style={summaryStyle}>Access history ({audit.length})</summary>
@@ -242,7 +242,7 @@ const descriptionStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 1
 const successStyle: React.CSSProperties = { marginTop: 16, padding: 14, color: COLORS.navy, border: `1px solid ${COLORS.border}`, background: COLORS.mint, fontWeight: 700 };
 const errorStyle: React.CSSProperties = { marginTop: 16, padding: 14, color: "#A9362B", border: "1px solid #E9B9B4", background: "#FCE9E7" };
 const sectionHeadingStyle: React.CSSProperties = { margin: "0 0 12px", color: COLORS.navy, fontSize: 21 };
-const memberListStyle: React.CSSProperties = { display: "grid", gap: 12 };
+const memberListStyle: React.CSSProperties = { display: "grid", gap: 12, marginTop: 14 };
 const memberCardStyle: React.CSSProperties = { padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const memberHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", flexWrap: "wrap" };
 const emailStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 15, overflowWrap: "anywhere" };
@@ -265,4 +265,5 @@ const inviteSectionStyle: React.CSSProperties = { marginTop: 24, padding: 18, bo
 const inviteFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", alignItems: "end", gap: 12, marginTop: 15 };
 const inviteCardStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap", padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const detailsStyle: React.CSSProperties = { marginTop: 20, padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
+const accessLevelsDetailsStyle: React.CSSProperties = { marginTop: 20, padding: 16, border: "1px solid #E9B8C5", background: "#F7DDE5" };
 const summaryStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 16, fontWeight: 800, cursor: "pointer" };
