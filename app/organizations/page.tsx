@@ -41,6 +41,8 @@ type Org = {
   notes: string | null;
   is_claimed: boolean;
   last_org_update: string | null;
+  has_logo: boolean;
+  logo_updated_at: string | null;
 
   /*
     Number of currently-published,
@@ -1666,7 +1668,13 @@ export default function DirectoryPage() {
                     <div
                       className="txdir-card-top"
                     >
-                      <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        <div style={{ width: 58, height: 58, flex: "0 0 58px", display: "grid", placeItems: "center", overflow: "hidden", border: "1px solid #DCE4EC", borderRadius: 8, background: "#F5F7F9", color: "#1E3A5F", fontWeight: 900, fontSize: 15 }}>
+                          {o.has_logo ? (
+                            <img src={`/api/orgs?logo=${encodeURIComponent(o.id)}&v=${encodeURIComponent(o.logo_updated_at ?? "1")}`} alt={`${o.name} logo`} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#fff" }} />
+                          ) : organizationInitials(o.name)}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
                         <div className="txdir-card-name">
                           {o.name}
                         </div>
@@ -1710,6 +1718,7 @@ export default function DirectoryPage() {
                               ✓ Org-Verified
                             </span>
                           )}
+                        </div>
                         </div>
                       </div>
 
@@ -2163,3 +2172,5 @@ export default function DirectoryPage() {
     </div>
   );
 }
+
+function organizationInitials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()).join("")||"ORG";}
