@@ -120,10 +120,11 @@ function ClaimPageInner() {
     }
     setSubmittingIssue(true);
     try {
-      const res = await fetch("/api/claims/issues", {
+      const res = await fetch("/api/claims/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "report_issue",
           orgId: selectedOrg.id,
           reporterName,
           reporterEmail: email,
