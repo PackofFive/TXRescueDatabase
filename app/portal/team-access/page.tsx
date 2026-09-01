@@ -157,9 +157,12 @@ export default function TeamAccessPage() {
       <h1 style={headingStyle}>Team & Access</h1>
       <p style={introStyle}>Only the Organization Owner can change team access. Volunteer Portal permissions remain completely separate.</p>
 
-      <div style={levelGridStyle}>
-        {LEVELS.map((item) => <article key={item.level} style={levelCardStyle}><strong style={{ color: COLORS.navy }}>{item.level}</strong><span style={descriptionStyle}>{item.description}</span></article>)}
-      </div>
+      <details style={detailsStyle}>
+        <summary style={summaryStyle}>What each access level means</summary>
+        <div style={levelGridStyle}>
+          {LEVELS.map((item) => <article key={item.level} style={levelCardStyle}><strong style={{ color: COLORS.navy }}>{item.level}</strong><span style={descriptionStyle}>{item.description}</span></article>)}
+        </div>
+      </details>
 
       {message ? <div style={successStyle}>{message}</div> : null}
       {error ? <div style={errorStyle}>{error}</div> : null}
@@ -175,8 +178,8 @@ export default function TeamAccessPage() {
       </section>
 
       {invites.length > 0 ? (
-        <section style={{ marginTop: 24 }}>
-          <h2 style={sectionHeadingStyle}>Team invitations</h2>
+        <details style={detailsStyle}>
+          <summary style={summaryStyle}>Team invitation history ({invites.length})</summary>
           <div style={memberListStyle}>
             {invites.map((invite) => (
               <article key={invite.id} style={inviteCardStyle}>
@@ -185,7 +188,7 @@ export default function TeamAccessPage() {
               </article>
             ))}
           </div>
-        </section>
+        </details>
       ) : null}
 
       <section style={{ marginTop: 24 }}>
@@ -220,10 +223,10 @@ export default function TeamAccessPage() {
         </div>
       </section>
 
-      <section style={auditSectionStyle}>
-        <h2 style={sectionHeadingStyle}>Access history</h2>
+      <details style={auditSectionStyle}>
+        <summary style={summaryStyle}>Access history ({audit.length})</summary>
         {audit.length === 0 ? <p style={descriptionStyle}>No team access changes have been recorded yet.</p> : <div>{audit.map((entry) => <div key={entry.id} style={auditRowStyle}><strong style={{ color: COLORS.navy }}>{format(entry.action)}</strong><span style={descriptionStyle}>{entry.affected_email ?? "Unknown member"} · by {entry.actor_email ?? "System"} · {new Date(entry.created_at).toLocaleString()}</span>{entry.reason ? <span style={reasonStyle}>Reason: {entry.reason}</span> : null}</div>)}</div>}
-      </section>
+      </details>
     </div>
   );
 }
@@ -261,3 +264,5 @@ const reasonStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 12.5 };
 const inviteSectionStyle: React.CSSProperties = { marginTop: 24, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.mint };
 const inviteFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", alignItems: "end", gap: 12, marginTop: 15 };
 const inviteCardStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap", padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
+const detailsStyle: React.CSSProperties = { marginTop: 20, padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
+const summaryStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 16, fontWeight: 800, cursor: "pointer" };
