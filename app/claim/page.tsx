@@ -25,6 +25,7 @@ function ClaimPageInner() {
   const [previousOrgEmail, setPreviousOrgEmail] = useState("");
   const [details, setDetails] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [submittingIssue, setSubmittingIssue] = useState(false);
 
   // Arriving from a "Claim this listing" link on a Directory card — skip
   // the search step entirely and go straight to the request form.
@@ -109,28 +110,43 @@ function ClaimPageInner() {
   async function submitIssue(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await fetch("/api/claims/issues", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: selectedOrg?.id,
-        reporterName,
-        reporterEmail: email,
-        reporterPhone,
-        relationshipToOrg,
-        issueType,
-        previousOrgEmail,
-        details,
-        evidenceUrl,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "The report could not be submitted.");
+    if (!selectedOrg || !reporterName.trim() || !email.trim() || !relationshipToOrg || !issueType) {
+      setError("Complete your name, email, relationship, and issue type before sending.");
       return;
     }
-    setMessage(`${data.message} Reference: ${data.reference}`);
-    setStep("issue_done");
+    if (details.trim().length < 20) {
+      setError("Please provide at least 20 characters explaining what happened.");
+      return;
+    }
+    setSubmittingIssue(true);
+    try {
+      const res = await fetch("/api/claims/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: selectedOrg.id,
+          reporterName,
+          reporterEmail: email,
+          reporterPhone,
+          relationshipToOrg,
+          issueType,
+          previousOrgEmail,
+          details,
+          evidenceUrl,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? `The report could not be submitted (${res.status}).`);
+        return;
+      }
+      setMessage(`${data.message} Reference: ${data.reference}`);
+      setStep("issue_done");
+    } catch {
+      setError("The report could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmittingIssue(false);
+    }
   }
 
   return (
@@ -212,7 +228,7 @@ function ClaimPageInner() {
       )}
 
       {step === "issue" && selectedOrg && (
-        <form onSubmit={submitIssue}>
+        <form onSubmit={submitIssue} noValidate>
           <div style={{ padding: 12, marginBottom: 14, background: "#F2D6DC", color: "#1E3A5F", lineHeight: 1.5 }}>
             <strong>{selectedOrg.is_claimed ? "This organization already has an owner." : "Report a claim or access issue."}</strong>
             <div style={{ fontSize: 12.5, marginTop: 4 }}>
@@ -245,8 +261,8 @@ function ClaimPageInner() {
             <textarea value={details} onChange={(e) => setDetails(e.target.value)} required minLength={20} maxLength={5000} rows={5} style={{ ...inputStyle, resize: "vertical" }} />
           </Field>
           <Field label="Evidence link (optional)"><input value={evidenceUrl} onChange={(e) => setEvidenceUrl(e.target.value)} type="url" placeholder="https://…" style={inputStyle} /></Field>
-          <button type="submit" style={{ padding: "9px 16px", background: "#1E3A5F", color: "#fff", border: "none", borderRadius: 6 }}>
-            Send for private review
+          <button type="submit" disabled={submittingIssue} style={{ padding: "9px 16px", background: "#1E3A5F", color: "#fff", border: "none", borderRadius: 6, opacity: submittingIssue ? 0.65 : 1 }}>
+            {submittingIssue ? "Sending report…" : "Send for private review"}
           </button>
           {error && <p role="alert" style={{ color: "#B23B2E", fontSize: 13, marginTop: 10 }}>{error}</p>}
         </form>
