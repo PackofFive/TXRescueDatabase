@@ -48,3 +48,40 @@ export async function sendClaimVerificationEmail(
     throw new Error(`Resend API request failed (${response.status}): ${errText}`);
   }
 }
+
+export async function sendOrganizationTeamInviteEmail(
+  to: string,
+  organizationName: string,
+  accessLabel: string,
+  inviteUrl: string,
+  expiresAt: Date
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not set. See README.md for setup steps.");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject: `You're invited to help manage ${organizationName}`,
+      text:
+        `${organizationName} invited you to its Pack of Five Rescue Manager workspace with ${accessLabel} access.\n\n` +
+        `Accept the secure invitation:\n${inviteUrl}\n\n` +
+        `This one-time invitation expires ${expiresAt.toLocaleString("en-US", { timeZone: "America/Chicago", timeZoneName: "short" })}.\n\n` +
+        `Sign in or create your Pack of Five account using this same email address. ` +
+        `If you weren't expecting this invitation, you can safely ignore it.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Resend API request failed (${response.status}): ${errorText}`);
+  }
+}
