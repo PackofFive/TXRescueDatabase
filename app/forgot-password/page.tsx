@@ -36,7 +36,11 @@ export default function ForgotPasswordPage() {
       setMessage(data.message);
       setEmail("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The request could not be completed.");
+      console.error("Password reset request response was interrupted:", reason);
+      setMessage(
+        "If that email belongs to a Pack of Five account, a secure reset link has been sent."
+      );
+      setEmail("");
     } finally {
       setSubmitting(false);
     }
