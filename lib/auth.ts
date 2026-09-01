@@ -118,6 +118,7 @@ export type SessionUser = {
   role: "org" | "admin";
   orgId: string | null;
   status: "pending" | "approved" | "rejected";
+  sessionVersion?: number;
 };
 
 export async function hashPassword(password: string): Promise<string> {
@@ -153,7 +154,36 @@ export async function getSession(): Promise<SessionUser | null> {
 
     if (!token) return null;
 
-    return await readSessionToken(token);
+    const session = await readSessionToken(token);
+    const rows = await sql`
+      select email, role, org_id, status, session_version
+      from users
+      where id = ${session.id}
+      limit 1
+    `;
+    const current = rows[0] as
+      | {
+          email: string;
+          role: "org" | "admin";
+          org_id: string | null;
+          status: "pending" | "approved" | "rejected";
+          session_version: number;
+        }
+      | undefined;
+
+    if (!current) return null;
+    if ((session.sessionVersion ?? 1) !== Number(current.session_version)) {
+      return null;
+    }
+
+    return {
+      ...session,
+      email: current.email,
+      role: current.role,
+      orgId: current.role === "admin" ? session.orgId : current.org_id,
+      status: current.status,
+      sessionVersion: Number(current.session_version),
+    };
   } catch {
     return null;
   }
