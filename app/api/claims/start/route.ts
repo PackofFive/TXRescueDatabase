@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { sendClaimVerificationEmail } from "@/lib/email";
+import { normalizeEmail, validateNewPassword } from "@/lib/account-security";
 
 export const runtime = "edge";
 
 function generateCode(): string {
-  // 6-digit numeric code — easy to type from an email on a phone.
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return (100000 + (value[0] % 900000)).toString();
 }
 
 // POST { orgId, email, password }
@@ -17,14 +19,14 @@ function generateCode(): string {
 // of affiliation.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  const { orgId, email, password } = body ?? {};
+  const { orgId, password } = body ?? {};
+  const email = normalizeEmail(body?.email);
 
   if (!orgId || !email || !password) {
     return NextResponse.json({ error: "orgId, email, and password are required." }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
-  }
+  const passwordError = validateNewPassword(password);
+  if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
 
   const orgRows = await sql`select id, name, public_email from organizations where id = ${orgId}`;
   const org = orgRows[0] as { id: string; name: string; public_email: string | null } | undefined;
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash = await hashPassword(String(password));
 
   if (!org.public_email) {
     // No email on file to verify against — queue for manual admin review
