@@ -1631,7 +1631,21 @@ export default function DirectoryPage() {
                     key={o.id}
                     id={`org-${o.id}`}
                     className="txdir-card"
-                    tabIndex={-1}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isOpen}
+                    aria-controls={`org-detail-${o.id}`}
+                    onClick={(event) => {
+                      const target = event.target as HTMLElement;
+                      if (target.closest("a, button, input, select, textarea, label")) return;
+                      toggleExpanded(o.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleExpanded(o.id);
+                      }
+                    }}
                     ref={(
                       el
                     ) => {
@@ -1651,33 +1665,6 @@ export default function DirectoryPage() {
 
                     <div
                       className="txdir-card-top"
-                      role="button"
-                      tabIndex={0}
-                      aria-expanded={
-                        isOpen
-                      }
-                      aria-controls={`org-detail-${o.id}`}
-                      onClick={() =>
-                        toggleExpanded(
-                          o.id
-                        )
-                      }
-                      onKeyDown={(
-                        e
-                      ) => {
-                        if (
-                          e.key ===
-                            "Enter" ||
-                          e.key ===
-                            " "
-                        ) {
-                          e.preventDefault();
-
-                          toggleExpanded(
-                            o.id
-                          );
-                        }
-                      }}
                     >
                       <div>
                         <div className="txdir-card-name">
@@ -1813,13 +1800,6 @@ export default function DirectoryPage() {
                               Last updated by this organization: {formatDate(o.last_org_update)}
                             </div>
                           )}
-                          <a
-                            href={`/claim?orgId=${o.id}&name=${encodeURIComponent(o.name)}`}
-                            className="txdir-claim-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Report a listing or access issue
-                          </a>
                         </div>
                       ) : (
                         <a
@@ -2158,6 +2138,18 @@ export default function DirectoryPage() {
                             }
                           </div>
                         ) : null}
+
+                        {o.is_claimed && (
+                          <div style={{ marginTop: 18, paddingTop: 12, borderTop: "1px solid #E7E5E1" }}>
+                            <a
+                              href={`/claim?orgId=${o.id}&name=${encodeURIComponent(o.name)}`}
+                              className="txdir-claim-link"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              Report a listing or access issue
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
