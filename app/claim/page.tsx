@@ -3,11 +3,11 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-type Org = { id: string; name: string; city: string; county: string };
+type Org = { id: string; name: string; city: string; county: string; is_claimed: boolean };
 
 function ClaimPageInner() {
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<"search" | "request" | "code_sent" | "manual_review" | "done">("search");
+  const [step, setStep] = useState<"search" | "request" | "issue" | "issue_done" | "code_sent" | "manual_review" | "done">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Org[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
@@ -18,6 +18,13 @@ function ClaimPageInner() {
   const [claimId, setClaimId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reporterName, setReporterName] = useState("");
+  const [reporterPhone, setReporterPhone] = useState("");
+  const [relationshipToOrg, setRelationshipToOrg] = useState("");
+  const [issueType, setIssueType] = useState("");
+  const [previousOrgEmail, setPreviousOrgEmail] = useState("");
+  const [details, setDetails] = useState("");
+  const [evidenceUrl, setEvidenceUrl] = useState("");
 
   // Arriving from a "Claim this listing" link on a Directory card — skip
   // the search step entirely and go straight to the request form.
@@ -25,8 +32,19 @@ function ClaimPageInner() {
     const orgId = searchParams.get("orgId");
     const name = searchParams.get("name");
     if (orgId && name) {
-      setSelectedOrg({ id: orgId, name, city: "", county: "" });
-      setStep("request");
+      fetch(`/api/orgs?q=${encodeURIComponent(name)}`)
+        .then((response) => response.json())
+        .then((data) => {
+          const organization = (data.organizations ?? []).find((item: Org) => item.id === orgId);
+          const selected = organization ?? { id: orgId, name, city: "", county: "", is_claimed: false };
+          setSelectedOrg(selected);
+          setStep(selected.is_claimed ? "issue" : "request");
+          if (selected.is_claimed) setIssueType("already_claimed");
+        })
+        .catch(() => {
+          setSelectedOrg({ id: orgId, name, city: "", county: "", is_claimed: false });
+          setStep("request");
+        });
     }
   }, [searchParams]);
 
@@ -39,7 +57,18 @@ function ClaimPageInner() {
 
   function pickOrg(org: Org) {
     setSelectedOrg(org);
-    setStep("request");
+    if (org.is_claimed) {
+      setIssueType("already_claimed");
+      setStep("issue");
+    } else {
+      setStep("request");
+    }
+  }
+
+  function reportIssue() {
+    setError(null);
+    if (selectedOrg?.is_claimed && !issueType) setIssueType("already_claimed");
+    setStep("issue");
   }
 
   async function submitClaim(e: React.FormEvent) {
@@ -77,11 +106,38 @@ function ClaimPageInner() {
     setStep("done");
   }
 
+  async function submitIssue(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const res = await fetch("/api/claims/issues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orgId: selectedOrg?.id,
+        reporterName,
+        reporterEmail: email,
+        reporterPhone,
+        relationshipToOrg,
+        issueType,
+        previousOrgEmail,
+        details,
+        evidenceUrl,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "The report could not be submitted.");
+      return;
+    }
+    setMessage(`${data.message} Reference: ${data.reference}`);
+    setStep("issue_done");
+  }
+
   return (
     <div style={{ maxWidth: 480 }}>
       <h1 style={{ fontSize: 20 }}>Claim your organization&apos;s listing</h1>
       <p style={{ color: "#6B6862", fontSize: 13.5, marginBottom: 16 }}>
-        If your organization is already in the directory, claim it here to get access to the Org Portal and start submitting your own updates.
+        Find your organization to request Rescue Manager access. If it already has an owner or you cannot use its listed email, report the issue for private review.
       </p>
 
       {step === "search" && (
@@ -100,11 +156,18 @@ function ClaimPageInner() {
           {results.map((org) => (
             <div
               key={org.id}
-              onClick={() => pickOrg(org)}
-              style={{ border: "1px solid #E7E5E1", borderRadius: 6, padding: 12, marginBottom: 6, cursor: "pointer" }}
+              style={{ border: "1px solid #E7E5E1", borderRadius: 6, padding: 12, marginBottom: 6 }}
             >
               <strong>{org.name}</strong>
               <div style={{ fontSize: 12.5, color: "#6B6862" }}>{[org.city, org.county].filter(Boolean).join(", ")}</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 9 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 800, color: org.is_claimed ? "#2F6F4E" : "#6B6862" }}>
+                  {org.is_claimed ? "Owner on file" : "Available to claim"}
+                </span>
+                <button type="button" onClick={() => pickOrg(org)} style={{ padding: "6px 10px", background: "#1E3A5F", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>
+                  {org.is_claimed ? "Report an issue" : "Continue"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -141,8 +204,59 @@ function ClaimPageInner() {
           <button type="submit" style={{ padding: "8px 16px", background: "#1C1B19", color: "#fff", border: "none", borderRadius: 6 }}>
             Request claim
           </button>
+          <button type="button" onClick={reportIssue} style={{ padding: "8px 12px", marginLeft: 8, background: "#fff", color: "#1E3A5F", border: "1px solid #1E3A5F", borderRadius: 6 }}>
+            Report an issue instead
+          </button>
           {error && <p style={{ color: "#B23B2E", fontSize: 13, marginTop: 10 }}>{error}</p>}
         </form>
+      )}
+
+      {step === "issue" && selectedOrg && (
+        <form onSubmit={submitIssue}>
+          <div style={{ padding: 12, marginBottom: 14, background: "#F2D6DC", color: "#1E3A5F", lineHeight: 1.5 }}>
+            <strong>{selectedOrg.is_claimed ? "This organization already has an owner." : "Report a claim or access issue."}</strong>
+            <div style={{ fontSize: 12.5, marginTop: 4 }}>
+              Reports are reviewed privately. Submitting one does not remove the current owner or grant anyone access automatically.
+            </div>
+          </div>
+          <p style={{ fontSize: 13.5, marginBottom: 12 }}>
+            Organization: <strong>{selectedOrg.name}</strong>{" "}
+            <button type="button" onClick={() => setStep("search")} style={{ fontSize: 12, marginLeft: 8, background: "none", border: "none", color: "#C05621", cursor: "pointer" }}>
+              change
+            </button>
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Your full name"><input value={reporterName} onChange={(e) => setReporterName(e.target.value)} required style={inputStyle} /></Field>
+            <Field label="Your email"><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={inputStyle} /></Field>
+            <Field label="Phone (optional)"><input value={reporterPhone} onChange={(e) => setReporterPhone(e.target.value)} type="tel" style={inputStyle} /></Field>
+            <Field label="Your relationship to the organization">
+              <select value={relationshipToOrg} onChange={(e) => setRelationshipToOrg(e.target.value)} required style={inputStyle}>
+                <option value="">Choose one</option><option value="owner">Owner</option><option value="director">Director</option><option value="staff">Staff</option><option value="board_member">Board member</option><option value="authorized_volunteer">Authorized volunteer</option><option value="former_representative">Former representative</option><option value="other">Other</option>
+              </select>
+            </Field>
+          </div>
+          <Field label="What is the issue?">
+            <select value={issueType} onChange={(e) => setIssueType(e.target.value)} required style={inputStyle}>
+              <option value="">Choose one</option><option value="already_claimed">This is my organization, but it is already claimed</option><option value="lost_email_access">I no longer have access to the organization email</option><option value="wrong_owner">The current owner appears to be incorrect</option><option value="organization_details_wrong">The organization information is incorrect</option><option value="other">Something else</option>
+            </select>
+          </Field>
+          <Field label="Previous organization email (if applicable)"><input value={previousOrgEmail} onChange={(e) => setPreviousOrgEmail(e.target.value)} type="email" style={inputStyle} /></Field>
+          <Field label="Explain what happened and how you are connected to the organization">
+            <textarea value={details} onChange={(e) => setDetails(e.target.value)} required minLength={20} maxLength={5000} rows={5} style={{ ...inputStyle, resize: "vertical" }} />
+          </Field>
+          <Field label="Evidence link (optional)"><input value={evidenceUrl} onChange={(e) => setEvidenceUrl(e.target.value)} type="url" placeholder="https://…" style={inputStyle} /></Field>
+          <button type="submit" style={{ padding: "9px 16px", background: "#1E3A5F", color: "#fff", border: "none", borderRadius: 6 }}>
+            Send for private review
+          </button>
+          {error && <p role="alert" style={{ color: "#B23B2E", fontSize: 13, marginTop: 10 }}>{error}</p>}
+        </form>
+      )}
+
+      {step === "issue_done" && (
+        <div style={{ padding: 14, background: "#DDF1E8", color: "#1E3A5F", lineHeight: 1.6 }}>
+          <strong>Report received.</strong>
+          <div style={{ fontSize: 13 }}>{message}</div>
+        </div>
       )}
 
       {step === "code_sent" && (
@@ -170,6 +284,12 @@ function ClaimPageInner() {
     </div>
   );
 }
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 11 }}>{label}<span style={{ display: "block", marginTop: 4 }}>{children}</span></label>;
+}
+
+const inputStyle = { width: "100%", padding: 8, border: "1px solid #D8E1EA", borderRadius: 6, background: "#fff", color: "#17233C" } as const;
 
 export default function ClaimPage() {
   // useSearchParams requires a Suspense boundary in the app router.
