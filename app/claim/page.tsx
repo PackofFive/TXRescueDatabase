@@ -13,6 +13,7 @@ function ClaimPageInner() {
   const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [claimId, setClaimId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -124,9 +125,16 @@ function ClaimPageInner() {
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Choose a password</label>
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required minLength={8}
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? "text" : "password"} autoComplete="new-password" required minLength={12} maxLength={128}
               style={{ width: "100%", padding: 8, border: "1px solid #E7E5E1", borderRadius: 6 }} />
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, color: "#1E3A5F", fontSize: 12.5, fontWeight: 700 }}>
+            <input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} />
+            Show password
+          </label>
+          <p style={{ padding: 10, background: "#F2D6DC", color: "#1E3A5F", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+            Use 12–128 characters with an uppercase letter, lowercase letter, and number.
+          </p>
           <p style={{ fontSize: 12, color: "#6B6862", marginBottom: 12 }}>
             We&apos;ll send a verification code to the email address already on file for this organization — not the email you enter above — to confirm you&apos;re affiliated with it.
           </p>
