@@ -132,6 +132,12 @@ export default function LoginPage() {
     useState("");
 
   const [
+    showPassword,
+    setShowPassword,
+  ] =
+    useState(false);
+
+  const [
     status,
     setStatus,
   ] =
@@ -465,7 +471,7 @@ export default function LoginPage() {
 
           <input
             id="password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             required
             value={password}
@@ -479,10 +485,31 @@ export default function LoginPage() {
 
           <div
             style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
               marginTop: 9,
-              textAlign: "right",
+              flexWrap: "wrap",
             }}
           >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                color: COLORS.navy,
+                fontSize: 12.5,
+                fontWeight: 700,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(event) => setShowPassword(event.target.checked)}
+              />
+              Show password
+            </label>
             <a
               href="/forgot-password"
               style={{
