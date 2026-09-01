@@ -7,9 +7,18 @@ import {
 } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { sendOrganizationTeamInviteEmail } from "@/lib/email";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
+
+type LogoBucket = {
+  put: (key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }) => Promise<unknown>;
+  delete: (key: string) => Promise<void>;
+};
+type Env = { MEDICAL_FILES: LogoBucket };
+const LOGO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 
 function createInviteToken() {
   const bytes = new Uint8Array(32);
@@ -178,6 +187,8 @@ export async function GET(request: NextRequest) {
         resource_status,
         last_verified,
         updated_at
+        ,logo_storage_key is not null as has_logo
+        ,logo_updated_at
       from organizations
       where id = ${orgId}::uuid
       limit 1
@@ -214,7 +225,68 @@ export async function GET(request: NextRequest) {
   }
 }
 
+async function uploadOrganizationLogo(request: NextRequest) {
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+    const access = await resolveAccess(session, orgId);
+    if (!access.canEditOrganizationProfile) throw new AuthError("Owner or Administrator access is required to change the organization logo.", 403);
+
+    const formData = await request.formData();
+    const file = formData.get("logo");
+    if (!(file instanceof File)) return NextResponse.json({ error: "Choose a logo image." }, { status: 400 });
+    if (!LOGO_TYPES.has(file.type)) return NextResponse.json({ error: "Use a JPG, PNG, or WebP image." }, { status: 400 });
+    if (file.size <= 0 || file.size > MAX_LOGO_SIZE) return NextResponse.json({ error: "The logo must be smaller than 2 MB." }, { status: 400 });
+
+    const env = getRequestContext().env as unknown as Env;
+    if (!env.MEDICAL_FILES) return NextResponse.json({ error: "Secure file storage is not configured." }, { status: 503 });
+    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const storageKey = `organization-logos/${orgId}/${crypto.randomUUID()}.${extension}`;
+    const previous = await sql`select logo_storage_key from organizations where id = ${orgId}::uuid limit 1`;
+
+    await env.MEDICAL_FILES.put(storageKey, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    await sql`
+      update organizations set logo_storage_key = ${storageKey}, logo_content_type = ${file.type}, logo_updated_at = now(), updated_at = now()
+      where id = ${orgId}::uuid
+    `;
+    const previousKey = previous[0]?.logo_storage_key ? String(previous[0].logo_storage_key) : "";
+    if (previousKey && previousKey !== storageKey) await env.MEDICAL_FILES.delete(previousKey).catch(() => undefined);
+
+    return NextResponse.json({ ok: true, logoUrl: `/api/orgs?logo=${encodeURIComponent(orgId)}&v=${Date.now()}` });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("PUT /api/org-profile logo failed:", error);
+    return NextResponse.json({ error: "The organization logo could not be uploaded." }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+    const access = await resolveAccess(session, orgId);
+    if (!access.canEditOrganizationProfile) throw new AuthError("Owner or Administrator access is required to remove the organization logo.", 403);
+
+    const rows = await sql`select logo_storage_key from organizations where id = ${orgId}::uuid limit 1`;
+    const storageKey = rows[0]?.logo_storage_key ? String(rows[0].logo_storage_key) : "";
+    await sql`
+      update organizations set logo_storage_key = null, logo_content_type = null, logo_updated_at = now(), updated_at = now()
+      where id = ${orgId}::uuid
+    `;
+    if (storageKey) {
+      const env = getRequestContext().env as unknown as Env;
+      await env.MEDICAL_FILES?.delete(storageKey).catch(() => undefined);
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("DELETE /api/org-profile logo failed:", error);
+    return NextResponse.json({ error: "The organization logo could not be removed." }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
+  if (request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+    return uploadOrganizationLogo(request);
+  }
   try {
     const { session, orgId } = await requireEffectiveOrg();
     const access = await resolveAccess(session, orgId);
