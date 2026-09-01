@@ -4,8 +4,12 @@ import {
   requireAdmin,
   AuthError,
 } from "@/lib/auth";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
+
+type LogoBucket = { get: (key: string) => Promise<{ arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null> };
+type Env = { MEDICAL_FILES: LogoBucket };
 
 /* =========================================================
    GET ORGANIZATIONS
@@ -22,6 +26,25 @@ export const runtime = "edge";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+
+    const logoOrgId = searchParams.get("logo")?.trim();
+    if (logoOrgId) {
+      const rows = await sql`
+        select logo_storage_key, logo_content_type
+        from organizations
+        where id = ${logoOrgId}::uuid and archived_at is null
+        limit 1
+      `;
+      const storageKey = rows[0]?.logo_storage_key ? String(rows[0].logo_storage_key) : "";
+      if (!storageKey) return new NextResponse(null, { status: 404 });
+      const env = getRequestContext().env as unknown as Env;
+      const object = await env.MEDICAL_FILES?.get(storageKey);
+      if (!object) return new NextResponse(null, { status: 404 });
+      const contentType = String(rows[0]?.logo_content_type || object.httpMetadata?.contentType || "image/jpeg");
+      return new NextResponse(await object.arrayBuffer(), {
+        headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" },
+      });
+    }
 
     const q =
       searchParams.get("q")?.trim() || null;
@@ -65,6 +88,9 @@ export async function GET(req: NextRequest) {
             and membership.status = 'active'
             and membership.access_level = 'owner'
         ) as is_claimed,
+
+        (o.logo_storage_key is not null) as has_logo,
+        o.logo_updated_at,
 
         (
           select max(ul.created_at)
@@ -119,8 +145,13 @@ export async function GET(req: NextRequest) {
         o.name asc
     `;
 
+    const publicRows = rows.map((row) => {
+      const { logo_storage_key: _privateLogoKey, logo_content_type: _privateLogoType, ...publicOrganization } = row;
+      return publicOrganization;
+    });
+
     return NextResponse.json({
-      organizations: rows,
+      organizations: publicRows,
     });
   } catch (err) {
     if (err instanceof AuthError) {
