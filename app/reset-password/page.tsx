@@ -23,6 +23,7 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [complete, setComplete] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -75,7 +76,7 @@ export default function ResetPasswordPage() {
             <label htmlFor="new-password" style={labelStyle}>New password</label>
             <input
               id="new-password"
-              type="password"
+              type={showPasswords ? "text" : "password"}
               autoComplete="new-password"
               required
               minLength={12}
@@ -87,7 +88,7 @@ export default function ResetPasswordPage() {
             <label htmlFor="confirm-password" style={{ ...labelStyle, marginTop: 5 }}>Confirm new password</label>
             <input
               id="confirm-password"
-              type="password"
+              type={showPasswords ? "text" : "password"}
               autoComplete="new-password"
               required
               minLength={12}
@@ -96,6 +97,10 @@ export default function ResetPasswordPage() {
               onChange={(event) => setConfirmation(event.target.value)}
               style={inputStyle}
             />
+            <label style={showPasswordStyle}>
+              <input type="checkbox" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)} />
+              Show both passwords
+            </label>
             <div style={requirementsStyle}>
               Use 12–128 characters with an uppercase letter, lowercase letter,
               and number. A unique password or password manager is recommended.
@@ -135,3 +140,4 @@ const successStyle: React.CSSProperties = { display: "grid", gap: 12, marginTop:
 const errorStyle: React.CSSProperties = { marginTop: 16, padding: 15, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B", fontSize: 13, lineHeight: 1.5 };
 const signInLinkStyle: React.CSSProperties = { justifySelf: "start", padding: "9px 12px", background: COLORS.navy, color: COLORS.white, textDecoration: "none", fontWeight: 800 };
 const requestLinkStyle: React.CSSProperties = { display: "inline-block", marginTop: 16, color: COLORS.navy, fontSize: 13, fontWeight: 800 };
+const showPasswordStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, color: COLORS.navy, fontSize: 12.5, fontWeight: 700 };
