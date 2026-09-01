@@ -89,7 +89,7 @@ const PORTALS:
 
     foster: {
       title:
-        "Foster Portal",
+        "Volunteer Portal",
       description:
         "Sign in to access approved foster relationships, animals, and foster tools.",
       accent:
@@ -477,6 +477,24 @@ export default function LoginPage() {
             style={inputStyle}
           />
 
+          <div
+            style={{
+              marginTop: 9,
+              textAlign: "right",
+            }}
+          >
+            <a
+              href="/forgot-password"
+              style={{
+                color: COLORS.navy,
+                fontSize: 12.5,
+                fontWeight: 750,
+              }}
+            >
+              Forgot password?
+            </a>
+          </div>
+
           <button
             type="submit"
             disabled={
@@ -687,7 +705,7 @@ function routeSignedInUser(
     }
 
     setStatus(
-      "This account does not currently have access to the Foster Portal."
+        "This account does not currently have access to the Volunteer Portal."
     );
     return;
   }
