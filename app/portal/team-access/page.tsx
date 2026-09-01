@@ -23,6 +23,16 @@ type AuditEntry = {
   actor_email?: string | null;
 };
 
+type Invite = {
+  id: string;
+  email: string;
+  access_level: "administrator" | "contributor" | "viewer";
+  status: "sent" | "accepted" | "cancelled" | "expired";
+  expires_at: string;
+  created_at: string;
+  invited_by_email?: string | null;
+};
+
 const COLORS = { navy: "#1E3A5F", coral: "#E85C56", mint: "#DCF0E8", muted: "#4A5D75", border: "#DCE4EC", white: "#FFFFFF" };
 
 const LEVELS = [
@@ -35,6 +45,9 @@ const LEVELS = [
 export default function TeamAccessPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLevel, setInviteLevel] = useState("viewer");
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -49,6 +62,7 @@ export default function TeamAccessPage() {
         if (!response.ok) throw new Error(data.error ?? "Couldn't load team access.");
         setMembers(data.members ?? []);
         setAudit(data.audit ?? []);
+        setInvites(data.invites ?? []);
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Couldn't load team access."))
       .finally(() => setLoading(false));
@@ -88,6 +102,53 @@ export default function TeamAccessPage() {
     }
   }
 
+  async function sendInvite(event: React.FormEvent) {
+    event.preventDefault();
+    setWorkingId("invite-new");
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/org-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, accessLevel: inviteLevel }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Couldn't send the invitation.");
+      setMessage(`Secure invitation sent to ${inviteEmail.trim().toLowerCase()}.`);
+      setInviteEmail("");
+      setInviteLevel("viewer");
+      loadTeam();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : "Couldn't send the invitation.");
+    } finally {
+      setWorkingId("");
+    }
+  }
+
+  async function manageInvite(invite: Invite, action: "cancel_invite" | "resend_invite") {
+    const label = action === "cancel_invite" ? "cancel" : "resend";
+    if (!window.confirm(`Are you sure you want to ${label} the invitation for ${invite.email}?`)) return;
+    setWorkingId(invite.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/org-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId: invite.id, action }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? `Couldn't ${label} the invitation.`);
+      setMessage(`Invitation ${action === "cancel_invite" ? "cancelled" : "resent"} for ${invite.email}.`);
+      loadTeam();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : `Couldn't ${label} the invitation.`);
+    } finally {
+      setWorkingId("");
+    }
+  }
+
   if (loading && members.length === 0) return <p style={{ color: COLORS.muted }}>Loading Team & Access…</p>;
 
   return (
@@ -102,6 +163,30 @@ export default function TeamAccessPage() {
 
       {message ? <div style={successStyle}>{message}</div> : null}
       {error ? <div style={errorStyle}>{error}</div> : null}
+
+      <section style={inviteSectionStyle}>
+        <h2 style={sectionHeadingStyle}>Invite a team member</h2>
+        <p style={descriptionStyle}>The invitation expires after 72 hours and must be accepted using the same email address. Owner access cannot be granted by invitation.</p>
+        <form onSubmit={sendInvite} style={inviteFormStyle}>
+          <label style={labelStyle}>Email address<input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="person@example.org" style={inputStyle} /></label>
+          <label style={labelStyle}>Starting access<select value={inviteLevel} onChange={(event) => setInviteLevel(event.target.value)} style={inputStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label>
+          <button type="submit" disabled={workingId === "invite-new"} style={ownerButtonStyle}>{workingId === "invite-new" ? "Sending…" : "Send Secure Invitation"}</button>
+        </form>
+      </section>
+
+      {invites.length > 0 ? (
+        <section style={{ marginTop: 24 }}>
+          <h2 style={sectionHeadingStyle}>Team invitations</h2>
+          <div style={memberListStyle}>
+            {invites.map((invite) => (
+              <article key={invite.id} style={inviteCardStyle}>
+                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span></div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}</p></div>
+                <div style={buttonRowStyle}>{invite.status === "sent" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "cancel_invite")} style={dangerButtonStyle}>Cancel Invitation</button> : null}{invite.status !== "accepted" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "resend_invite")} style={secondaryButtonStyle}>Resend Invitation</button> : null}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section style={{ marginTop: 24 }}>
         <h2 style={sectionHeadingStyle}>Organization team</h2>
@@ -173,3 +258,6 @@ const ownerNoticeStyle: React.CSSProperties = { margin: "14px 0 0", padding: 12,
 const auditSectionStyle: React.CSSProperties = { marginTop: 26, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const auditRowStyle: React.CSSProperties = { display: "grid", gap: 4, padding: "11px 0", borderTop: `1px solid ${COLORS.border}` };
 const reasonStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 12.5 };
+const inviteSectionStyle: React.CSSProperties = { marginTop: 24, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.mint };
+const inviteFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", alignItems: "end", gap: 12, marginTop: 15 };
+const inviteCardStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap", padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
