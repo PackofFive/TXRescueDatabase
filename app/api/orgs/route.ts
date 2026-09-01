@@ -56,6 +56,14 @@ export async function GET(req: NextRequest) {
             u.org_id = o.id
             and u.status = 'approved'
             and u.role = 'org'
+        )
+        or exists(
+          select 1
+          from organization_memberships membership
+          where
+            membership.org_id = o.id
+            and membership.status = 'active'
+            and membership.access_level = 'owner'
         ) as is_claimed,
 
         (
