@@ -1,5 +1,7 @@
 begin;
 
+create extension if not exists pgcrypto;
+
 alter table users
   add column if not exists session_version integer not null default 1,
   add column if not exists password_changed_at timestamptz;
@@ -15,6 +17,36 @@ create table if not exists password_reset_tokens (
   constraint password_reset_tokens_expiry_after_creation
     check (expires_at > created_at)
 );
+
+alter table password_reset_tokens
+  add column if not exists token_hash text,
+  add column if not exists requested_ip_hash text;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'password_reset_tokens'
+      and column_name = 'token'
+  ) then
+    execute $convert$
+      update password_reset_tokens
+      set token_hash = encode(digest(token, 'sha256'), 'hex')
+      where token_hash is null
+    $convert$;
+
+    execute 'alter table password_reset_tokens drop column token';
+  end if;
+end
+$$;
+
+alter table password_reset_tokens
+  alter column token_hash set not null;
+
+create unique index if not exists password_reset_tokens_token_hash_key
+  on password_reset_tokens (token_hash);
 
 create index if not exists password_reset_tokens_user_created_idx
   on password_reset_tokens (user_id, created_at desc);
