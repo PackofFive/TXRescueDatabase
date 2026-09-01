@@ -26,6 +26,8 @@ type Organization = {
   resource_status?: string | null;
   last_verified?: string | null;
   updated_at?: string | null;
+  has_logo?: boolean;
+  logo_updated_at?: string | null;
 };
 
 type Access = {
@@ -85,6 +87,7 @@ export default function OrganizationProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [logoWorking, setLogoWorking] = useState(false);
 
   function loadProfile() {
     setLoading(true);
@@ -137,6 +140,35 @@ export default function OrganizationProfilePage() {
     }
   }
 
+  async function uploadLogo(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Use a JPG, PNG, or WebP logo."); return; }
+    if (file.size > 2 * 1024 * 1024) { setError("The logo must be smaller than 2 MB."); return; }
+    setLogoWorking(true); setError(""); setMessage("");
+    try {
+      const formData = new FormData(); formData.set("logo", file);
+      const response = await fetch("/api/org-profile", { method: "POST", body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The logo could not be uploaded.");
+      setMessage("Organization logo updated."); await loadProfile();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The logo could not be uploaded."); }
+    finally { setLogoWorking(false); }
+  }
+
+  async function removeLogo() {
+    if (!organization?.has_logo || !window.confirm("Remove this organization logo?")) return;
+    setLogoWorking(true); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/org-profile", { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The logo could not be removed.");
+      setMessage("Organization logo removed."); await loadProfile();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The logo could not be removed."); }
+    finally { setLogoWorking(false); }
+  }
+
   if (loading && !organization) return <p style={{ color: COLORS.muted }}>Loading organization profile…</p>;
   if (error && !organization) return <div style={errorStyle}>{error}</div>;
   if (!organization) return <div style={errorStyle}>Organization profile not found.</div>;
@@ -162,6 +194,29 @@ export default function OrganizationProfilePage() {
             ? "You may update this profile. Sensitive intake and verification information is sent for review before publication."
             : "This profile is read-only for your access level. Only the Organization Owner or an Administrator may edit it."}
         </span>
+      </section>
+
+      <section style={logoPanelStyle}>
+        <div style={logoBoxStyle}>
+          {organization.has_logo ? (
+            <img src={`/api/orgs?logo=${encodeURIComponent(organization.id)}&v=${encodeURIComponent(organization.logo_updated_at ?? "1")}`} alt={`${organization.name} logo`} style={logoImageStyle} />
+          ) : (
+            <span aria-hidden="true" style={logoInitialsStyle}>{organizationInitials(organization.name)}</span>
+          )}
+        </div>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ ...sectionHeadingStyle, marginBottom: 5 }}>Organization logo</h2>
+          <p style={introStyle}>Shown as a small image on your public Directory card. Use a square JPG, PNG, or WebP under 2 MB.</p>
+          {access?.canEditOrganizationProfile ? (
+            <div style={{ ...buttonRowStyle, marginTop: 12 }}>
+              <label style={{ ...primaryButtonStyle, display: "inline-block" }}>
+                {logoWorking ? "Working…" : organization.has_logo ? "Replace Logo" : "Upload Logo"}
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadLogo} disabled={logoWorking} style={{ display: "none" }} />
+              </label>
+              {organization.has_logo ? <button type="button" onClick={removeLogo} disabled={logoWorking} style={secondaryButtonStyle}>Remove Logo</button> : null}
+            </div>
+          ) : null}
+        </div>
       </section>
 
       {message ? <div style={successStyle}>{message}</div> : null}
@@ -213,6 +268,7 @@ function LinkField({ label, value }: { label: string; value?: string | null }) {
 function safeUrl(value?: string | null) { if (!value?.trim()) return null; return /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim()}`; }
 function formatDate(value?: string | null) { if (!value) return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(); }
 function formatAccess(value?: string | null) { if (!value) return "No active organization membership"; if (value === "platform_admin") return "Platform Administrator"; return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function organizationInitials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()).join("")||"ORG";}
 
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
 const headingRowStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, flexWrap: "wrap" };
@@ -239,3 +295,7 @@ const inputLabelStyle: React.CSSProperties = { display: "grid", alignContent: "s
 const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: `1px solid ${COLORS.border}`, padding: "10px 11px", color: COLORS.navy, background: COLORS.white, font: "inherit" };
 const reviewTagStyle: React.CSSProperties = { display: "inline-block", marginLeft: 7, color: "#A45C00", fontSize: 10, fontStyle: "normal", fontWeight: 800 };
 const buttonRowStyle: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 22 };
+const logoPanelStyle: React.CSSProperties = { display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", marginTop: 18, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.white };
+const logoBoxStyle: React.CSSProperties = { width: 92, height: 92, flex: "0 0 92px", display: "grid", placeItems: "center", overflow: "hidden", border: `1px solid ${COLORS.border}`, borderRadius: 10, background: "#F5F7F9" };
+const logoImageStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "contain", background: COLORS.white };
+const logoInitialsStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 24, fontWeight: 900, letterSpacing: ".04em" };
