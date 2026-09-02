@@ -86,6 +86,13 @@ export default function AdminOrgEditPage() {
   const [adminActionError, setAdminActionError] =
     useState<string | null>(null);
 
+  const [ownerRequestConfirmed, setOwnerRequestConfirmed] =
+    useState(false);
+  const [supportReference, setSupportReference] =
+    useState("");
+  const [assistanceReason, setAssistanceReason] =
+    useState("");
+
   /* =====================================================
      LOAD ORGANIZATION
   ===================================================== */
@@ -294,6 +301,11 @@ export default function AdminOrgEditPage() {
           },
           body: JSON.stringify({
             changes,
+            adminAssistance: {
+              ownerRequestConfirmed,
+              supportReference,
+              reason: assistanceReason,
+            },
           }),
         }
       );
@@ -539,6 +551,13 @@ export default function AdminOrgEditPage() {
       original.archived_at
     );
 
+  const claimed = Boolean(original.has_active_owner);
+  const assistanceUnlocked = !claimed || (
+    ownerRequestConfirmed &&
+    supportReference.trim().length >= 3 &&
+    assistanceReason.trim().length >= 20
+  );
+
   /* =====================================================
      PAGE
   ===================================================== */
@@ -592,18 +611,24 @@ export default function AdminOrgEditPage() {
         </div>
       )}
 
-      <p
-        style={{
-          color: "#6B6862",
-          fontSize: 13.5,
-          marginBottom: 20,
-        }}
-      >
-        Editing directly as an
-        admin — changes publish
-        immediately, no review
-        queue.
-      </p>
+      {claimed ? (
+        <section style={{background:"#F2D6DC",padding:16,marginBottom:20,border:"1px solid #E8BCC6"}}>
+          <strong style={{color:"#1E3A5F"}}>Owner-controlled organization</strong>
+          <p style={{color:"#1E3A5F",fontSize:13.5,lineHeight:1.5,margin:"7px 0 12px"}}>
+            This profile is read-only to platform administrators by default. Only unlock it to provide specifically requested assistance to the current owner. Every change is permanently audited.
+          </p>
+          <label style={{display:"block",fontSize:12,fontWeight:700,marginBottom:9}}>
+            <input type="checkbox" checked={ownerRequestConfirmed} onChange={e=>setOwnerRequestConfirmed(e.target.checked)}/> The current owner asked Pack of Five to make this change
+          </label>
+          <label style={labelStyle}>Support request or case reference</label>
+          <input value={supportReference} onChange={e=>setSupportReference(e.target.value)} placeholder="Example: email date or case number" style={{...inputStyle,marginBottom:10}}/>
+          <label style={labelStyle}>Specific reason for administrator assistance</label>
+          <textarea value={assistanceReason} onChange={e=>setAssistanceReason(e.target.value)} rows={3} placeholder="Explain what the owner requested and why administrator assistance is necessary." style={inputStyle}/>
+          <p style={{fontSize:12,color:"#6B6862",margin:"9px 0 0"}}>{assistanceUnlocked?"Editing is temporarily unlocked for this save.":"Complete all three items to unlock the form."}</p>
+        </section>
+      ) : (
+        <p style={{color:"#6B6862",fontSize:13.5,marginBottom:20}}>This organization has no active owner. Administrator changes are still recorded in the update history.</p>
+      )}
 
       {/* ================================================
           EDIT FORM
@@ -614,6 +639,7 @@ export default function AdminOrgEditPage() {
           handleSubmit
         }
       >
+        <fieldset disabled={!assistanceUnlocked} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div
           style={{
             fontSize: 11.5,
@@ -900,6 +926,7 @@ export default function AdminOrgEditPage() {
             </span>
           )}
         </div>
+        </fieldset>
       </form>
 
       {/* ================================================
@@ -960,6 +987,7 @@ export default function AdminOrgEditPage() {
           accidental records
           that have no linked
           operational history.
+          {claimed && " Claimed organizations must use a documented closure or dormant-organization review case instead."}
         </p>
 
         <div
@@ -973,7 +1001,7 @@ export default function AdminOrgEditPage() {
             <button
               type="button"
               disabled={
-                adminActionLoading
+                adminActionLoading || claimed
               }
               onClick={() =>
                 handleArchiveAction(
@@ -1008,7 +1036,7 @@ export default function AdminOrgEditPage() {
             <button
               type="button"
               disabled={
-                adminActionLoading
+                adminActionLoading || claimed
               }
               onClick={() =>
                 handleArchiveAction(
@@ -1044,7 +1072,7 @@ export default function AdminOrgEditPage() {
           <button
             type="button"
             disabled={
-              adminActionLoading
+              adminActionLoading || claimed
             }
             onClick={
               handleDelete
