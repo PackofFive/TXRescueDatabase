@@ -26,7 +26,17 @@ export async function GET() {
       order by case when report.due_at < now() then 0 when report.status = 'ready_decision' then 1 else 2 end,
         report.created_at asc
     `;
-    return NextResponse.json({ reports: rows });
+    const lifecycleReviews = await sql`
+      select review.id, review.org_id, organization.name as org_name,
+        review.review_type, review.status, review.reason, review.owner_email,
+        review.owner_contacted_at, review.owner_response_received_at,
+        review.response_due_at, review.created_at
+      from organization_lifecycle_reviews review
+      join organizations organization on organization.id = review.org_id
+      where review.status in ('waiting_owner','ready_decision')
+      order by review.response_due_at asc
+    `;
+    return NextResponse.json({ reports: rows, lifecycleReviews });
   } catch (error) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("GET /api/admin/claim-issues failed:", error);
