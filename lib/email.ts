@@ -132,3 +132,27 @@ export async function sendPasswordResetEmail(
     );
   }
 }
+
+export async function sendClaimCaseEmail(
+  to: string,
+  subject: string,
+  message: string
+): Promise<{ sent: boolean; providerMessageId: string | null; error: string | null }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { sent: false, providerMessageId: null, error: "RESEND_API_KEY is not configured." };
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FROM_ADDRESS, to: [to], subject, text: message }),
+    });
+    const responseText = await response.text();
+    if (!response.ok) return { sent: false, providerMessageId: null, error: `Resend ${response.status}: ${responseText}`.slice(0, 1000) };
+    let providerMessageId: string | null = null;
+    try { providerMessageId = String(JSON.parse(responseText)?.id ?? "") || null; } catch { providerMessageId = null; }
+    return { sent: true, providerMessageId, error: null };
+  } catch (error) {
+    return { sent: false, providerMessageId: null, error: error instanceof Error ? error.message.slice(0, 1000) : "Email request failed." };
+  }
+}
