@@ -57,7 +57,22 @@ export async function GET(
     const rows = await sql`
       select
         o.*,
-        c.*
+        c.*,
+        exists (
+          select 1 from organization_memberships membership
+          where membership.org_id = o.id
+            and membership.status = 'active'
+            and membership.access_level = 'owner'
+        ) as has_active_owner,
+        (
+          select account.email
+          from organization_memberships membership
+          join users account on account.id = membership.user_id
+          where membership.org_id = o.id
+            and membership.status = 'active'
+            and membership.access_level = 'owner'
+          limit 1
+        ) as active_owner_email
       from organizations o
       left join capabilities c
         on c.org_id = o.id
@@ -133,11 +148,24 @@ export async function PATCH(
       .json()
       .catch(() => null);
 
+    const ownershipRows = await sql`
+      select exists (
+        select 1 from organization_memberships
+        where org_id = ${orgId}
+          and status = 'active'
+          and access_level = 'owner'
+      ) as claimed
+    `;
+    const claimed = Boolean(ownershipRows[0]?.claimed);
+
     /* -----------------------------------------------------
        ARCHIVE
     ----------------------------------------------------- */
 
     if (body?.action === "archive") {
+      if (claimed) {
+        return NextResponse.json({ error: "Claimed organizations cannot be archived from the general editor. Use a documented closure or dormant-organization review case." }, { status: 403 });
+      }
       const rows = await sql`
         update organizations
         set
@@ -272,6 +300,15 @@ export async function PATCH(
           status: 400,
         }
       );
+    }
+
+    const assistance = body?.adminAssistance;
+    const assistanceReason = typeof assistance?.reason === "string" ? assistance.reason.trim().slice(0, 2000) : "";
+    const supportReference = typeof assistance?.supportReference === "string" ? assistance.supportReference.trim().slice(0, 200) : "";
+    const ownerRequestConfirmed = assistance?.ownerRequestConfirmed === true;
+
+    if (claimed && (!ownerRequestConfirmed || assistanceReason.length < 20 || supportReference.length < 3)) {
+      return NextResponse.json({ error: "This organization is owner-controlled. Confirm the owner's request, enter its support reference, and explain the assistance before editing." }, { status: 403 });
     }
 
     const applied: string[] = [];
@@ -795,6 +832,18 @@ export async function PATCH(
       );
     }
 
+    if (claimed) {
+      await sql`
+        insert into organization_admin_assistance_audit (
+          org_id, actor_user_id, owner_request_confirmed,
+          support_reference, reason, changes
+        ) values (
+          ${orgId}, ${admin.id}, true,
+          ${supportReference}, ${assistanceReason}, ${JSON.stringify(changes)}::jsonb
+        )
+      `;
+    }
+
     return NextResponse.json({
       ok: true,
       applied,
@@ -857,7 +906,13 @@ export async function DELETE(
     const orgRows = await sql`
       select
         id,
-        name
+        name,
+        exists (
+          select 1 from organization_memberships membership
+          where membership.org_id = organizations.id
+            and membership.status = 'active'
+            and membership.access_level = 'owner'
+        ) as claimed
       from organizations
       where id = ${orgId}
       limit 1
@@ -872,6 +927,10 @@ export async function DELETE(
           status: 404,
         }
       );
+    }
+
+    if (orgRows[0].claimed) {
+      return NextResponse.json({ error: "Claimed organizations cannot be permanently deleted. Use a documented closure or dormant-organization review process." }, { status: 403 });
     }
 
     /* -----------------------------------------------------
