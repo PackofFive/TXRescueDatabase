@@ -1,301 +1,649 @@
-"use client";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  AuthError,
+  getSession,
+  hashPassword,
+  requireEffectiveOrg,
+} from "@/lib/auth";
+import { sql } from "@/lib/db";
+import { sendOrganizationTeamInviteEmail, sendClaimCaseEmail } from "@/lib/email";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
-import { useEffect, useMemo, useState } from "react";
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
-type Organization = {
-  id: string;
-  name: string;
-  org_type?: string | null;
-  species?: string[] | null;
-  focus?: string | null;
-  specialty?: string | null;
-  c3_status?: string | null;
-  city?: string | null;
-  county?: string | null;
-  state?: string | null;
-  service_area?: string | null;
-  region?: string | null;
-  statewide?: string | null;
-  intake_status?: string | null;
-  intake_restrictions?: string | null;
-  intake_form_url?: string | null;
-  website?: string | null;
-  social_media?: string | null;
-  public_email?: string | null;
-  public_phone?: string | null;
-  resource_status?: string | null;
-  last_verified?: string | null;
-  updated_at?: string | null;
-  has_logo?: boolean;
-  logo_updated_at?: string | null;
+type LogoBucket = {
+  put: (key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }) => Promise<unknown>;
+  delete: (key: string) => Promise<void>;
 };
+type Env = { MEDICAL_FILES: LogoBucket };
+const LOGO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 
-type Access = {
-  level: string | null;
-  canEditOrganizationProfile: boolean;
-  canManageOrganizationAccess: boolean;
-};
-
-type EditableKey =
-  | "name" | "org_type" | "focus" | "specialty" | "c3_status"
-  | "city" | "county" | "state" | "service_area" | "region"
-  | "statewide" | "intake_status" | "intake_restrictions"
-  | "intake_form_url" | "website" | "social_media"
-  | "public_email" | "public_phone";
-
-type FieldDefinition = {
-  key: EditableKey;
-  label: string;
-  section: string;
-  multiline?: boolean;
-  reviewRequired?: boolean;
-};
-
-const FIELDS: FieldDefinition[] = [
-  { key: "name", label: "Organization name", section: "Organization identity" },
-  { key: "org_type", label: "Organization type", section: "Organization identity" },
-  { key: "c3_status", label: "501(c)(3) status", section: "Organization identity", reviewRequired: true },
-  { key: "city", label: "City", section: "Location and service area" },
-  { key: "county", label: "County", section: "Location and service area" },
-  { key: "state", label: "State", section: "Location and service area" },
-  { key: "region", label: "Region", section: "Location and service area" },
-  { key: "service_area", label: "Service area", section: "Location and service area", multiline: true },
-  { key: "statewide", label: "Statewide", section: "Location and service area" },
-  { key: "focus", label: "Focus", section: "Animals and services", multiline: true },
-  { key: "specialty", label: "Specialty", section: "Animals and services", multiline: true },
-  { key: "intake_status", label: "Intake status", section: "Intake information", reviewRequired: true },
-  { key: "intake_restrictions", label: "Intake restrictions", section: "Intake information", multiline: true, reviewRequired: true },
-  { key: "intake_form_url", label: "Intake form", section: "Intake information", reviewRequired: true },
-  { key: "public_email", label: "Public email", section: "Public contact information" },
-  { key: "public_phone", label: "Public phone", section: "Public contact information" },
-  { key: "website", label: "Website", section: "Public contact information" },
-  { key: "social_media", label: "Social media", section: "Public contact information" },
-];
-
-const COLORS = { navy: "#1E3A5F", coral: "#E85C56", mint: "#DCF0E8", muted: "#4A5D75", border: "#DCE4EC", white: "#FFFFFF" };
-
-function emptyForm(): Record<EditableKey, string> {
-  return Object.fromEntries(FIELDS.map((field) => [field.key, ""])) as Record<EditableKey, string>;
+function createInviteToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export default function OrganizationProfilePage() {
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [access, setAccess] = useState<Access | null>(null);
-  const [form, setForm] = useState<Record<EditableKey, string>>(emptyForm);
-  const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [logoWorking, setLogoWorking] = useState(false);
-
-  function loadProfile() {
-    setLoading(true);
-    fetch("/api/org-profile", { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Couldn't load the organization profile.");
-        const nextOrganization = data.organization as Organization;
-        setOrganization(nextOrganization);
-        setAccess(data.access ?? null);
-        setForm(Object.fromEntries(FIELDS.map((field) => [field.key, String(nextOrganization[field.key] ?? "")])) as Record<EditableKey, string>);
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : "Couldn't load the organization profile."))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => { loadProfile(); }, []);
-
-  const changes = useMemo(() => {
-    if (!organization) return [];
-    return FIELDS.filter((field) => form[field.key].trim() !== String(organization[field.key] ?? "").trim())
-      .map((field) => ({ table: "organizations", field: field.key, label: field.label, newValue: form[field.key].trim() }));
-  }, [form, organization]);
-
-  async function saveProfile() {
-    if (!organization || changes.length === 0) return;
-    setSaving(true);
-    setError("");
-    setMessage("");
-    try {
-      const response = await fetch("/api/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId: organization.id, changes }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Couldn't save the organization profile.");
-      const published = data.published ?? [];
-      const queued = data.queued ?? [];
-      const parts = [];
-      if (published.length) parts.push(`${published.length} change${published.length === 1 ? " was" : "s were"} published.`);
-      if (queued.length) parts.push(`${queued.length} sensitive change${queued.length === 1 ? " was" : "s were"} sent for review.`);
-      setMessage(parts.join(" ") || "No changes were needed.");
-      setEditing(false);
-      loadProfile();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Couldn't save the organization profile.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function uploadLogo(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Use a JPG, PNG, or WebP logo."); return; }
-    if (file.size > 2 * 1024 * 1024) { setError("The logo must be smaller than 2 MB."); return; }
-    setLogoWorking(true); setError(""); setMessage("");
-    try {
-      const formData = new FormData(); formData.set("logo", file);
-      const response = await fetch("/api/org-profile", { method: "POST", body: formData });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "The logo could not be uploaded.");
-      setMessage("Organization logo updated."); await loadProfile();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "The logo could not be uploaded."); }
-    finally { setLogoWorking(false); }
-  }
-
-  async function removeLogo() {
-    if (!organization?.has_logo || !window.confirm("Remove this organization logo?")) return;
-    setLogoWorking(true); setError(""); setMessage("");
-    try {
-      const response = await fetch("/api/org-profile", { method: "DELETE" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "The logo could not be removed.");
-      setMessage("Organization logo removed."); await loadProfile();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "The logo could not be removed."); }
-    finally { setLogoWorking(false); }
-  }
-
-  if (loading && !organization) return <p style={{ color: COLORS.muted }}>Loading organization profile…</p>;
-  if (error && !organization) return <div style={errorStyle}>{error}</div>;
-  if (!organization) return <div style={errorStyle}>Organization profile not found.</div>;
-
-  const sections = Array.from(new Set(FIELDS.map((field) => field.section)));
-  const accessLabel = formatAccess(access?.level);
-
-  return (
-    <div>
-      <p style={eyebrowStyle}>ORGANIZATION</p>
-      <div style={headingRowStyle}>
-        <div><h1 style={headingStyle}>{organization.name}</h1><p style={introStyle}>This rescue or shelter profile is separate from every staff member’s personal account.</p></div>
-        <div style={buttonRowStyle}>
-          {access?.canManageOrganizationAccess && !editing ? <a href="/portal/team-access" style={teamLinkStyle}>Team &amp; Access</a> : null}
-          {access?.canEditOrganizationProfile && !editing ? <button type="button" onClick={() => { setEditing(true); setMessage(""); }} style={primaryButtonStyle}>Edit Organization Profile</button> : null}
-        </div>
-      </div>
-
-      <section style={noticeStyle}>
-        <strong style={{ color: COLORS.navy }}>Your access: {accessLabel}</strong>
-        <span style={{ color: COLORS.muted }}>
-          {access?.canEditOrganizationProfile
-            ? "You may update this profile. Sensitive intake and verification information is sent for review before publication."
-            : "This profile is read-only for your access level. Only the Organization Owner or an Administrator may edit it."}
-        </span>
-      </section>
-
-      <section style={logoPanelStyle}>
-        <div style={logoBoxStyle}>
-          {organization.has_logo ? (
-            <img src={`/api/orgs?logo=${encodeURIComponent(organization.id)}&v=${encodeURIComponent(organization.logo_updated_at ?? "1")}`} alt={`${organization.name} logo`} style={logoImageStyle} />
-          ) : (
-            <span aria-hidden="true" style={logoInitialsStyle}>{organizationInitials(organization.name)}</span>
-          )}
-        </div>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ ...sectionHeadingStyle, marginBottom: 5 }}>Organization logo</h2>
-          <p style={introStyle}>Shown as a small image on your public Directory card. Use a square JPG, PNG, or WebP under 2 MB.</p>
-          {access?.canEditOrganizationProfile ? (
-            <div style={{ ...buttonRowStyle, marginTop: 12 }}>
-              <label style={{ ...primaryButtonStyle, display: "inline-block" }}>
-                {logoWorking ? "Working…" : organization.has_logo ? "Replace Logo" : "Upload Logo"}
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadLogo} disabled={logoWorking} style={{ display: "none" }} />
-              </label>
-              {organization.has_logo ? <button type="button" onClick={removeLogo} disabled={logoWorking} style={secondaryButtonStyle}>Remove Logo</button> : null}
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {message ? <div style={successStyle}>{message}</div> : null}
-      {error ? <div style={errorStyle}>{error}</div> : null}
-
-      {editing ? (
-        <section style={editPanelStyle}>
-          <h2 style={sectionHeadingStyle}>Edit organization profile</h2>
-          <p style={introStyle}>Review every change before saving. Fields marked “Review required” will not change publicly until approved.</p>
-          {sections.map((section) => (
-            <fieldset key={section} style={fieldsetStyle}>
-              <legend style={legendStyle}>{section}</legend>
-              <div style={formGridStyle}>
-                {FIELDS.filter((field) => field.section === section).map((field) => (
-                  <label key={field.key} style={inputLabelStyle}>
-                    <span>{field.label}{field.reviewRequired ? <em style={reviewTagStyle}>Review required</em> : null}</span>
-                    {field.multiline ? (
-                      <textarea value={form[field.key]} onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))} rows={3} style={inputStyle} />
-                    ) : (
-                      <input value={form[field.key]} onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))} style={inputStyle} />
-                    )}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          ))}
-          <div style={buttonRowStyle}>
-            <button type="button" onClick={saveProfile} disabled={saving || changes.length === 0} style={{ ...primaryButtonStyle, opacity: saving || changes.length === 0 ? 0.55 : 1 }}>{saving ? "Saving…" : `Save ${changes.length} Change${changes.length === 1 ? "" : "s"}`}</button>
-            <button type="button" onClick={() => { setEditing(false); setError(""); setForm(Object.fromEntries(FIELDS.map((field) => [field.key, String(organization[field.key] ?? "")])) as Record<EditableKey, string>); }} disabled={saving} style={secondaryButtonStyle}>Cancel</button>
-          </div>
-        </section>
-      ) : (
-        <div style={gridStyle}>
-          <ProfileSection title="Organization identity"><Field label="Organization name" value={organization.name} /><Field label="Organization type" value={organization.org_type} /><Field label="501(c)(3) status" value={organization.c3_status} /><Field label="Resource status" value={organization.resource_status} /></ProfileSection>
-          <ProfileSection title="Location and service area"><Field label="Location" value={[organization.city, organization.county, organization.state].filter(Boolean).join(" · ")} /><Field label="Region" value={organization.region} /><Field label="Service area" value={organization.service_area} /><Field label="Statewide" value={organization.statewide} /></ProfileSection>
-          <ProfileSection title="Animals and services"><Field label="Species" value={organization.species?.join(", ")} /><Field label="Focus" value={organization.focus} /><Field label="Specialty" value={organization.specialty} /></ProfileSection>
-          <ProfileSection title="Intake information"><Field label="Intake status" value={organization.intake_status} /><Field label="Intake restrictions" value={organization.intake_restrictions} /><LinkField label="Intake form" value={organization.intake_form_url} /></ProfileSection>
-          <ProfileSection title="Public contact information"><Field label="Public email" value={organization.public_email} /><Field label="Public phone" value={organization.public_phone} /><LinkField label="Website" value={organization.website} /><LinkField label="Social media" value={organization.social_media} /></ProfileSection>
-          <ProfileSection title="Verification"><Field label="Last verified" value={formatDate(organization.last_verified)} /><Field label="Profile last updated" value={formatDate(organization.updated_at)} /></ProfileSection>
-        </div>
-      )}
-    </div>
+async function hashToken(token: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(token)
   );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
 }
 
-function ProfileSection({ title, children }: { title: string; children: React.ReactNode }) { return <section style={sectionStyle}><h2 style={sectionHeadingStyle}>{title}</h2>{children}</section>; }
-function Field({ label, value }: { label: string; value?: string | null }) { return <div style={fieldStyle}><span style={fieldLabelStyle}>{label}</span><strong style={valueStyle}>{value?.trim() || "Not provided"}</strong></div>; }
-function LinkField({ label, value }: { label: string; value?: string | null }) { const href = safeUrl(value); return <div style={fieldStyle}><span style={fieldLabelStyle}>{label}</span>{href ? <a href={href} target="_blank" rel="noreferrer" style={linkStyle}>{value}</a> : <strong style={valueStyle}>Not provided</strong>}</div>; }
-function safeUrl(value?: string | null) { if (!value?.trim()) return null; return /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim()}`; }
-function formatDate(value?: string | null) { if (!value) return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(); }
-function formatAccess(value?: string | null) { if (!value) return "No active organization membership"; if (value === "platform_admin") return "Platform Administrator"; return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
-function organizationInitials(name:string){return name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()).join("")||"ORG";}
+function normalizeEmail(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
 
-const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
-const headingRowStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, flexWrap: "wrap" };
-const headingStyle: React.CSSProperties = { margin: "0 0 10px", color: COLORS.navy, fontSize: 36, lineHeight: 1.1 };
-const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 14, lineHeight: 1.6 };
-const noticeStyle: React.CSSProperties = { display: "grid", gap: 5, marginTop: 22, padding: 17, border: `1px solid ${COLORS.border}`, background: COLORS.mint, fontSize: 13, lineHeight: 1.5 };
-const successStyle: React.CSSProperties = { marginTop: 16, padding: 14, color: COLORS.navy, border: `1px solid ${COLORS.border}`, background: COLORS.mint, fontWeight: 700 };
-const errorStyle: React.CSSProperties = { marginTop: 16, padding: 14, color: "#A9362B", border: "1px solid #E9B9B4", background: "#FCE9E7" };
-const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, marginTop: 18 };
-const sectionStyle: React.CSSProperties = { padding: 20, border: `1px solid ${COLORS.border}`, background: COLORS.white };
-const sectionHeadingStyle: React.CSSProperties = { margin: "0 0 10px", color: COLORS.navy, fontSize: 19 };
-const fieldStyle: React.CSSProperties = { display: "grid", gap: 4, padding: "11px 0", borderTop: `1px solid ${COLORS.border}` };
-const fieldLabelStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 12, fontWeight: 700 };
-const valueStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 14, overflowWrap: "anywhere" };
-const linkStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 14, fontWeight: 800, overflowWrap: "anywhere" };
-const primaryButtonStyle: React.CSSProperties = { border: 0, background: COLORS.navy, color: COLORS.white, padding: "11px 15px", fontWeight: 800, fontSize: 13, cursor: "pointer" };
-const secondaryButtonStyle: React.CSSProperties = { border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, padding: "10px 15px", fontWeight: 800, fontSize: 13, cursor: "pointer" };
-const teamLinkStyle: React.CSSProperties = { display: "inline-block", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, padding: "10px 15px", fontWeight: 800, fontSize: 13, textDecoration: "none" };
-const editPanelStyle: React.CSSProperties = { marginTop: 18, padding: 20, border: `1px solid ${COLORS.border}`, background: COLORS.white };
-const fieldsetStyle: React.CSSProperties = { margin: "20px 0 0", padding: 0, border: 0 };
-const legendStyle: React.CSSProperties = { width: "100%", paddingBottom: 8, borderBottom: `1px solid ${COLORS.border}`, color: COLORS.navy, fontSize: 16, fontWeight: 800 };
-const formGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginTop: 14 };
-const inputLabelStyle: React.CSSProperties = { display: "grid", alignContent: "start", gap: 7, color: COLORS.navy, fontSize: 13, fontWeight: 750 };
-const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: `1px solid ${COLORS.border}`, padding: "10px 11px", color: COLORS.navy, background: COLORS.white, font: "inherit" };
-const reviewTagStyle: React.CSSProperties = { display: "inline-block", marginLeft: 7, color: "#A45C00", fontSize: 10, fontStyle: "normal", fontWeight: 800 };
-const buttonRowStyle: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 22 };
-const logoPanelStyle: React.CSSProperties = { display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", marginTop: 18, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.white };
-const logoBoxStyle: React.CSSProperties = { width: 92, height: 92, flex: "0 0 92px", display: "grid", placeItems: "center", overflow: "hidden", border: `1px solid ${COLORS.border}`, borderRadius: 10, background: "#F5F7F9" };
-const logoImageStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "contain", background: COLORS.white };
-const logoInitialsStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 24, fontWeight: 900, letterSpacing: ".04em" };
+async function resolveAccess(
+  session: Awaited<ReturnType<typeof requireEffectiveOrg>>["session"],
+  orgId: string
+) {
+  if (session.role === "admin") {
+    return {
+      level: "platform_admin",
+      canEditOrganizationProfile: true,
+      canManageOrganizationAccess: true,
+    };
+  }
+
+  const membershipRows = await sql`
+    select access_level
+    from organization_memberships
+    where org_id = ${orgId}::uuid
+      and user_id = ${session.id}::uuid
+      and status = 'active'
+    limit 1
+  `;
+
+  const level = membershipRows[0]?.access_level
+    ? String(membershipRows[0].access_level)
+    : null;
+
+  return {
+    level,
+    canEditOrganizationProfile:
+      level === "owner" || level === "administrator",
+    canManageOrganizationAccess: level === "owner",
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+
+    const access = await resolveAccess(session, orgId);
+
+    if (request.nextUrl.searchParams.get("team") === "true") {
+      if (!access.canManageOrganizationAccess) {
+        throw new AuthError(
+          "Organization Owner access is required to manage team access.",
+          403
+        );
+      }
+
+      const members = await sql`
+        select
+          membership.id,
+          membership.user_id,
+          membership.access_level,
+          membership.status,
+          membership.granted_at,
+          membership.updated_at,
+          membership.suspended_at,
+          membership.removed_at,
+          account.email
+        from organization_memberships membership
+        join users account on account.id = membership.user_id
+        where membership.org_id = ${orgId}::uuid
+        order by
+          case membership.status when 'active' then 0 else 1 end,
+          case membership.access_level
+            when 'owner' then 0
+            when 'administrator' then 1
+            when 'contributor' then 2
+            else 3
+          end,
+          lower(account.email)
+      `;
+
+      const audit = await sql`
+        select
+          entry.id,
+          entry.action,
+          entry.previous_access_level,
+          entry.new_access_level,
+          entry.reason,
+          entry.created_at,
+          affected.email as affected_email,
+          actor.email as actor_email
+        from organization_access_audit entry
+        left join users affected on affected.id = entry.affected_user_id
+        left join users actor on actor.id = entry.actor_user_id
+        where entry.org_id = ${orgId}::uuid
+        order by entry.created_at desc
+        limit 50
+      `;
+
+      await sql`
+        update organization_access_invites
+        set status = 'expired', updated_at = now()
+        where org_id = ${orgId}::uuid
+          and status = 'sent'
+          and expires_at <= now()
+      `;
+
+      const invites = await sql`
+        select
+          invite.id,
+          invite.email,
+          invite.access_level,
+          invite.status,
+          invite.expires_at,
+          invite.accepted_at,
+          invite.cancelled_at,
+          invite.created_at,
+          inviter.email as invited_by_email
+        from organization_access_invites invite
+        join users inviter on inviter.id = invite.invited_by
+        where invite.org_id = ${orgId}::uuid
+        order by invite.created_at desc
+        limit 100
+      `;
+
+      return NextResponse.json(
+        { access, members, audit, invites },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const rows = await sql`
+      select
+        id,
+        name,
+        org_type,
+        species,
+        focus,
+        specialty,
+        c3_status,
+        city,
+        county,
+        state,
+        service_area,
+        region,
+        statewide,
+        intake_status,
+        intake_restrictions,
+        intake_form_url,
+        website,
+        social_media,
+        public_email,
+        public_phone,
+        resource_status,
+        last_verified,
+        updated_at
+        ,logo_storage_key is not null as has_logo
+        ,logo_updated_at
+        ,(
+          select row_to_json(review_row)
+          from (
+            select id, status, reason, response_due_at, created_at
+            from organization_lifecycle_reviews
+            where org_id = organizations.id
+              and review_type = 'owner_requested_closure'
+            order by created_at desc limit 1
+          ) review_row
+        ) as closure_request
+      from organizations
+      where id = ${orgId}::uuid
+      limit 1
+    `;
+
+    if (!rows[0]) {
+      return NextResponse.json(
+        { error: "Organization profile not found." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        organization: rows[0],
+        access,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("GET /api/org-profile failed:", error);
+
+    return NextResponse.json(
+      { error: "Couldn't load the organization profile." },
+      { status: 500 }
+    );
+  }
+}
+
+async function uploadOrganizationLogo(request: NextRequest) {
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+    const access = await resolveAccess(session, orgId);
+    if (!access.canEditOrganizationProfile) throw new AuthError("Owner or Administrator access is required to change the organization logo.", 403);
+
+    const formData = await request.formData();
+    const file = formData.get("logo");
+    if (!(file instanceof File)) return NextResponse.json({ error: "Choose a logo image." }, { status: 400 });
+    if (!LOGO_TYPES.has(file.type)) return NextResponse.json({ error: "Use a JPG, PNG, or WebP image." }, { status: 400 });
+    if (file.size <= 0 || file.size > MAX_LOGO_SIZE) return NextResponse.json({ error: "The logo must be smaller than 2 MB." }, { status: 400 });
+
+    const env = getRequestContext().env as unknown as Env;
+    if (!env.MEDICAL_FILES) return NextResponse.json({ error: "Secure file storage is not configured." }, { status: 503 });
+    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const storageKey = `organization-logos/${orgId}/${crypto.randomUUID()}.${extension}`;
+    const previous = await sql`select logo_storage_key from organizations where id = ${orgId}::uuid limit 1`;
+
+    await env.MEDICAL_FILES.put(storageKey, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    await sql`
+      update organizations set logo_storage_key = ${storageKey}, logo_content_type = ${file.type}, logo_updated_at = now(), updated_at = now()
+      where id = ${orgId}::uuid
+    `;
+    const previousKey = previous[0]?.logo_storage_key ? String(previous[0].logo_storage_key) : "";
+    if (previousKey && previousKey !== storageKey) await env.MEDICAL_FILES.delete(previousKey).catch(() => undefined);
+
+    return NextResponse.json({ ok: true, logoUrl: `/api/orgs?logo=${encodeURIComponent(orgId)}&v=${Date.now()}` });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("PUT /api/org-profile logo failed:", error);
+    return NextResponse.json({ error: "The organization logo could not be uploaded." }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+    const access = await resolveAccess(session, orgId);
+    if (!access.canEditOrganizationProfile) throw new AuthError("Owner or Administrator access is required to remove the organization logo.", 403);
+
+    const rows = await sql`select logo_storage_key from organizations where id = ${orgId}::uuid limit 1`;
+    const storageKey = rows[0]?.logo_storage_key ? String(rows[0].logo_storage_key) : "";
+    await sql`
+      update organizations set logo_storage_key = null, logo_content_type = null, logo_updated_at = now(), updated_at = now()
+      where id = ${orgId}::uuid
+    `;
+    if (storageKey) {
+      const env = getRequestContext().env as unknown as Env;
+      await env.MEDICAL_FILES?.delete(storageKey).catch(() => undefined);
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("DELETE /api/org-profile logo failed:", error);
+    return NextResponse.json({ error: "The organization logo could not be removed." }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  if (request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+    return uploadOrganizationLogo(request);
+  }
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+    const access = await resolveAccess(session, orgId);
+
+    const body = await request.json().catch(() => null);
+
+    if (body?.action === "request_closure") {
+      if (access.level !== "owner") throw new AuthError("Only the Organization Owner may request closure.", 403);
+      const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 3000) : "";
+      if (reason.length < 20 || body?.confirmation !== "CLOSE MY ORGANIZATION") {
+        return NextResponse.json({ error: "Explain the closure and type CLOSE MY ORGANIZATION exactly." }, { status: 400 });
+      }
+      const existing = await sql`select id from organization_lifecycle_reviews where org_id=${orgId}::uuid and status in ('waiting_owner','ready_decision') limit 1`;
+      if (existing[0]) return NextResponse.json({ error: "This organization already has an open closure or dormancy review." }, { status: 409 });
+      const orgRows = await sql`select name from organizations where id=${orgId}::uuid limit 1`;
+      const rows = await sql`
+        insert into organization_lifecycle_reviews (org_id,review_type,status,reason,owner_email,owner_contacted_at,owner_response_received_at,response_due_at,initiated_by)
+        values (${orgId}::uuid,'owner_requested_closure','ready_decision',${reason},${session.email},now(),now(),now()+interval '7 days',${session.id}::uuid)
+        returning id,response_due_at
+      `;
+      const reference=String(rows[0].id);
+      const due=new Date(String(rows[0].response_due_at)).toLocaleDateString("en-US");
+      const subject=`Closure request received — ${String(orgRows[0]?.name??"your organization")}`;
+      const message=`Pack of Five received your request to close and archive this organization listing.\n\nReference: ${reference}\nReview date: ${due}\nReason recorded: ${reason}\n\nThe listing remains active during the review period. Historical records will be preserved if the request is approved. Contact Pack of Five promptly if you did not make this request.`;
+      const delivery=await sendClaimCaseEmail(session.email,subject,message);
+      await sql`update organization_lifecycle_reviews set opening_email_status=${delivery.sent?"sent":"failed"},updated_at=now() where id=${reference}`;
+      return NextResponse.json({ok:true,reference,message:delivery.sent?"Closure request submitted. A receipt was emailed to you.":"Closure request submitted. Email delivery is pending."});
+    }
+
+    if (!access.canManageOrganizationAccess) {
+      throw new AuthError(
+        "Organization Owner access is required to invite team members.",
+        403
+      );
+    }
+
+    const email = normalizeEmail(body?.email);
+    const accessLevel = String(body?.accessLevel ?? "").trim();
+
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      return NextResponse.json(
+        { error: "Enter a valid email address." },
+        { status: 400 }
+      );
+    }
+
+    if (!["administrator", "contributor", "viewer"].includes(accessLevel)) {
+      return NextResponse.json(
+        { error: "Choose Administrator, Contributor, or Viewer access." },
+        { status: 400 }
+      );
+    }
+
+    const existingMembers = await sql`
+      select membership.id
+      from organization_memberships membership
+      join users account on account.id = membership.user_id
+      where membership.org_id = ${orgId}::uuid
+        and lower(account.email) = ${email}
+        and membership.status in ('active', 'invited')
+      limit 1
+    `;
+
+    if (existingMembers[0]) {
+      return NextResponse.json(
+        { error: "This person already has active or pending organization access." },
+        { status: 409 }
+      );
+    }
+
+    await sql`
+      update organization_access_invites
+      set status = 'expired', updated_at = now()
+      where org_id = ${orgId}::uuid
+        and lower(email) = ${email}
+        and status = 'sent'
+        and expires_at <= now()
+    `;
+
+    const activeInvites = await sql`
+      select id
+      from organization_access_invites
+      where org_id = ${orgId}::uuid
+        and lower(email) = ${email}
+        and status = 'sent'
+      limit 1
+    `;
+
+    if (activeInvites[0]) {
+      return NextResponse.json(
+        { error: "An active invitation already exists. Use Resend Invitation instead." },
+        { status: 409 }
+      );
+    }
+
+    const token = createInviteToken();
+    const tokenHash = await hashToken(token);
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    const organizations = await sql`
+      select name from organizations where id = ${orgId}::uuid limit 1
+    `;
+    const organizationName = String(organizations[0]?.name ?? "Your rescue organization");
+
+    const rows = await sql`
+      insert into organization_access_invites (
+        org_id, email, access_level, token_hash, status,
+        invited_by, expires_at
+      ) values (
+        ${orgId}::uuid, ${email}, ${accessLevel}, ${tokenHash}, 'sent',
+        ${session.id}::uuid, ${expiresAt.toISOString()}::timestamptz
+      )
+      returning id, email, access_level, status, expires_at, created_at
+    `;
+
+    try {
+      const inviteUrl = `${request.nextUrl.origin}/accept-organization-invite?token=${token}`;
+      await sendOrganizationTeamInviteEmail(
+        email,
+        organizationName,
+        accessLevel.replaceAll("_", " "),
+        inviteUrl,
+        expiresAt
+      );
+    } catch (emailError) {
+      await sql`
+        update organization_access_invites
+        set status = 'cancelled', cancelled_at = now(), updated_at = now()
+        where id = ${String(rows[0].id)}::uuid
+      `;
+      throw emailError;
+    }
+
+    const invitedAccounts = await sql`
+      select id from users where lower(email) = ${email} limit 1
+    `;
+
+    await sql`
+      insert into organization_access_audit (
+        org_id, affected_user_id, actor_user_id, action,
+        previous_access_level, new_access_level, reason
+      ) values (
+        ${orgId}::uuid,
+        ${invitedAccounts[0]?.id ? String(invitedAccounts[0].id) : null}::uuid,
+        ${session.id}::uuid,
+        'invitation_sent',
+        null,
+        ${accessLevel},
+        ${`Invitation sent to ${email}`}
+      )
+    `;
+
+    return NextResponse.json({ invite: rows[0] }, { status: 201 });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("POST /api/org-profile failed:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Couldn't send the team invitation." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { session, orgId } = await requireEffectiveOrg();
+    const access = await resolveAccess(session, orgId);
+
+    if (!access.canManageOrganizationAccess) {
+      throw new AuthError(
+        "Organization Owner access is required to manage team access.",
+        403
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    const action = String(body?.action ?? "").trim();
+    const inviteId = String(body?.inviteId ?? "").trim();
+
+    if (["cancel_invite", "resend_invite"].includes(action)) {
+      if (!inviteId) {
+        return NextResponse.json({ error: "Choose an invitation." }, { status: 400 });
+      }
+
+      const inviteRows = await sql`
+        select invite.*, organization.name as organization_name
+        from organization_access_invites invite
+        join organizations organization on organization.id = invite.org_id
+        where invite.id = ${inviteId}::uuid
+          and invite.org_id = ${orgId}::uuid
+        limit 1
+      `;
+      const invite = inviteRows[0];
+      if (!invite) return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
+      if (invite.status === "accepted") return NextResponse.json({ error: "An accepted invitation cannot be changed." }, { status: 409 });
+
+      if (action === "cancel_invite") {
+        await sql`
+          update organization_access_invites
+          set status = 'cancelled', cancelled_at = now(), updated_at = now()
+          where id = ${inviteId}::uuid
+        `;
+        await sql`
+          insert into organization_access_audit (org_id, actor_user_id, action, new_access_level, reason)
+          values (${orgId}::uuid, ${session.id}::uuid, 'invitation_cancelled', ${String(invite.access_level)}, ${`Invitation cancelled for ${String(invite.email)}`})
+        `;
+        return NextResponse.json({ result: { ok: true } });
+      }
+
+      const token = createInviteToken();
+      const tokenHash = await hashToken(token);
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+      const inviteUrl = `${request.nextUrl.origin}/accept-organization-invite?token=${token}`;
+      await sendOrganizationTeamInviteEmail(String(invite.email), String(invite.organization_name), String(invite.access_level).replaceAll("_", " "), inviteUrl, expiresAt);
+      await sql`
+        update organization_access_invites
+        set token_hash = ${tokenHash}, status = 'sent', expires_at = ${expiresAt.toISOString()}::timestamptz,
+            cancelled_at = null, updated_at = now()
+        where id = ${inviteId}::uuid
+      `;
+      await sql`
+        insert into organization_access_audit (org_id, actor_user_id, action, new_access_level, reason)
+        values (${orgId}::uuid, ${session.id}::uuid, 'invitation_resent', ${String(invite.access_level)}, ${`Invitation resent to ${String(invite.email)}`})
+      `;
+      return NextResponse.json({ result: { ok: true } });
+    }
+
+    const membershipId = String(body?.membershipId ?? "").trim();
+    const newAccessLevel = body?.newAccessLevel
+      ? String(body.newAccessLevel).trim()
+      : null;
+    const reason = body?.reason ? String(body.reason).trim() : null;
+
+    if (!membershipId) {
+      return NextResponse.json(
+        { error: "Choose a team member." },
+        { status: 400 }
+      );
+    }
+
+    if (!["change_level", "suspend", "restore", "remove", "transfer_ownership"].includes(action)) {
+      return NextResponse.json(
+        { error: "Choose a valid access action." },
+        { status: 400 }
+      );
+    }
+
+    if (["suspend", "remove", "transfer_ownership"].includes(action) && !reason) {
+      return NextResponse.json(
+        { error: "A reason is required for this security-sensitive action." },
+        { status: 400 }
+      );
+    }
+
+    const rows = await sql`
+      select pof_manage_organization_access(
+        ${orgId}::uuid,
+        ${session.id}::uuid,
+        ${membershipId}::uuid,
+        ${action},
+        ${newAccessLevel},
+        ${reason}
+      ) as result
+    `;
+
+    return NextResponse.json({ result: rows[0]?.result ?? { ok: true } });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("PATCH /api/org-profile failed:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Couldn't update organization access.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => null);
+    const token = String(body?.token ?? "").trim();
+    const password = String(body?.password ?? "");
+    if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
+      return NextResponse.json({ error: "This invitation link is invalid." }, { status: 400 });
+    }
+
+    const tokenHash = await hashToken(token);
+    const session = await getSession();
+    let rows;
+
+    if (session) {
+      if (session.status !== "approved") {
+        throw new AuthError("An approved account is required.", 403);
+      }
+
+      rows = await sql`
+        select pof_accept_organization_invite(
+          ${tokenHash},
+          ${session.id}::uuid
+        ) as result
+      `;
+    } else {
+      if (password.length < 12) {
+        return NextResponse.json(
+          { error: "Create a password with at least 12 characters." },
+          { status: 400 }
+        );
+      }
+
+      if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return NextResponse.json(
+          { error: "Include an uppercase letter, lowercase letter, and number in your password." },
+          { status: 400 }
+        );
+      }
+
+      const passwordHash = await hashPassword(password);
+      rows = await sql`
+        select pof_create_account_from_organization_invite(
+          ${tokenHash},
+          ${passwordHash}
+        ) as result
+      `;
+    }
+
+    return NextResponse.json({ result: rows[0]?.result ?? { ok: true } });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("PUT /api/org-profile failed:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Couldn't accept the invitation." },
+      { status: 500 }
+    );
+  }
+}
