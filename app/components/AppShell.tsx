@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import BrandLogo from "./BrandLogo";
 
 type ShellUser = {
   email: string;
@@ -296,7 +297,7 @@ function SignedInHeader({
                   "none",
               }}
             >
-              <PawMark />
+              <BrandLogo size={28} />
 
               <span
                 style={{
@@ -587,7 +588,7 @@ function PublicHeader({
               textDecoration: "none",
             }}
           >
-            <PawMark />
+            <BrandLogo size={28} />
 
             <span
               style={{
@@ -658,73 +659,6 @@ function PublicHeader({
         </nav>
       </div>
     </header>
-  );
-}
-
-function PawMark() {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        position: "relative",
-        display: "inline-block",
-        width: 28,
-        height: 26,
-        flex: "0 0 auto",
-      }}
-    >
-      <span
-        style={{
-          ...pawToeStyle,
-          left: 1,
-          top: 5,
-          background: COLORS.coral,
-          transform: "rotate(-24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          left: 7,
-          top: 0,
-          background: COLORS.peach,
-          transform: "rotate(-8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          right: 6,
-          top: 0,
-          background: COLORS.mint,
-          transform: "rotate(8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...pawToeStyle,
-          right: 0,
-          top: 5,
-          background: COLORS.pink,
-          transform: "rotate(24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          position: "absolute",
-          left: 6,
-          bottom: 0,
-          width: 17,
-          height: 15,
-          borderRadius: "50% 50% 45% 45%",
-          background: COLORS.navy,
-        }}
-      />
-    </span>
   );
 }
 
@@ -1996,13 +1930,6 @@ function ManagerLink({
 /* =========================================================
    SHARED STYLES
 ========================================================= */
-
-const pawToeStyle: CSSProperties = {
-  position: "absolute",
-  width: 7,
-  height: 9,
-  borderRadius: "50%",
-};
 
 const publicLinkStyle = {
   textDecoration: "none",
