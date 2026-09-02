@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import { sendClaimVerificationEmail } from "@/lib/email";
+import { sendClaimVerificationEmail, sendClaimCaseEmail } from "@/lib/email";
 import { normalizeEmail, validateNewPassword } from "@/lib/account-security";
 
 export const runtime = "edge";
@@ -51,8 +51,20 @@ async function reportIssue(body: Record<string, unknown>) {
     return NextResponse.json({ error: "Evidence must be a valid http or https link." }, { status: 400 });
   }
 
-  const organizations = await sql`select id from organizations where id = ${orgId} and archived_at is null limit 1`;
-  if (!organizations[0]) return NextResponse.json({ error: "Organization not found." }, { status: 404 });
+  const organizations = await sql`
+    select
+      organization.id,
+      organization.name,
+      coalesce(
+        (select account.email from organization_memberships membership join users account on account.id = membership.user_id where membership.org_id = organization.id and membership.status = 'active' and membership.access_level = 'owner' limit 1),
+        (select account.email from users account where account.org_id = organization.id and account.status = 'approved' and account.role = 'org' order by account.created_at asc limit 1)
+      ) as current_owner_email
+    from organizations organization
+    where organization.id = ${orgId} and organization.archived_at is null
+    limit 1
+  `;
+  const organization = organizations[0] as { id:string; name:string; current_owner_email:string|null } | undefined;
+  if (!organization) return NextResponse.json({ error: "Organization not found." }, { status: 404 });
 
   const recent = await sql`
     select count(*)::int as count from organization_claim_issue_reports
@@ -66,16 +78,57 @@ async function reportIssue(body: Record<string, unknown>) {
   const rows = await sql`
     insert into organization_claim_issue_reports (
       org_id, reporter_name, reporter_email, reporter_phone, relationship_to_org,
-      issue_type, previous_org_email, details, evidence_url
+      issue_type, previous_org_email, details, evidence_url, status, due_at,
+      next_action, current_owner_email
     ) values (
       ${orgId}, ${reporterName}, ${reporterEmail}, ${reporterPhone}, ${relationshipToOrg},
-      ${issueType}, ${previousOrgEmail}, ${details}, ${evidence.value}
+      ${issueType}, ${previousOrgEmail}, ${details}, ${evidence.value}, 'waiting_documents',
+      now() + interval '7 days', 'Waiting for documentation from the reporter and a response from the current owner.',
+      ${organization.current_owner_email}
     ) returning id
   `;
+  const reportId = String(rows[0].id);
+  const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const dueLabel = dueDate.toLocaleDateString("en-US", { timeZone: "America/Chicago", year: "numeric", month: "long", day: "numeric" });
+  const proofList =
+    "Please gather two forms of current authority evidence, when available:\n" +
+    "• Access to the established organization email or domain\n" +
+    "• Current state, municipal, or IRS organization record\n" +
+    "• Current board/officer authorization\n" +
+    "• Municipal employment or supervisor confirmation\n" +
+    "• Confirmation from an established veterinarian, shelter, or partner\n\n" +
+    "An EIN, logo, social account, or personal ID alone does not establish organization ownership.";
+
+  const reporterSubject = `Pack of Five received your organization access report — ${organization.name}`;
+  const reporterMessage =
+    `We received your private report concerning ${organization.name}.\n\nCase reference: ${reportId}\nResponse deadline: ${dueLabel}\n\n` +
+    `${proofList}\n\nThe current owner will be contacted separately. We will not share your email address automatically, and no ownership or access change will occur without administrative review.`;
+  const reporterDelivery = await sendClaimCaseEmail(reporterEmail, reporterSubject, reporterMessage);
+  await sql`
+    insert into organization_claim_case_messages (report_id, audience, message_type, subject, message_body, delivery_status, recipient_email, provider_message_id, delivery_error)
+    values (${reportId}, 'reporter', 'case_opened', ${reporterSubject}, ${reporterMessage}, ${reporterDelivery.sent ? 'sent' : 'failed'}, ${reporterEmail}, ${reporterDelivery.providerMessageId}, ${reporterDelivery.error})
+  `;
+  if (reporterDelivery.sent) await sql`update organization_claim_issue_reports set reporter_notified_at = now() where id = ${reportId}`;
+
+  if (organization.current_owner_email) {
+    const ownerSubject = `Response requested for ${organization.name} Pack of Five access case`;
+    const ownerMessage =
+      `Pack of Five received a report requesting review of access or ownership for ${organization.name}.\n\nCase reference: ${reportId}\nResponse deadline: ${dueLabel}\n\n` +
+      `${proofList}\n\nThe reporter's private contact information is not included. No ownership or access change has been made. An administrator will review both parties' information before making a decision.`;
+    const ownerDelivery = await sendClaimCaseEmail(organization.current_owner_email, ownerSubject, ownerMessage);
+    await sql`
+      insert into organization_claim_case_messages (report_id, audience, message_type, subject, message_body, delivery_status, recipient_email, provider_message_id, delivery_error)
+      values (${reportId}, 'current_owner', 'response_requested', ${ownerSubject}, ${ownerMessage}, ${ownerDelivery.sent ? 'sent' : 'failed'}, ${organization.current_owner_email}, ${ownerDelivery.providerMessageId}, ${ownerDelivery.error})
+    `;
+    if (ownerDelivery.sent) await sql`update organization_claim_issue_reports set owner_notified_at = now() where id = ${reportId}`;
+  }
+
   return NextResponse.json({
     ok: true,
-    reference: rows[0].id,
-    message: "Your report was received for private administrative review. No ownership or access changes were made.",
+    reference: reportId,
+    message: reporterDelivery.sent
+      ? "Your report was received and an explanation of the verification process was emailed to you. No ownership or access changes were made."
+      : "Your report was received for private administrative review. Email delivery is pending, but no ownership or access changes were made.",
   });
 }
 
