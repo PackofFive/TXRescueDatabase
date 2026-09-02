@@ -1,129 +1,45 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Submission = { id:string; org_name:string; field_label:string; old_value:string; new_value:string; };
-type Claim = { id:string; org_id:string; org_name:string; requester_email:string; created_at:string; };
-type OrgRequest = { id:string; organization_name:string; relationship:string; created_at:string; };
-type ClaimIssue = { id:string; org_name:string; reporter_name:string; reporter_email:string; reporter_phone:string|null; relationship_to_org:string; issue_type:string; previous_org_email:string|null; details:string; evidence_url:string|null; status:string; created_at:string; };
+type Submission={id:string;org_name:string;field_label:string;old_value:string;new_value:string};
+type Claim={id:string;org_id:string;org_name:string;requester_email:string;created_at:string};
+type OrgRequest={id:string;organization_name:string;relationship:string;created_at:string};
+type ClaimIssue={id:string;org_name:string;reporter_name:string;reporter_email:string;reporter_phone:string|null;relationship_to_org:string;issue_type:string;previous_org_email:string|null;details:string;evidence_url:string|null;status:string;created_at:string;due_at:string;next_action:string;current_owner_email:string|null;reporter_notified_at:string|null;owner_notified_at:string|null;reporter_evidence_received_at:string|null;owner_response_received_at:string|null;official_record_checked_at:string|null};
 
-export default function AdminPage() {
-  const [submissions,setSubmissions]=useState<Submission[]|null>(null);
-  const [claims,setClaims]=useState<Claim[]|null>(null);
-  const [orgRequests,setOrgRequests]=useState<OrgRequest[]|null>(null);
-  const [claimIssues,setClaimIssues]=useState<ClaimIssue[]|null>(null);
-  const [error,setError]=useState<string|null>(null);
-  const [issueNotes,setIssueNotes]=useState<Record<string,string>>({});
-
-  function load() {
-    fetch("/api/admin/submissions").then(async r => {
-      const d=await r.json(); if(!r.ok) throw new Error(d.error??"Failed to load submissions."); setSubmissions(d.submissions);
-    }).catch(e=>setError(e.message));
-
-    fetch("/api/admin/claims").then(async r => {
-      const d=await r.json(); if(!r.ok) throw new Error(d.error??"Failed to load claims."); setClaims(d.claims);
-    }).catch(e=>setError(e.message));
-
-    fetch("/api/admin/org-requests",{cache:"no-store"}).then(async r => {
-      const d=await r.json(); if(!r.ok) throw new Error(d.error??"Failed to load organization requests.");
-      setOrgRequests((d.requests??[]).filter((x:any)=>x.status==="pending"));
-    }).catch(e=>setError(e.message));
-
-    fetch("/api/admin/claim-issues",{cache:"no-store"}).then(async r => {
-      const d=await r.json(); if(!r.ok) throw new Error(d.error??"Failed to load claim issues."); setClaimIssues(d.reports??[]);
-    }).catch(e=>setError(e.message));
+export default function AdminPage(){
+  const [submissions,setSubmissions]=useState<Submission[]|null>(null),[claims,setClaims]=useState<Claim[]|null>(null),[orgRequests,setOrgRequests]=useState<OrgRequest[]|null>(null),[claimIssues,setClaimIssues]=useState<ClaimIssue[]|null>(null);
+  const [error,setError]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({}),[working,setWorking]=useState<string|null>(null);
+  function load(){
+    fetch("/api/admin/submissions").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load submissions.");setSubmissions(d.submissions)}).catch(e=>setError(e.message));
+    fetch("/api/admin/claims").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load claims.");setClaims(d.claims)}).catch(e=>setError(e.message));
+    fetch("/api/admin/org-requests",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load organization requests.");setOrgRequests((d.requests??[]).filter((x:any)=>x.status==="pending"))}).catch(e=>setError(e.message));
+    fetch("/api/admin/claim-issues",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load access cases.");setClaimIssues(d.reports??[])}).catch(e=>setError(e.message));
   }
-
   useEffect(load,[]);
-
-  async function act(id:string, action:"approve"|"reject") {
-    await fetch(`/api/admin/submissions/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})}); load();
-  }
-  async function actClaim(id:string, action:"approve"|"reject") {
-    await fetch(`/api/admin/claims/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})}); load();
-  }
-  async function actClaimIssue(id:string, status:"reviewing"|"resolved"|"rejected") {
-    const res=await fetch("/api/admin/claim-issues",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:id,status,resolutionNotes:issueNotes[id]??""})});
-    const data=await res.json();
-    if(!res.ok){setError(data.error??"Failed to update claim issue.");return;}
-    load();
-  }
-
-  if(error) return <p style={{color:"#B23B2E"}}>{error}</p>;
-
-  return (
-    <div>
-      <h1 style={{fontSize:24,color:"#17233C"}}>Admin Dashboard</h1>
-
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(190px, 1fr))",gap:12,margin:"18px 0 26px"}}>
-        <Card label="Organization Requests" count={orgRequests?.length} href="/admin/org-requests" />
-        <Card label="Listing Claims" count={claims?.length} href="#claims" />
-        <Card label="Claim & Access Issues" count={claimIssues?.length} href="#claim-issues" />
-        <Card label="Pending Updates" count={submissions?.length} href="#submissions" />
-        <Card label="Add Organization" href="/admin/orgs/new" />
-      </div>
-
-      <h2 id="submissions" style={{fontSize:15}}>Pending submissions</h2>
-      {submissions===null && <p>Loading…</p>}
-      {submissions?.length===0 && <p style={{color:"#6B6862"}}>No pending submissions.</p>}
-      {submissions?.map(s=>(
-        <div key={s.id} style={{border:"1px solid #E7E5E1",borderRadius:6,padding:14,marginBottom:8}}>
-          <strong>{s.org_name}</strong> — {s.field_label}
-          <div style={{fontSize:13,margin:"6px 0"}}>{s.old_value} → <strong>{s.new_value}</strong></div>
-          <button onClick={()=>act(s.id,"approve")} style={{marginRight:8}}>Approve</button>
-          <button onClick={()=>act(s.id,"reject")}>Reject</button>
-        </div>
-      ))}
-
-      <h2 id="claims" style={{fontSize:15,marginTop:28}}>Listing claims needing manual review</h2>
-      {claims===null && <p>Loading…</p>}
-      {claims?.length===0 && <p style={{color:"#6B6862"}}>No claims awaiting review.</p>}
-      {claims?.map(c=>(
-        <div key={c.id} style={{border:"1px solid #E7E5E1",borderRadius:6,padding:14,marginBottom:8}}>
-          <strong>{c.org_name}</strong>
-          <div style={{fontSize:13,margin:"6px 0",color:"#6B6862"}}>Requested by: {c.requester_email}</div>
-          <button onClick={()=>actClaim(c.id,"approve")} style={{marginRight:8}}>Approve claim</button>
-          <button onClick={()=>actClaim(c.id,"reject")}>Reject</button>
-        </div>
-      ))}
-
-      <h2 id="claim-issues" style={{fontSize:15,marginTop:28}}>Ownership and access issues</h2>
-      {claimIssues===null && <p>Loading…</p>}
-      {claimIssues?.length===0 && <p style={{color:"#6B6862"}}>No ownership or access issues awaiting review.</p>}
-      {claimIssues?.map(report=>(
-        <div key={report.id} style={{border:"1px solid #E7E5E1",borderRadius:6,padding:14,marginBottom:10}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:12}}>
-            <strong>{report.org_name}</strong>
-            <span style={{fontSize:11,fontWeight:800,color:report.status==="pending"?"#B23B2E":"#2B5C8A"}}>{report.status.toUpperCase()}</span>
-          </div>
-          <div style={{fontSize:13,lineHeight:1.6,marginTop:7}}>
-            <div><strong>Issue:</strong> {issueLabel(report.issue_type)}</div>
-            <div><strong>Reported by:</strong> {report.reporter_name} · {report.reporter_email}{report.reporter_phone?` · ${report.reporter_phone}`:""}</div>
-            <div><strong>Relationship:</strong> {report.relationship_to_org.replaceAll("_"," ")}</div>
-            {report.previous_org_email&&<div><strong>Previous organization email:</strong> {report.previous_org_email}</div>}
-            <div style={{marginTop:6,whiteSpace:"pre-wrap"}}>{report.details}</div>
-            {report.evidence_url&&<div style={{marginTop:5}}><a href={report.evidence_url} target="_blank" rel="noreferrer">Open supporting link</a></div>}
-          </div>
-          <label style={{display:"block",fontSize:12,fontWeight:700,marginTop:10}}>Private review or resolution notes
-            <textarea value={issueNotes[report.id]??""} onChange={e=>setIssueNotes(current=>({...current,[report.id]:e.target.value}))} rows={3} style={{display:"block",width:"100%",marginTop:4,padding:8,border:"1px solid #D8D6D2"}} />
-          </label>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:9}}>
-            {report.status==="pending"&&<button onClick={()=>actClaimIssue(report.id,"reviewing")}>Mark under review</button>}
-            <button onClick={()=>actClaimIssue(report.id,"resolved")}>Resolve</button>
-            <button onClick={()=>actClaimIssue(report.id,"rejected")}>Reject report</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  async function act(id:string,action:"approve"|"reject"){await fetch(`/api/admin/submissions/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});load()}
+  async function actClaim(id:string,action:"approve"|"reject"){await fetch(`/api/admin/claims/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});load()}
+  async function updateCase(id:string,body:Record<string,string>){setWorking(id);setError(null);const r=await fetch("/api/admin/claim-issues",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:id,...body})});const d=await r.json();setWorking(null);if(!r.ok){setError(d.error??"The case could not be updated.");return}load()}
+  if(error)return <p style={{color:"#B23B2E"}}>{error}</p>;
+  return <div>
+    <h1 style={{fontSize:24,color:"#17233C"}}>Admin Dashboard</h1>
+    <div style={gridStyle}><Card label="Organization Requests" count={orgRequests?.length} href="/admin/org-requests"/><Card label="Listing Claims" count={claims?.length} href="#claims"/><Card label="Access Cases" count={claimIssues?.length} href="#claim-issues"/><Card label="Pending Updates" count={submissions?.length} href="#submissions"/><Card label="Add Organization" href="/admin/orgs/new"/></div>
+    <h2 id="claim-issues" style={headingStyle}>Organization access cases</h2>
+    {claimIssues===null&&<p>Loading…</p>}{claimIssues?.length===0&&<p style={mutedStyle}>No access cases awaiting review.</p>}
+    {claimIssues?.map(report=>{const overdue=new Date(report.due_at).getTime()<Date.now();return <details key={report.id} open={overdue||report.status==="ready_decision"} style={{...caseStyle,borderColor:overdue?"#E85C56":"#E7E5E1"}}>
+      <summary style={{cursor:"pointer",fontWeight:800,color:"#1E3A5F"}}>{report.org_name} · {statusLabel(report.status)} {overdue?"· OVERDUE":""}</summary>
+      <div style={{fontSize:13,lineHeight:1.55,marginTop:12}}><strong>Next:</strong> {report.next_action}<br/><strong>Due:</strong> {new Date(report.due_at).toLocaleDateString()}<br/><strong>Reporter:</strong> {report.reporter_name} · {report.reporter_email}{report.reporter_phone?` · ${report.reporter_phone}`:""}<br/><strong>Current owner:</strong> {report.current_owner_email??"No owner email found"}<br/><strong>Issue:</strong> {issueLabel(report.issue_type)} · {report.relationship_to_org.replaceAll("_"," ")}{report.previous_org_email?<><br/><strong>Previous email:</strong> {report.previous_org_email}</>:null}</div>
+      <p style={{whiteSpace:"pre-wrap",fontSize:13}}>{report.details}</p>{report.evidence_url&&<a href={report.evidence_url} target="_blank" rel="noreferrer">Open supporting link</a>}
+      <div style={{display:"grid",gap:7,margin:"14px 0"}}><Check done={!!report.reporter_evidence_received_at} label="Reporter documentation received" onClick={()=>updateCase(report.id,{checkpoint:"reporter_evidence"})}/><Check done={!!report.owner_response_received_at} label="Current owner response received" onClick={()=>updateCase(report.id,{checkpoint:"owner_response"})}/><Check done={!!report.official_record_checked_at} label="Independent official record checked" onClick={()=>updateCase(report.id,{checkpoint:"official_record"})}/></div>
+      <label style={{display:"block",fontSize:12,fontWeight:800}}>Outcome sent to both parties<textarea value={notes[report.id]??""} onChange={e=>setNotes(n=>({...n,[report.id]:e.target.value}))} rows={3} placeholder="Explain the decision and any next steps. Do not include private evidence or personal information." style={textareaStyle}/></label>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:9}}><button disabled={working===report.id} onClick={()=>updateCase(report.id,{status:"resolved",resolutionNotes:notes[report.id]??""})}>Resolve and email outcome</button><button disabled={working===report.id} onClick={()=>updateCase(report.id,{status:"rejected",resolutionNotes:notes[report.id]??""})}>Close without access change</button></div>
+    </details>})}
+    <h2 id="submissions" style={headingStyle}>Pending submissions</h2>{submissions===null&&<p>Loading…</p>}{submissions?.length===0&&<p style={mutedStyle}>No pending submissions.</p>}{submissions?.map(s=><div key={s.id} style={itemStyle}><strong>{s.org_name}</strong> — {s.field_label}<div style={{fontSize:13,margin:"6px 0"}}>{s.old_value} → <strong>{s.new_value}</strong></div><button onClick={()=>act(s.id,"approve")} style={{marginRight:8}}>Approve</button><button onClick={()=>act(s.id,"reject")}>Reject</button></div>)}
+    <h2 id="claims" style={headingStyle}>Listing claims needing manual review</h2>{claims===null&&<p>Loading…</p>}{claims?.length===0&&<p style={mutedStyle}>No claims awaiting review.</p>}{claims?.map(c=><div key={c.id} style={itemStyle}><strong>{c.org_name}</strong><div style={{fontSize:13,margin:"6px 0",color:"#6B6862"}}>Requested by: {c.requester_email}</div><button onClick={()=>actClaim(c.id,"approve")} style={{marginRight:8}}>Approve claim</button><button onClick={()=>actClaim(c.id,"reject")}>Reject</button></div>)}
+  </div>
 }
-
-function issueLabel(value:string){return ({already_claimed:"Organization is already claimed",lost_email_access:"Lost access to organization email",wrong_owner:"Current owner may be incorrect",organization_details_wrong:"Organization information is incorrect",other:"Other issue"} as Record<string,string>)[value]??value;}
-
-function Card({label,count,href}:{label:string;count?:number;href:string}) {
-  return (
-    <a href={href} style={{display:"block",background:"#fff",border:"1px solid #E7E5E1",borderRadius:9,padding:14,color:"#17233C",textDecoration:"none"}}>
-      <div style={{fontSize:13,color:"#6B6862"}}>{label}</div>
-      {typeof count==="number" && <div style={{fontSize:28,fontWeight:800,marginTop:3}}>{count}</div>}
-    </a>
-  );
-}
+function Check({done,label,onClick}:{done:boolean;label:string;onClick:()=>void}){return <button type="button" disabled={done} onClick={onClick} style={{padding:10,textAlign:"left",border:"1px solid #D8E3EA",background:done?"#DCF0E8":"#fff",color:"#1E3A5F",fontWeight:700}}>{done?"✓":"○"} {label}</button>}
+function issueLabel(v:string){return({already_claimed:"Organization is already claimed",lost_email_access:"Lost access to organization email",wrong_owner:"Current owner may be incorrect",organization_details_wrong:"Organization information is incorrect",other:"Other issue"}as Record<string,string>)[v]??v}
+function statusLabel(v:string){return({waiting_documents:"Waiting for documents",waiting_reporter:"Waiting for reporter",waiting_owner:"Waiting for owner",ready_decision:"Ready for decision",reviewing:"Under review"}as Record<string,string>)[v]??v.replaceAll("_"," ")}
+function Card({label,count,href}:{label:string;count?:number;href:string}){return <a href={href} style={{display:"block",background:"#fff",border:"1px solid #E7E5E1",borderRadius:9,padding:14,color:"#17233C",textDecoration:"none"}}><div style={{fontSize:13,color:"#6B6862"}}>{label}</div>{typeof count==="number"&&<div style={{fontSize:28,fontWeight:800,marginTop:3}}>{count}</div>}</a>}
+const gridStyle={display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(190px, 1fr))",gap:12,margin:"18px 0 26px"}as const;
+const headingStyle={fontSize:15,marginTop:28};const mutedStyle={color:"#6B6862"};const itemStyle={border:"1px solid #E7E5E1",borderRadius:6,padding:14,marginBottom:8};const caseStyle={border:"1px solid #E7E5E1",borderRadius:8,padding:14,marginBottom:10,background:"#fff"};const textareaStyle={display:"block",width:"100%",marginTop:5,padding:9,border:"1px solid #D8D6D2",boxSizing:"border-box"}as const;
