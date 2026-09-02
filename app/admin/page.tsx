@@ -5,15 +5,16 @@ type Submission={id:string;org_name:string;field_label:string;old_value:string;n
 type Claim={id:string;org_id:string;org_name:string;requester_email:string;created_at:string};
 type OrgRequest={id:string;organization_name:string;relationship:string;created_at:string};
 type ClaimIssue={id:string;org_name:string;reporter_name:string;reporter_email:string;reporter_phone:string|null;relationship_to_org:string;issue_type:string;previous_org_email:string|null;details:string;evidence_url:string|null;status:string;created_at:string;due_at:string;next_action:string;current_owner_email:string|null;reporter_notified_at:string|null;owner_notified_at:string|null;reporter_evidence_received_at:string|null;owner_response_received_at:string|null;official_record_checked_at:string|null};
+type LifecycleReview={id:string;org_id:string;org_name:string;review_type:string;status:string;reason:string;owner_email:string|null;response_due_at:string;created_at:string};
 
 export default function AdminPage(){
-  const [submissions,setSubmissions]=useState<Submission[]|null>(null),[claims,setClaims]=useState<Claim[]|null>(null),[orgRequests,setOrgRequests]=useState<OrgRequest[]|null>(null),[claimIssues,setClaimIssues]=useState<ClaimIssue[]|null>(null);
+  const [submissions,setSubmissions]=useState<Submission[]|null>(null),[claims,setClaims]=useState<Claim[]|null>(null),[orgRequests,setOrgRequests]=useState<OrgRequest[]|null>(null),[claimIssues,setClaimIssues]=useState<ClaimIssue[]|null>(null),[lifecycleReviews,setLifecycleReviews]=useState<LifecycleReview[]>([]);
   const [error,setError]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({}),[working,setWorking]=useState<string|null>(null);
   function load(){
     fetch("/api/admin/submissions").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load submissions.");setSubmissions(d.submissions)}).catch(e=>setError(e.message));
     fetch("/api/admin/claims").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load claims.");setClaims(d.claims)}).catch(e=>setError(e.message));
     fetch("/api/admin/org-requests",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load organization requests.");setOrgRequests((d.requests??[]).filter((x:any)=>x.status==="pending"))}).catch(e=>setError(e.message));
-    fetch("/api/admin/claim-issues",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load access cases.");setClaimIssues(d.reports??[])}).catch(e=>setError(e.message));
+    fetch("/api/admin/claim-issues",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Failed to load access cases.");setClaimIssues(d.reports??[]);setLifecycleReviews(d.lifecycleReviews??[])}).catch(e=>setError(e.message));
   }
   useEffect(load,[]);
   async function act(id:string,action:"approve"|"reject"){await fetch(`/api/admin/submissions/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});load()}
@@ -22,7 +23,9 @@ export default function AdminPage(){
   if(error)return <p style={{color:"#B23B2E"}}>{error}</p>;
   return <div>
     <h1 style={{fontSize:24,color:"#17233C"}}>Admin Dashboard</h1>
-    <div style={gridStyle}><Card label="Organization Requests" count={orgRequests?.length} href="/admin/org-requests"/><Card label="Listing Claims" count={claims?.length} href="#claims"/><Card label="Access Cases" count={claimIssues?.length} href="#claim-issues"/><Card label="Pending Updates" count={submissions?.length} href="#submissions"/><Card label="Add Organization" href="/admin/orgs/new"/></div>
+    <div style={gridStyle}><Card label="Organization Requests" count={orgRequests?.length} href="/admin/org-requests"/><Card label="Listing Claims" count={claims?.length} href="#claims"/><Card label="Access Cases" count={claimIssues?.length} href="#claim-issues"/><Card label="Closure & Dormancy" count={lifecycleReviews.length} href="#lifecycle-reviews"/><Card label="Pending Updates" count={submissions?.length} href="#submissions"/><Card label="Add Organization" href="/admin/orgs/new"/></div>
+    <h2 id="lifecycle-reviews" style={headingStyle}>Closure and dormancy reviews</h2>
+    {lifecycleReviews.length===0?<p style={mutedStyle}>No lifecycle reviews awaiting action.</p>:lifecycleReviews.map(review=><a key={review.id} href={`/admin/orgs/${review.org_id}`} style={{...itemStyle,display:"block",color:"#1E3A5F",textDecoration:"none"}}><strong>{review.org_name}</strong> · {review.review_type.replaceAll("_"," ")}<div style={{fontSize:13,color:"#6B6862",marginTop:5}}>Status: {review.status.replaceAll("_"," ")} · Review date: {new Date(review.response_due_at).toLocaleDateString()}<br/>{review.reason}</div></a>)}
     <h2 id="claim-issues" style={headingStyle}>Organization access cases</h2>
     {claimIssues===null&&<p>Loading…</p>}{claimIssues?.length===0&&<p style={mutedStyle}>No access cases awaiting review.</p>}
     {claimIssues?.map(report=>{const overdue=new Date(report.due_at).getTime()<Date.now();return <details key={report.id} open={overdue||report.status==="ready_decision"} style={{...caseStyle,borderColor:overdue?"#E85C56":"#E7E5E1"}}>
