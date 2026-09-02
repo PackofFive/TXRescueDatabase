@@ -92,6 +92,16 @@ export default function AdminOrgEditPage() {
     useState("");
   const [assistanceReason, setAssistanceReason] =
     useState("");
+  const [lifecycleType, setLifecycleType] =
+    useState("possible_dormancy");
+  const [lifecycleReason, setLifecycleReason] =
+    useState("");
+  const [closureConfirmed, setClosureConfirmed] =
+    useState(false);
+  const [lifecycleDecision, setLifecycleDecision] =
+    useState("");
+  const [archiveConfirmation, setArchiveConfirmation] =
+    useState("");
 
   /* =====================================================
      LOAD ORGANIZATION
@@ -519,6 +529,23 @@ export default function AdminOrgEditPage() {
     }
   }
 
+  async function handleLifecycleAction(action:string, extra:Record<string,unknown>={}) {
+    setAdminActionLoading(true);
+    setAdminActionError(null);
+    try {
+      const res=await fetch(`/api/admin/orgs/${encodeURIComponent(orgId)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action,...extra})
+      });
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error??"The lifecycle review could not be updated.");
+      window.location.reload();
+    }catch(err){
+      setAdminActionError(err instanceof Error?err.message:"The lifecycle review could not be updated.");
+      setAdminActionLoading(false);
+    }
+  }
+
   /* =====================================================
      PAGE STATES
   ===================================================== */
@@ -552,6 +579,9 @@ export default function AdminOrgEditPage() {
     );
 
   const claimed = Boolean(original.has_active_owner);
+  const lifecycleReview = original.lifecycle_review && typeof original.lifecycle_review === "object"
+    ? original.lifecycle_review as Record<string,unknown> : null;
+  const lifecycleOpen = lifecycleReview && (lifecycleReview.status === "waiting_owner" || lifecycleReview.status === "ready_decision");
   const assistanceUnlocked = !claimed || (
     ownerRequestConfirmed &&
     supportReference.trim().length >= 3 &&
@@ -955,6 +985,36 @@ export default function AdminOrgEditPage() {
         >
           Admin Actions
         </div>
+
+        {claimed && (
+          <div style={{border:"1px solid #E6C59D",background:"#FFF9F1",padding:16,marginBottom:22}}>
+            <h2 style={{fontSize:17,margin:"0 0 8px",color:"#17233C"}}>Documented closure or dormancy review</h2>
+            {lifecycleOpen ? (
+              <div>
+                <p style={{fontSize:13,lineHeight:1.5,color:"#6B6862"}}><strong>Status:</strong> {String(lifecycleReview.status).replaceAll("_"," ")}<br/><strong>Review:</strong> {String(lifecycleReview.review_type).replaceAll("_"," ")}<br/><strong>Owner response due:</strong> {new Date(String(lifecycleReview.response_due_at)).toLocaleDateString()}<br/><strong>Reason:</strong> {String(lifecycleReview.reason)}</p>
+                {!lifecycleReview.owner_response_received_at&&<button type="button" disabled={adminActionLoading} onClick={()=>handleLifecycleAction("record_lifecycle_response",{reviewId:lifecycleReview.id})}>Record owner response</button>}
+                <label style={{...labelStyle,marginTop:14}}>Final decision reason</label>
+                <textarea rows={3} value={lifecycleDecision} onChange={e=>setLifecycleDecision(e.target.value)} style={inputStyle} placeholder="Explain the verified closure or completed dormancy review."/>
+                <label style={{...labelStyle,marginTop:10}}>Type ARCHIVE to confirm</label>
+                <input value={archiveConfirmation} onChange={e=>setArchiveConfirmation(e.target.value)} style={inputStyle}/>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
+                  <button type="button" disabled={adminActionLoading} onClick={()=>handleLifecycleAction("complete_lifecycle_review",{reviewId:lifecycleReview.id,reason:lifecycleDecision,confirmation:archiveConfirmation})}>Archive after completed review</button>
+                  <button type="button" disabled={adminActionLoading} onClick={()=>handleLifecycleAction("cancel_lifecycle_review",{reviewId:lifecycleReview.id,reason:lifecycleDecision})}>Cancel review</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p style={{fontSize:13,lineHeight:1.5,color:"#6B6862"}}>Starting a review does not archive the listing. The owner is notified first. Possible dormancy uses a 30-day response period; owner-requested closure uses 7 days.</p>
+                <label style={labelStyle}>Review type</label>
+                <select value={lifecycleType} onChange={e=>setLifecycleType(e.target.value)} style={{...inputStyle,marginBottom:10}}><option value="possible_dormancy">Possible prolonged dormancy</option><option value="owner_requested_closure">Owner-requested closure</option></select>
+                {lifecycleType==="owner_requested_closure"&&<label style={{display:"block",fontSize:12,fontWeight:700,marginBottom:10}}><input type="checkbox" checked={closureConfirmed} onChange={e=>setClosureConfirmed(e.target.checked)}/> I confirmed this closure request came from the active owner</label>}
+                <label style={labelStyle}>Reason and supporting facts</label>
+                <textarea rows={3} value={lifecycleReason} onChange={e=>setLifecycleReason(e.target.value)} style={inputStyle} placeholder="Document the closure request or the signs of prolonged dormancy."/>
+                <button type="button" disabled={adminActionLoading} onClick={()=>handleLifecycleAction("start_lifecycle_review",{reviewType:lifecycleType,reason:lifecycleReason,ownerRequestConfirmed:closureConfirmed})} style={{marginTop:10}}>Start review and notify owner</button>
+              </div>
+            )}
+          </div>
+        )}
 
         <h2
           style={{
