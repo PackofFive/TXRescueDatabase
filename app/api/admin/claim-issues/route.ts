@@ -4,7 +4,7 @@ import { requireAdminFresh, AuthError } from "@/lib/auth";
 
 export const runtime = "edge";
 
-const REVIEW_ACTIONS = new Set(["reviewing", "resolved", "rejected"]);
+const REVIEW_ACTIONS = new Set(["waiting_documents", "waiting_reporter", "waiting_owner", "ready_decision", "reviewing", "resolved", "rejected"]);
 
 export async function GET() {
   try {
@@ -26,11 +26,20 @@ export async function GET() {
         report.resolution_notes,
         report.created_at,
         report.reviewed_at
+        ,report.due_at
+        ,report.next_action
+        ,report.last_activity_at
+        ,report.reporter_notified_at
+        ,report.owner_notified_at
+        ,report.current_owner_email
+        ,report.reporter_evidence_received_at
+        ,report.owner_response_received_at
+        ,report.official_record_checked_at
       from organization_claim_issue_reports report
       join organizations organization on organization.id = report.org_id
-      where report.status in ('pending', 'reviewing')
+      where report.status not in ('resolved', 'rejected')
       order by
-        case when report.status = 'pending' then 0 else 1 end,
+        case when report.due_at < now() then 0 when report.status = 'ready_decision' then 1 else 2 end,
         report.created_at asc
     `;
     return NextResponse.json({ reports: rows });
@@ -69,7 +78,7 @@ export async function PATCH(req: NextRequest) {
         resolution_notes = ${resolutionNotes || null},
         updated_at = now()
       where id = ${reportId}
-        and status in ('pending', 'reviewing')
+        and status not in ('resolved', 'rejected')
       returning id, status
     `;
     if (!rows[0]) {
