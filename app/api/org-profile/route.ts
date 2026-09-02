@@ -6,7 +6,7 @@ import {
   requireEffectiveOrg,
 } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { sendOrganizationTeamInviteEmail } from "@/lib/email";
+import { sendOrganizationTeamInviteEmail, sendClaimCaseEmail } from "@/lib/email";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
@@ -189,6 +189,16 @@ export async function GET(request: NextRequest) {
         updated_at
         ,logo_storage_key is not null as has_logo
         ,logo_updated_at
+        ,(
+          select row_to_json(review_row)
+          from (
+            select id, status, reason, response_due_at, created_at
+            from organization_lifecycle_reviews
+            where org_id = organizations.id
+              and review_type = 'owner_requested_closure'
+            order by created_at desc limit 1
+          ) review_row
+        ) as closure_request
       from organizations
       where id = ${orgId}::uuid
       limit 1
@@ -291,6 +301,31 @@ export async function POST(request: NextRequest) {
     const { session, orgId } = await requireEffectiveOrg();
     const access = await resolveAccess(session, orgId);
 
+    const body = await request.json().catch(() => null);
+
+    if (body?.action === "request_closure") {
+      if (access.level !== "owner") throw new AuthError("Only the Organization Owner may request closure.", 403);
+      const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 3000) : "";
+      if (reason.length < 20 || body?.confirmation !== "CLOSE MY ORGANIZATION") {
+        return NextResponse.json({ error: "Explain the closure and type CLOSE MY ORGANIZATION exactly." }, { status: 400 });
+      }
+      const existing = await sql`select id from organization_lifecycle_reviews where org_id=${orgId}::uuid and status in ('waiting_owner','ready_decision') limit 1`;
+      if (existing[0]) return NextResponse.json({ error: "This organization already has an open closure or dormancy review." }, { status: 409 });
+      const orgRows = await sql`select name from organizations where id=${orgId}::uuid limit 1`;
+      const rows = await sql`
+        insert into organization_lifecycle_reviews (org_id,review_type,status,reason,owner_email,owner_contacted_at,owner_response_received_at,response_due_at,initiated_by)
+        values (${orgId}::uuid,'owner_requested_closure','ready_decision',${reason},${session.email},now(),now(),now()+interval '7 days',${session.id}::uuid)
+        returning id,response_due_at
+      `;
+      const reference=String(rows[0].id);
+      const due=new Date(String(rows[0].response_due_at)).toLocaleDateString("en-US");
+      const subject=`Closure request received — ${String(orgRows[0]?.name??"your organization")}`;
+      const message=`Pack of Five received your request to close and archive this organization listing.\n\nReference: ${reference}\nReview date: ${due}\nReason recorded: ${reason}\n\nThe listing remains active during the review period. Historical records will be preserved if the request is approved. Contact Pack of Five promptly if you did not make this request.`;
+      const delivery=await sendClaimCaseEmail(session.email,subject,message);
+      await sql`update organization_lifecycle_reviews set opening_email_status=${delivery.sent?"sent":"failed"},updated_at=now() where id=${reference}`;
+      return NextResponse.json({ok:true,reference,message:delivery.sent?"Closure request submitted. A receipt was emailed to you.":"Closure request submitted. Email delivery is pending."});
+    }
+
     if (!access.canManageOrganizationAccess) {
       throw new AuthError(
         "Organization Owner access is required to invite team members.",
@@ -298,7 +333,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json().catch(() => null);
     const email = normalizeEmail(body?.email);
     const accessLevel = String(body?.accessLevel ?? "").trim();
 
