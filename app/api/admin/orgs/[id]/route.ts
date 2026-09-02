@@ -5,6 +5,7 @@ import {
   AuthError,
 } from "@/lib/auth";
 import { CAPABILITY_FIELDS } from "@/lib/constants";
+import { sendClaimCaseEmail } from "@/lib/email";
 
 export const runtime = "edge";
 
@@ -73,6 +74,18 @@ export async function GET(
             and membership.access_level = 'owner'
           limit 1
         ) as active_owner_email
+        ,(
+          select row_to_json(review_row)
+          from (
+            select id, review_type, status, reason, owner_email,
+              owner_contacted_at, owner_response_received_at,
+              response_due_at, decision_reason, created_at
+            from organization_lifecycle_reviews
+            where org_id = o.id
+            order by created_at desc
+            limit 1
+          ) review_row
+        ) as lifecycle_review
       from organizations o
       left join capabilities c
         on c.org_id = o.id
@@ -157,6 +170,71 @@ export async function PATCH(
       ) as claimed
     `;
     const claimed = Boolean(ownershipRows[0]?.claimed);
+
+    if (body?.action === "start_lifecycle_review") {
+      const reviewType = body?.reviewType === "owner_requested_closure" || body?.reviewType === "possible_dormancy" ? body.reviewType : "";
+      const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 3000) : "";
+      const ownerRequestConfirmed = body?.ownerRequestConfirmed === true;
+      if (!claimed || !reviewType || reason.length < 20) return NextResponse.json({ error: "Choose a review type and provide a specific reason of at least 20 characters." }, { status: 400 });
+      if (reviewType === "owner_requested_closure" && !ownerRequestConfirmed) return NextResponse.json({ error: "Confirm that the current owner requested closure." }, { status: 400 });
+      const owners = await sql`select account.email from organization_memberships membership join users account on account.id=membership.user_id where membership.org_id=${orgId} and membership.status='active' and membership.access_level='owner' limit 1`;
+      const ownerEmail = owners[0]?.email ? String(owners[0].email) : null;
+      const reviews = await sql`
+        insert into organization_lifecycle_reviews (org_id,review_type,reason,owner_email,owner_contacted_at,owner_response_received_at,response_due_at,initiated_by)
+        values (${orgId},${reviewType},${reason},${ownerEmail},now(),${reviewType === "owner_requested_closure" ? new Date().toISOString() : null},now()+${reviewType === "owner_requested_closure" ? "7 days" : "30 days"}::interval,${admin.id})
+        returning id,review_type,status,response_due_at
+      `;
+      if (ownerEmail) {
+        const orgRows = await sql`select name from organizations where id=${orgId}`;
+        const due = new Date(String(reviews[0].response_due_at)).toLocaleDateString("en-US");
+        const subject = `Review of ${String(orgRows[0]?.name ?? "your organization")} on Pack of Five`;
+        const message = reviewType === "owner_requested_closure"
+          ? `Pack of Five recorded a request to close and archive your organization's listing.\n\nReason recorded: ${reason}\nResponse deadline: ${due}\n\nThe listing has not been archived. Please contact Pack of Five before the deadline if this request is incorrect or needs clarification.`
+          : `Pack of Five is reviewing whether your organization's listing may be dormant.\n\nReason for review: ${reason}\nResponse deadline: ${due}\n\nThe listing has not been archived. Please contact Pack of Five before the deadline to confirm that the organization remains active or to update its information.`;
+        const delivery = await sendClaimCaseEmail(ownerEmail,subject,message);
+        await sql`update organization_lifecycle_reviews set opening_email_status=${delivery.sent ? "sent" : "failed"},updated_at=now() where id=${String(reviews[0].id)}`;
+      }
+      return NextResponse.json({ ok:true, review:reviews[0] });
+    }
+
+    if (body?.action === "record_lifecycle_response") {
+      const reviewId = typeof body?.reviewId === "string" ? body.reviewId : "";
+      const rows = await sql`update organization_lifecycle_reviews set owner_response_received_at=now(),status='ready_decision',updated_at=now() where id=${reviewId} and org_id=${orgId} and status='waiting_owner' returning id,status`;
+      if(!rows[0])return NextResponse.json({error:"Open lifecycle review not found."},{status:404});
+      return NextResponse.json({ok:true,review:rows[0]});
+    }
+
+    if (body?.action === "cancel_lifecycle_review") {
+      const reviewId = typeof body?.reviewId === "string" ? body.reviewId : "";
+      const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0,3000) : "";
+      if(reason.length<10)return NextResponse.json({error:"Add a cancellation reason of at least 10 characters."},{status:400});
+      const rows=await sql`update organization_lifecycle_reviews set status='cancelled',decision_reason=${reason},decided_by=${admin.id},decided_at=now(),updated_at=now() where id=${reviewId} and org_id=${orgId} and status in ('waiting_owner','ready_decision') returning id`;
+      if(!rows[0])return NextResponse.json({error:"Open lifecycle review not found."},{status:404});
+      return NextResponse.json({ok:true});
+    }
+
+    if (body?.action === "complete_lifecycle_review") {
+      const reviewId = typeof body?.reviewId === "string" ? body.reviewId : "";
+      const decisionReason = typeof body?.reason === "string" ? body.reason.trim().slice(0,3000) : "";
+      const confirmation = body?.confirmation === "ARCHIVE";
+      if(!confirmation||decisionReason.length<20)return NextResponse.json({error:"Explain the decision and enter the required ARCHIVE confirmation."},{status:400});
+      const reviews=await sql`select * from organization_lifecycle_reviews where id=${reviewId} and org_id=${orgId} and status in ('waiting_owner','ready_decision') limit 1`;
+      const review=reviews[0];
+      if(!review)return NextResponse.json({error:"Open lifecycle review not found."},{status:404});
+      if(review.review_type==='possible_dormancy' && !review.owner_response_received_at && new Date(String(review.response_due_at)).getTime()>Date.now()) return NextResponse.json({error:"The dormancy outreach period has not ended, and no owner response has been recorded."},{status:409});
+      if(review.review_type==='owner_requested_closure' && !review.owner_response_received_at) return NextResponse.json({error:"Owner confirmation must be recorded before archiving."},{status:409});
+      await sql`update organizations set archived_at=now(),updated_at=now() where id=${orgId}`;
+      await sql`update organization_lifecycle_reviews set status='archived',decision_reason=${decisionReason},decided_by=${admin.id},decided_at=now(),updated_at=now() where id=${reviewId}`;
+      if(review.owner_email){
+        const orgRows=await sql`select name from organizations where id=${orgId}`;
+        const subject=`${String(orgRows[0]?.name??"Organization")} listing archived on Pack of Five`;
+        const message=`The Pack of Five listing has been archived after the documented closure or dormancy review.\n\nDecision: ${decisionReason}\n\nHistorical records were preserved. Contact Pack of Five if this outcome should be reviewed.`;
+        const delivery=await sendClaimCaseEmail(String(review.owner_email),subject,message);
+        await sql`update organization_lifecycle_reviews set outcome_email_status=${delivery.sent?"sent":"failed"},updated_at=now() where id=${reviewId}`;
+      }
+      await sql`insert into update_log(org_id,changed_by,field_name,old_value,new_value,source) values(${orgId},${admin.id},'archived_at',null,now()::text,'documented_lifecycle_review')`;
+      return NextResponse.json({ok:true,archived:true});
+    }
 
     /* -----------------------------------------------------
        ARCHIVE
