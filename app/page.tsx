@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import BrandLogo from "./components/BrandLogo";
 
 const COLORS = {
   navy: "#1E3A5F",
@@ -560,7 +561,7 @@ function PublicHeader() {
             textDecoration: "none",
           }}
         >
-          <PawMark />
+          <BrandLogo size={30} />
 
           <span
             style={{
@@ -599,74 +600,6 @@ function PublicHeader() {
         </span>
       </div>
     </header>
-  );
-}
-
-function PawMark() {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        position: "relative",
-        display: "inline-block",
-        width: 30,
-        height: 28,
-        flex: "0 0 auto",
-      }}
-    >
-      <span
-        style={{
-          ...toeStyle,
-          left: 1,
-          top: 6,
-          background: COLORS.coral,
-          transform: "rotate(-24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...toeStyle,
-          left: 8,
-          top: 0,
-          background: COLORS.peach,
-          transform: "rotate(-8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...toeStyle,
-          right: 7,
-          top: 0,
-          background: COLORS.mint,
-          transform: "rotate(8deg)",
-        }}
-      />
-
-      <span
-        style={{
-          ...toeStyle,
-          right: 0,
-          top: 6,
-          background: COLORS.pink,
-          transform: "rotate(24deg)",
-        }}
-      />
-
-      <span
-        style={{
-          position: "absolute",
-          left: 7,
-          bottom: 0,
-          width: 18,
-          height: 16,
-          borderRadius:
-            "50% 50% 45% 45%",
-          background: COLORS.navy,
-        }}
-      />
-    </span>
   );
 }
 
@@ -912,13 +845,6 @@ function stringValue(
     ? value.trim()
     : null;
 }
-
-const toeStyle: React.CSSProperties = {
-  position: "absolute",
-  width: 8,
-  height: 10,
-  borderRadius: "50%",
-};
 
 const eyebrowStyle: React.CSSProperties = {
   margin: 0,
