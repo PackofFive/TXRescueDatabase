@@ -1581,7 +1581,14 @@ function AdminShell({
 
   const adminLink = (href: string, label: string) => {
     const path = href.split("#")[0];
-    const active = href === "/admin" ? pathname === "/admin" : pathname === path || pathname.startsWith(`${path}/`);
+    const hasSectionAnchor = href.includes("#");
+    const active = hasSectionAnchor
+      ? false
+      : href === "/admin"
+      ? pathname === "/admin"
+      : href === "/admin/orgs"
+      ? pathname === "/admin/orgs" || (pathname.startsWith("/admin/orgs/") && pathname !== "/admin/orgs/new")
+      : pathname === path;
     return <a href={href} style={{...adminSidebarLink,background:active?"#456284":"transparent",color:"#fff"}}>{label}</a>;
   };
 
@@ -1609,10 +1616,10 @@ function AdminShell({
         </nav>
       ) : null}
 
-      <div style={{display:"grid",gridTemplateColumns:compact?"1fr":"270px minmax(0, 1fr)",minHeight:"calc(100vh - 78px)"}}>
-        {!compact ? <aside style={{background:COLORS.navy,color:"#fff",padding:"26px 22px",minHeight:"100%"}}>
-          <div style={{fontSize:20,fontWeight:800}}>PACK OF FIVE</div>
-          <div style={{fontSize:11,opacity:.72,letterSpacing:".1em",marginTop:3,marginBottom:26}}>PLATFORM ADMINISTRATION</div>
+      <div style={{display:"grid",gridTemplateColumns:compact?"1fr":"220px minmax(0, 1fr)",minHeight:"calc(100vh - 78px)"}}>
+        {!compact ? <aside style={{background:COLORS.navy,color:"#fff",padding:"24px 16px",minHeight:"100%"}}>
+          <div style={{fontSize:17,fontWeight:800}}>PACK OF FIVE</div>
+          <div style={{fontSize:9.5,opacity:.72,letterSpacing:".1em",marginTop:3,marginBottom:24}}>PLATFORM ADMINISTRATION</div>
           <nav aria-label="Platform Administration">
             <AdminNavGroup label="OVERVIEW">{adminLink("/admin","Dashboard")}</AdminNavGroup>
             {canUseDirectory?<AdminNavGroup label="DIRECTORY">{adminLink("/admin/orgs","Organizations")}{adminLink("/admin/orgs/new","Add Organization")}{adminLink("/admin/org-requests","Organization Requests")}{adminLink("/admin#submissions","Pending Public Updates")}</AdminNavGroup>:null}
@@ -1633,9 +1640,9 @@ function AdminShell({
   );
 }
 
-function AdminNavGroup({label,children}:{label:string;children:ReactNode}){return <section style={{marginBottom:22}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".12em",opacity:.68,margin:"0 10px 7px"}}>{label}</div><div style={{display:"grid",gap:3}}>{children}</div></section>}
+function AdminNavGroup({label,children}:{label:string;children:ReactNode}){return <section style={{marginBottom:18}}><div style={{fontSize:9.5,fontWeight:800,letterSpacing:".12em",opacity:.68,margin:"0 9px 6px"}}>{label}</div><div style={{display:"grid",gap:2}}>{children}</div></section>}
 
-const adminSidebarLink:CSSProperties={display:"block",padding:"9px 10px",borderRadius:7,textDecoration:"none",fontSize:14,fontWeight:700,whiteSpace:"nowrap"};
+const adminSidebarLink:CSSProperties={display:"block",padding:"8px 9px",borderRadius:7,textDecoration:"none",fontSize:12.5,fontWeight:700,whiteSpace:"normal",lineHeight:1.3};
 const adminFooterLink:CSSProperties={display:"block",color:"#fff",textDecoration:"none",fontSize:14,marginBottom:12};
 
 /* =========================================================
