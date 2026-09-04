@@ -576,6 +576,60 @@ export default function PetOwnerPage() {
         </p>
       )}
 
+      {!error && stats.overdueReminders === 0 ? (
+        <section
+          style={{
+            background: COLORS.mint,
+            border: `1px solid ${COLORS.border}`,
+            padding: 18,
+            marginBottom: 18,
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              color: COLORS.navy,
+              marginBottom: 5,
+            }}
+          >
+            You’re all caught up
+          </strong>
+
+          <p style={{ margin: 0, color: COLORS.muted, fontSize: 14, lineHeight: 1.55 }}>
+            None of your pets have overdue care reminders.
+          </p>
+        </section>
+      ) : null}
+
+      {!error && stats.overdueReminders > 0 ? (
+        <section
+          style={{
+            background: "#FCE9E7",
+            border: "1px solid #E9B9B4",
+            padding: 18,
+            marginBottom: 18,
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              color: COLORS.navy,
+              marginBottom: 5,
+            }}
+          >
+            {stats.overdueReminders} overdue care {stats.overdueReminders === 1 ? "reminder" : "reminders"}
+          </strong>
+
+          <p style={{ margin: "0 0 12px", color: COLORS.muted, fontSize: 14, lineHeight: 1.55 }}>
+            Review the overdue items and update them when the care is complete.
+          </p>
+
+          <a href="/pet-owner/reminders" style={primaryLink}>
+            Review Overdue Reminders
+          </a>
+        </section>
+      ) : null}
+
       {activePets.length ===
       0 ? (
         <div
