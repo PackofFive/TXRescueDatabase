@@ -45,10 +45,21 @@ export async function GET() {
     */
 
     const availablePortals: string[] = [];
+    const platformRows = await sql`
+      select access_level
+      from platform_administrator_memberships
+      where user_id = ${session.id} and status = 'active'
+      limit 1
+    `;
+    const platformAccessLevel = platformRows[0]?.access_level
+      ? String(platformRows[0].access_level)
+      : null;
+
+    if (platformAccessLevel) {
+      availablePortals.push("admin");
+    }
 
     if (session.role === "admin") {
-      availablePortals.push("admin");
-
       if (session.orgId) {
         availablePortals.push("organization");
       }
@@ -287,6 +298,7 @@ export async function GET() {
           petOwnerId,
 
           status: session.status,
+          platformAccessLevel,
 
           availablePortals: Array.from(
             new Set(availablePortals)
