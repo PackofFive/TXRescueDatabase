@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type AccountUser = {
   email: string;
@@ -19,6 +20,7 @@ const COLORS = {
 };
 
 export default function AccountPage() {
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<AccountUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -28,6 +30,10 @@ export default function AccountPage() {
   const [passwordError, setPasswordError] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const platformAdminInvite = searchParams.get("platformAdminInvite") ?? "";
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -71,6 +77,25 @@ export default function AccountPage() {
     }
   }
 
+  async function acceptPlatformInvitation() {
+    setAcceptingInvite(true);
+    setInviteError("");
+    try {
+      const response = await fetch("/api/admin/users/platform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept_invitation", token: platformAdminInvite }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The invitation could not be accepted.");
+      setInviteMessage(data.message);
+    } catch (reason) {
+      setInviteError(reason instanceof Error ? reason.message : "The invitation could not be accepted.");
+    } finally {
+      setAcceptingInvite(false);
+    }
+  }
+
   if (loading) {
     return <p style={{ color: COLORS.muted }}>Loading your account…</p>;
   }
@@ -100,6 +125,18 @@ export default function AccountPage() {
         rescue, and administrative profiles remain separate so each area
         shows only the information appropriate for that role.
       </p>
+
+      {platformAdminInvite && !inviteMessage ? (
+        <section style={{ ...panelStyle, background: COLORS.mint }}>
+          <h2 style={sectionHeadingStyle}>Platform administrator invitation</h2>
+          <p style={bodyStyle}>Review and accept this invitation while signed in with the exact email address that received it. Platform access does not grant access to any rescue or shelter workspace.</p>
+          <button type="button" onClick={acceptPlatformInvitation} disabled={acceptingInvite} style={passwordButtonStyle}>
+            {acceptingInvite ? "Accepting Secure Invitation…" : "Accept Platform Invitation"}
+          </button>
+          {inviteError ? <div role="alert" style={passwordErrorStyle}>{inviteError}</div> : null}
+        </section>
+      ) : null}
+      {inviteMessage ? <section style={{ ...panelStyle, background: COLORS.mint }}><h2 style={sectionHeadingStyle}>Invitation accepted</h2><p style={bodyStyle}>{inviteMessage}</p><a href="/admin" style={primaryLinkStyle}>Open Administration</a></section> : null}
 
       <section style={panelStyle}>
         <h2 style={sectionHeadingStyle}>Account details</h2>
