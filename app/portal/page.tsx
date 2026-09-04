@@ -44,11 +44,6 @@ type AuthUser = {
     | null;
 };
 
-type TestOrg = {
-  id: string;
-  name: string;
-} | null;
-
 const PRIORITIES: {
   key: Priority;
   label: string;
@@ -207,38 +202,6 @@ export default function PortalPage() {
         setOrgName(
           user.orgName
         );
-      }
-
-      if (
-        user?.role ===
-        "admin"
-      ) {
-        try {
-          const testRes =
-            await fetch(
-              "/api/admin/test-org",
-              {
-                cache:
-                  "no-store",
-              }
-            );
-
-          const testData =
-            await testRes.json();
-
-          const testOrg =
-            testData.organization as TestOrg;
-
-          if (
-            testOrg?.name
-          ) {
-            setOrgName(
-              testOrg.name
-            );
-          }
-        } catch {
-          // AppShell handles missing test org.
-        }
       }
 
       const res =
