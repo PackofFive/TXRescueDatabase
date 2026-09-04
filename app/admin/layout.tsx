@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
-import { getSession } from "@/lib/auth";
+import { requireAdminFresh } from "@/lib/auth";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -11,18 +11,11 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const session = await getSession();
-
-  if (!session) {
-    redirect("/login?portal=admin");
-  }
-
-  if (
-    session.status !== "approved" ||
-    session.role !== "admin"
-  ) {
+  try {
+    await requireAdminFresh();
+  } catch {
     redirect(
-      "/login?portal=admin&error=access-denied"
+      "/login?portal=admin"
     );
   }
 
