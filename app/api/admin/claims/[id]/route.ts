@@ -11,7 +11,7 @@ export const runtime = "edge";
 // auto-verified claim would.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdminFresh();
+    await requireAdminFresh(["platform_owner", "case_administrator"]);
     const { id } = await params;
     const body = await req.json().catch(() => null);
     const action = body?.action;
