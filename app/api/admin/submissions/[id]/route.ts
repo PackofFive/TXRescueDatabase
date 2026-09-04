@@ -10,7 +10,7 @@ export const runtime = "edge";
 // update_log, so the audit trail stays complete.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await requireAdminFresh();
+    const admin = await requireAdminFresh(["platform_owner", "directory_moderator"]);
     const { id } = await params;
     const body = await req.json().catch(() => null);
     const action = body?.action;
