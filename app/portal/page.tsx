@@ -810,7 +810,7 @@ export default function PortalPage() {
         />
       </div>
 
-      <div
+      {!loading && alerts.length > 0 && <div
         style={{
           background:
             "#fff",
@@ -958,7 +958,7 @@ export default function PortalPage() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {error && (
         <div
@@ -983,14 +983,13 @@ export default function PortalPage() {
       )}
 
       {!loading &&
-        visibleAlerts.length ===
-          0 && (
+        alerts.length === 0 && (
           <div
             style={{
               background:
-                "#fff",
+                "#DCF0E8",
               border:
-                "1px dashed #D8D6D2",
+                "1px solid #C6E3D7",
               borderRadius: 10,
               padding: 24,
             }}
@@ -1004,8 +1003,7 @@ export default function PortalPage() {
                 marginBottom: 5,
               }}
             >
-              Nothing needs your
-              attention right now.
+              You’re all caught up
             </strong>
 
             <p
@@ -1025,6 +1023,22 @@ export default function PortalPage() {
               alerts will appear
               here automatically.
             </p>
+          </div>
+        )}
+
+      {!loading &&
+        alerts.length > 0 &&
+        visibleAlerts.length === 0 && (
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #E7E5E1",
+              borderRadius: 10,
+              padding: 20,
+              color: "#6B6862",
+            }}
+          >
+            No alerts match the filters you selected.
           </div>
         )}
 
