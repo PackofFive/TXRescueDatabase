@@ -14,7 +14,6 @@ export default function AdminOrgListPage() {
   const [orgs, setOrgs] = useState<Org[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [startingOrgId, setStartingOrgId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/orgs?includeArchived=true")
@@ -31,30 +30,6 @@ export default function AdminOrgListPage() {
       o.name.toLowerCase().includes(query.trim().toLowerCase())
     ) ?? [];
 
-  async function openManager(orgId: string) {
-    setError(null);
-    setStartingOrgId(orgId);
-
-    try {
-      const res = await fetch("/api/admin/test-org", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error ?? "Couldn't start Rescue Manager test mode.");
-      }
-
-      window.location.href = "/portal";
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't open Rescue Manager.");
-      setStartingOrgId(null);
-    }
-  }
-
   if (error && orgs === null) {
     return <p style={{ color: "#B23B2E" }}>{error}</p>;
   }
@@ -63,8 +38,8 @@ export default function AdminOrgListPage() {
     <div>
       <h1 style={{ fontSize: 20 }}>Organizations</h1>
       <p style={{ color: "#6B6862", fontSize: 13.5, marginBottom: 16 }}>
-        Edit an organization directly, or open its private Rescue Manager in
-        admin test mode.
+        Search the public directory and open an organization to review its
+        listing or handle an approved support request.
       </p>
 
       {error && (
@@ -100,8 +75,9 @@ export default function AdminOrgListPage() {
         <p>Loading…</p>
       ) : (
         filtered.map((o) => (
-          <div
+          <a
             key={o.id}
+            href={`/admin/orgs/${o.id}`}
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -112,15 +88,14 @@ export default function AdminOrgListPage() {
               padding: 12,
               marginBottom: 8,
               background: "#fff",
+              color: "inherit",
+              textDecoration: "none",
             }}
           >
-            <a
-              href={`/admin/orgs/${o.id}`}
+            <div
               style={{
                 flex: 1,
                 minWidth: 0,
-                textDecoration: "none",
-                color: "inherit",
               }}
             >
               <strong>{o.name}</strong>
@@ -128,25 +103,9 @@ export default function AdminOrgListPage() {
                 {[o.city, o.county].filter(Boolean).join(", ") || "—"} ·{" "}
                 {o.resource_status ?? "Verification Needed"}
               </div>
-            </a>
-
-            <button
-              onClick={() => openManager(o.id)}
-              disabled={startingOrgId === o.id}
-              style={{
-                border: "none",
-                borderRadius: 7,
-                padding: "8px 12px",
-                background: "#17233C",
-                color: "#fff",
-                fontWeight: 700,
-                cursor: startingOrgId === o.id ? "wait" : "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {startingOrgId === o.id ? "Opening…" : "Test Rescue Manager"}
-            </button>
-          </div>
+            </div>
+            <span aria-hidden="true" style={{ color: "#4A5D75", fontWeight: 800 }}>›</span>
+          </a>
         ))
       )}
     </div>
