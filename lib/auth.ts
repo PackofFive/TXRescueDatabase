@@ -212,8 +212,14 @@ export async function requireUser(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
   const session = await requireUser();
+  const rows = await sql`
+    select 1
+    from platform_administrator_memberships
+    where user_id = ${session.id} and status = 'active'
+    limit 1
+  `;
 
-  if (session.role !== "admin") {
+  if (!rows[0]) {
     throw new AuthError("Admin access required.", 403);
   }
 
@@ -290,23 +296,49 @@ export async function requireEffectiveOrg(): Promise<{
   throw new AuthError("Organization access required.", 403);
 }
 
-export async function requireAdminFresh(): Promise<SessionUser> {
+export type PlatformAdminAccessLevel =
+  | "platform_owner"
+  | "case_administrator"
+  | "directory_moderator";
+
+export type PlatformAdminSession = SessionUser & {
+  platformAccessLevel: PlatformAdminAccessLevel;
+};
+
+export async function requireAdminFresh(
+  allowedLevels: PlatformAdminAccessLevel[] = [
+    "platform_owner",
+    "case_administrator",
+    "directory_moderator",
+  ]
+): Promise<PlatformAdminSession> {
   const session = await requireAdmin();
 
   try {
     const rows = await sql`
-      select role, status
-      from users
-      where id = ${session.id}
+      select u.role, u.status, membership.access_level, membership.status as membership_status
+      from users u
+      join platform_administrator_memberships membership on membership.user_id = u.id
+      where u.id = ${session.id}
     `;
 
-    const row = rows[0] as { role: string; status: string } | undefined;
+    const row = rows[0] as
+      | { role: string; status: string; access_level: PlatformAdminAccessLevel; membership_status: string }
+      | undefined;
 
-    if (!row || row.role !== "admin" || row.status !== "approved") {
+    if (
+      !row ||
+      row.status !== "approved" ||
+      row.membership_status !== "active"
+    ) {
       throw new AuthError("Admin access required.", 403);
     }
 
-    return session;
+    if (!allowedLevels.includes(row.access_level)) {
+      throw new AuthError("Your platform access level does not allow this action.", 403);
+    }
+
+    return { ...session, platformAccessLevel: row.access_level };
   } catch (err) {
     if (err instanceof AuthError) throw err;
 
