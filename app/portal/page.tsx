@@ -780,37 +780,37 @@ export default function PortalPage() {
           marginBottom: 24,
         }}
       >
-        <StatCard
-          value={
-            stats.animals_in_care
-          }
-          label="Animals in Care"
-          href="/animals"
-        />
+        {stats.animals_in_care > 0 && (
+          <StatCard
+            value={stats.animals_in_care}
+            label="Animals in Care"
+            href="/animals"
+          />
+        )}
 
-        <StatCard
-          value={
-            stats.active_help_offers
-          }
-          label="Active Help Offers"
-        />
+        {stats.active_help_offers > 0 && (
+          <StatCard
+            value={stats.active_help_offers}
+            label="Active Help Offers"
+          />
+        )}
 
-        <StatCard
-          value={
-            stats.published_profiles
-          }
-          label="Published Profiles"
-        />
+        {stats.published_profiles > 0 && (
+          <StatCard
+            value={stats.published_profiles}
+            label="Published Profiles"
+          />
+        )}
 
-        <StatCard
-          value={
-            stats.adopted_animals
-          }
-          label="Adopted"
-        />
+        {stats.adopted_animals > 0 && (
+          <StatCard
+            value={stats.adopted_animals}
+            label="Adopted"
+          />
+        )}
       </div>
 
-      {!loading && alerts.length > 0 && <div
+      {!loading && alerts.length > 0 && <details
         style={{
           background:
             "#fff",
@@ -821,6 +821,16 @@ export default function PortalPage() {
           marginBottom: 18,
         }}
       >
+        <summary
+          style={{
+            color: "#17233C",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          Filter alerts
+        </summary>
+
         <div
           style={{
             display: "flex",
@@ -829,6 +839,7 @@ export default function PortalPage() {
             gap: 16,
             flexWrap:
               "wrap",
+            marginTop: 14,
           }}
         >
           <div>
@@ -958,7 +969,19 @@ export default function PortalPage() {
             </div>
           </div>
         </div>
-      </div>}
+      </details>}
+
+      {!loading && alerts.length > 0 && (
+        <h2
+          style={{
+            color: "#17233C",
+            fontSize: 22,
+            margin: "22px 0 12px",
+          }}
+        >
+          Needs your attention
+        </h2>
+      )}
 
       {error && (
         <div
