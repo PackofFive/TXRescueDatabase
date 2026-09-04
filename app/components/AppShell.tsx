@@ -1618,8 +1618,6 @@ function AdminShell({
 
       <div style={{display:"grid",gridTemplateColumns:compact?"1fr":"220px minmax(0, 1fr)",minHeight:"calc(100vh - 78px)"}}>
         {!compact ? <aside style={{background:COLORS.navy,color:"#fff",padding:"24px 16px",minHeight:"100%"}}>
-          <div style={{fontSize:17,fontWeight:800}}>PACK OF FIVE</div>
-          <div style={{fontSize:9.5,opacity:.72,letterSpacing:".1em",marginTop:3,marginBottom:24}}>PLATFORM ADMINISTRATION</div>
           <nav aria-label="Platform Administration">
             <AdminNavGroup label="OVERVIEW">{adminLink("/admin","Dashboard")}</AdminNavGroup>
             {canUseDirectory?<AdminNavGroup label="DIRECTORY">{adminLink("/admin/orgs","Organizations")}{adminLink("/admin/orgs/new","Add Organization")}{adminLink("/admin/org-requests","Organization Requests")}{adminLink("/admin#submissions","Pending Public Updates")}</AdminNavGroup>:null}
@@ -1632,7 +1630,6 @@ function AdminShell({
           </div>
         </aside>:null}
         <div style={{minWidth:0}}>
-          <div style={{background:"#fff",borderBottom:`1px solid ${COLORS.border}`,padding:compact?"14px 18px":"16px 28px"}}><strong style={{color:COLORS.navy}}>Platform Administration</strong><div style={{fontSize:12,color:COLORS.muted}}>Private Pack of Five oversight workspace</div></div>
           <main style={{padding:compact?"20px 16px":"28px",maxWidth:1120,margin:"0 auto"}}>{children}</main>
         </div>
       </div>
