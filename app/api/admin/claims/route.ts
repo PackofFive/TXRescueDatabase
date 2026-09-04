@@ -7,7 +7,7 @@ export const runtime = "edge";
 // Claims where the org had no email on file to auto-verify against.
 export async function GET() {
   try {
-    await requireAdminFresh();
+    await requireAdminFresh(["platform_owner", "case_administrator"]);
     const rows = await sql`
       select c.id, c.org_id, o.name as org_name, c.requester_email, c.created_at
       from claims c
