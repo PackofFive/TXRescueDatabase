@@ -1566,7 +1566,7 @@ function AdminShell({
   const [platformLevel, setPlatformLevel] = useState<string | null>(null);
 
   useEffect(() => {
-    const update = () => setCompact(window.innerWidth < 900);
+    const update = () => setCompact(window.innerWidth < 640);
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
