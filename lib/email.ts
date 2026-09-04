@@ -156,3 +156,36 @@ export async function sendClaimCaseEmail(
     return { sent: false, providerMessageId: null, error: error instanceof Error ? error.message.slice(0, 1000) : "Email request failed." };
   }
 }
+
+export async function sendPlatformAdministratorInviteEmail(
+  to: string,
+  accessLabel: string,
+  inviteUrl: string,
+  expiresAt: Date
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("RESEND_API_KEY is not configured.");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject: "Pack of Five platform administrator invitation",
+      text:
+        `A Pack of Five Platform Owner invited you to serve as ${accessLabel}.\n\n` +
+        `Review and accept this secure invitation:\n${inviteUrl}\n\n` +
+        `The invitation is single-use, must be accepted while signed in with ${to}, and expires ` +
+        `${expiresAt.toLocaleString("en-US", { timeZone: "America/Chicago", timeZoneName: "short" })}.\n\n` +
+        `Platform administration is separate from every rescue or shelter workspace. ` +
+        `If you were not expecting this invitation, do not use the link.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Platform administrator invitation email failed (${response.status}):`, errorText);
+    throw new Error("The invitation was saved, but its email could not be delivered.");
+  }
+}
