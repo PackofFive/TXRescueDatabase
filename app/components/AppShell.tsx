@@ -14,13 +14,6 @@ type ShellUser = {
   availablePortals?: string[];
 } | null;
 
-type TestOrg = {
-  id: string;
-  name: string;
-  city?: string | null;
-  county?: string | null;
-} | null;
-
 const COLORS = {
   navy: "#1E3A5F",
   coral: "#E85C56",
@@ -1214,87 +1207,8 @@ function ManagerShell({
   children: ReactNode;
   user: Exclude<ShellUser, null>;
 }) {
-  const [testOrg, setTestOrg] =
-    useState<TestOrg>(null);
-
-  const [
-    testOrgChecked,
-    setTestOrgChecked,
-  ] = useState(
-    user.role !== "admin"
-  );
-
-  useEffect(() => {
-    if (user.role !== "admin") {
-      return;
-    }
-
-    fetch("/api/admin/test-org", {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setTestOrg(
-          data.organization ?? null
-        );
-      })
-      .finally(() => {
-        setTestOrgChecked(true);
-      });
-  }, [user.role]);
-
-  async function exitTestMode() {
-    await fetch("/api/admin/test-org", {
-      method: "DELETE",
-    });
-
-    window.location.href =
-      "/admin/orgs";
-  }
-
-  if (
-    user.role === "admin" &&
-    !testOrgChecked
-  ) {
-    return (
-      <main
-        style={{
-          padding: 28,
-        }}
-      >
-        Loading Rescue Manager test mode…
-      </main>
-    );
-  }
-
-  if (
-    user.role === "admin" &&
-    !testOrg
-  ) {
-    return (
-      <main
-        style={{
-          padding: 28,
-          maxWidth: 700,
-          margin: "0 auto",
-        }}
-      >
-        <h1>
-          Choose a test organization
-        </h1>
-
-        <a href="/admin/orgs">
-          Choose Organization
-        </a>
-      </main>
-    );
-  }
-
   const organizationName =
-    user.role === "admin" &&
-    testOrg
-      ? testOrg.name
-      : user.orgName || null;
+    user.orgName || null;
 
   const animalsLabel =
     organizationName
@@ -1312,68 +1226,13 @@ function ManagerShell({
       <SignedInHeader
         user={user}
       />
-      {user.role === "admin" &&
-        testOrg && (
-          <div
-            style={{
-              background:
-                "#FFF3CD",
-              borderBottom:
-                "1px solid #E6CF82",
-              padding:
-                "9px 18px",
-              fontSize: 13,
-              display: "flex",
-              justifyContent:
-                "center",
-              alignItems:
-                "center",
-              gap: 12,
-              flexWrap:
-                "wrap",
-            }}
-          >
-            <strong>
-              Admin Test Mode
-            </strong>
-
-            <span>
-              Viewing Rescue
-              Manager as{" "}
-              {testOrg.name}
-            </span>
-
-            <button
-              onClick={
-                exitTestMode
-              }
-              style={{
-                background:
-                  "transparent",
-                border:
-                  "1px solid #9A8127",
-                borderRadius: 6,
-                padding:
-                  "5px 8px",
-                cursor:
-                  "pointer",
-                fontWeight: 700,
-              }}
-            >
-              Exit Test Mode
-            </button>
-          </div>
-        )}
 
       <div
         style={{
           display: "grid",
           gridTemplateColumns:
             "260px minmax(0, 1fr)",
-          minHeight:
-            user.role === "admin"
-              ? "calc(100vh - 40px)"
-              : "100vh",
+          minHeight: "100vh",
         }}
       >
         <aside
