@@ -69,7 +69,7 @@ export default function AppShell({
 
   if (isAdminArea) {
     return (
-      <AdminShell>
+      <AdminShell user={user}>
         {children}
       </AdminShell>
     );
@@ -1556,9 +1556,35 @@ function ManagerShell({
 
 function AdminShell({
   children,
+  user,
 }: {
   children: ReactNode;
+  user: ShellUser;
 }) {
+  const pathname = usePathname();
+  const [compact, setCompact] = useState(false);
+  const [platformLevel, setPlatformLevel] = useState<string | null>(null);
+
+  useEffect(() => {
+    const update = () => setCompact(window.innerWidth < 900);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" }).then(r => r.json()).then(data => setPlatformLevel(data.user?.platformAccessLevel ?? null)).catch(() => setPlatformLevel(null));
+  }, []);
+
+  const canUseDirectory = platformLevel === "platform_owner" || platformLevel === "directory_moderator";
+  const canUseCases = platformLevel === "platform_owner" || platformLevel === "case_administrator";
+
+  const adminLink = (href: string, label: string) => {
+    const path = href.split("#")[0];
+    const active = href === "/admin" ? pathname === "/admin" : pathname === path || pathname.startsWith(`${path}/`);
+    return <a href={href} style={{...adminSidebarLink,background:active?"#456284":"transparent",color:"#fff"}}>{label}</a>;
+  };
+
   return (
     <div
       style={{
@@ -1567,122 +1593,50 @@ function AdminShell({
           "#F7F7F8",
       }}
     >
-      <header
-        style={{
-          background:
-            "#111827",
-          color: "#fff",
-          padding:
-            "16px 24px",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1180,
-            margin: "0 auto",
-            display: "flex",
-            justifyContent:
-              "space-between",
-            alignItems:
-              "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontWeight: 800,
-              }}
-            >
-              PACK OF FIVE
-            </div>
-
-            <div
-              style={{
-                fontSize: 12,
-                opacity: 0.72,
-              }}
-            >
-              PLATFORM ADMINISTRATION
-            </div>
+      <header style={{background:"#fff",borderBottom:`1px solid ${COLORS.border}`,padding:compact?"12px 16px":"14px 28px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><BrandLogo size={compact?30:36}/><strong style={{color:COLORS.navy,fontSize:compact?18:22}}>PACK OF FIVE</strong></div>
+          <div style={{display:"flex",gap:16,alignItems:"center",fontSize:13,fontWeight:700}}>
+            <a href="/account" style={{color:COLORS.navy}}>Account</a>
+            <button onClick={signOut} style={{...signOutDarkStyle,color:COLORS.navy,borderColor:COLORS.border}}>Sign Out</button>
           </div>
-
-          <nav
-            style={{
-              display: "flex",
-              gap: 18,
-              alignItems:
-                "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <a
-              href="/admin"
-              style={darkLinkStyle}
-            >
-              Admin Dashboard
-            </a>
-
-            <a
-              href="/admin/orgs"
-              style={darkLinkStyle}
-            >
-              Organizations
-            </a>
-
-            <a
-              href="/admin/orgs/new"
-              style={darkLinkStyle}
-            >
-              Add Organization
-            </a>
-
-            <a
-              href="/admin/org-requests"
-              style={darkLinkStyle}
-            >
-              Org Requests
-            </a>
-
-            <a
-              href="/organizations"
-              style={darkLinkStyle}
-            >
-              Rescue Network
-            </a>
-
-            <a
-              href="/"
-              style={darkLinkStyle}
-            >
-              Home
-            </a>
-
-            <button
-              onClick={signOut}
-              style={
-                signOutDarkStyle
-              }
-            >
-              Sign Out
-            </button>
-          </nav>
         </div>
       </header>
 
-      <main
-        style={{
-          padding: 28,
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}
-      >
-        {children}
-      </main>
+      {compact ? (
+        <nav aria-label="Platform Administration" style={{display:"flex",gap:7,overflowX:"auto",padding:"10px 14px",background:COLORS.navy}}>
+          {adminLink("/admin","Dashboard")}{canUseDirectory?adminLink("/admin/orgs","Organizations"):null}{canUseDirectory?adminLink("/admin/org-requests","Requests"):null}{canUseCases?adminLink("/admin#claim-issues","Cases"):null}{adminLink("/admin#admin-team","Admin Team")}
+        </nav>
+      ) : null}
+
+      <div style={{display:"grid",gridTemplateColumns:compact?"1fr":"270px minmax(0, 1fr)",minHeight:"calc(100vh - 78px)"}}>
+        {!compact ? <aside style={{background:COLORS.navy,color:"#fff",padding:"26px 22px",minHeight:"100%"}}>
+          <div style={{fontSize:20,fontWeight:800}}>PACK OF FIVE</div>
+          <div style={{fontSize:11,opacity:.72,letterSpacing:".1em",marginTop:3,marginBottom:26}}>PLATFORM ADMINISTRATION</div>
+          <nav aria-label="Platform Administration">
+            <AdminNavGroup label="OVERVIEW">{adminLink("/admin","Dashboard")}</AdminNavGroup>
+            {canUseDirectory?<AdminNavGroup label="DIRECTORY">{adminLink("/admin/orgs","Organizations")}{adminLink("/admin/orgs/new","Add Organization")}{adminLink("/admin/org-requests","Organization Requests")}{adminLink("/admin#submissions","Pending Public Updates")}</AdminNavGroup>:null}
+            {canUseCases?<AdminNavGroup label="CASES">{adminLink("/admin#claims","Listing Claims")}{adminLink("/admin#claim-issues","Access Cases")}{adminLink("/admin#lifecycle-reviews","Closure & Dormancy")}</AdminNavGroup>:null}
+            <AdminNavGroup label="PLATFORM SECURITY">{adminLink("/admin#admin-team","Admin Team")}</AdminNavGroup>
+          </nav>
+          <div style={{borderTop:"1px solid rgba(255,255,255,.18)",paddingTop:17,marginTop:24}}>
+            <a href="/organizations" style={adminFooterLink}>Rescue Network</a><a href="/" style={adminFooterLink}>Public Home</a>
+            {user?.email?<div style={{fontSize:12,opacity:.7,overflowWrap:"anywhere",margin:"14px 0"}}>{user.email}</div>:null}
+          </div>
+        </aside>:null}
+        <div style={{minWidth:0}}>
+          <div style={{background:"#fff",borderBottom:`1px solid ${COLORS.border}`,padding:compact?"14px 18px":"16px 28px"}}><strong style={{color:COLORS.navy}}>Platform Administration</strong><div style={{fontSize:12,color:COLORS.muted}}>Private Pack of Five oversight workspace</div></div>
+          <main style={{padding:compact?"20px 16px":"28px",maxWidth:1120,margin:"0 auto"}}>{children}</main>
+        </div>
+      </div>
     </div>
   );
 }
+
+function AdminNavGroup({label,children}:{label:string;children:ReactNode}){return <section style={{marginBottom:22}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".12em",opacity:.68,margin:"0 10px 7px"}}>{label}</div><div style={{display:"grid",gap:3}}>{children}</div></section>}
+
+const adminSidebarLink:CSSProperties={display:"block",padding:"9px 10px",borderRadius:7,textDecoration:"none",fontSize:14,fontWeight:700,whiteSpace:"nowrap"};
+const adminFooterLink:CSSProperties={display:"block",color:"#fff",textDecoration:"none",fontSize:14,marginBottom:12};
 
 /* =========================================================
    MANAGER NAVIGATION
