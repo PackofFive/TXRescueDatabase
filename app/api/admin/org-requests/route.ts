@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { requireAdmin, AuthError } from "@/lib/auth";
+import { requireAdminFresh, AuthError } from "@/lib/auth";
 
 export const runtime = "edge";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireAdminFresh(["platform_owner", "directory_moderator"]);
     const rows = await sql`
       select * from organization_requests
       order by
@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin();
+    const admin = await requireAdminFresh(["platform_owner", "directory_moderator"]);
     const body = await req.json().catch(() => null);
     const { requestId, action } = body ?? {};
 
