@@ -104,11 +104,6 @@ type AuthUser = {
     | "rejected";
 };
 
-type TestOrg = {
-  id: string;
-  name: string;
-} | null;
-
 const CARD_FIELD_OPTIONS = [
   {
     key: "placement",
@@ -286,42 +281,6 @@ export default function AnimalsListPage() {
           );
         }
 
-        if (
-          user?.role ===
-          "admin"
-        ) {
-          try {
-            const testRes =
-              await fetch(
-                "/api/admin/test-org",
-                {
-                  cache:
-                    "no-store",
-
-                  credentials:
-                    "same-origin",
-                }
-              );
-
-            const testData =
-              await testRes.json();
-
-            const testOrg =
-              testData.organization as TestOrg;
-
-            if (
-              testRes.ok &&
-              testOrg?.name
-            ) {
-              setOrgName(
-                testOrg.name
-              );
-            }
-          } catch {
-            // AppShell handles missing
-            // admin test organization.
-          }
-        }
       } catch (err) {
         console.error(
           "Animal dashboard identity load failed:",
