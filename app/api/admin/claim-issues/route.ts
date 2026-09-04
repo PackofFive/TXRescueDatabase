@@ -10,7 +10,7 @@ const CHECKPOINTS = new Set(["reporter_evidence", "owner_response", "official_re
 
 export async function GET() {
   try {
-    await requireAdminFresh();
+    await requireAdminFresh(["platform_owner", "case_administrator"]);
     const rows = await sql`
       select report.id, report.org_id, organization.name as org_name,
         report.reporter_name, report.reporter_email, report.reporter_phone,
@@ -46,7 +46,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await requireAdminFresh();
+    const admin = await requireAdminFresh(["platform_owner", "case_administrator"]);
     const body = await req.json().catch(() => null);
     const reportId = typeof body?.reportId === "string" ? body.reportId : "";
     const checkpoint = typeof body?.checkpoint === "string" ? body.checkpoint : "";
