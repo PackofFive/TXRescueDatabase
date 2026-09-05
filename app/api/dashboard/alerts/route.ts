@@ -482,6 +482,39 @@ export async function GET(
     }
 
     /* =====================================================
+       ANIMALS MARKED URGENT OR CRITICAL
+    ===================================================== */
+
+    const urgentAnimalRows = await sql`
+      select
+        a.id,
+        coalesce(a.name, a.temporary_name, 'Unnamed Animal') as animal_name,
+        a.urgency,
+        a.created_at
+      from animals a
+      where
+        a.current_org_id = ${orgId}
+        and a.outcome_status is null
+        and a.urgency in ('urgent', 'critical')
+      order by
+        case when a.urgency = 'critical' then 1 else 2 end,
+        a.created_at desc
+    `;
+
+    for (const row of urgentAnimalRows) {
+      alerts.push({
+        id: `urgent-animal-${row.id}`,
+        animal_id: row.id,
+        animal_name: row.animal_name,
+        alert_type: "urgent_animal",
+        title: row.urgency === "critical" ? "Animal marked critical" : "Animal needs urgent attention",
+        due_at: null,
+        created_at: row.created_at,
+        priority: row.urgency === "critical" ? "critical" : "high",
+      });
+    }
+
+    /* =====================================================
        CUSTOM RESCUE REMINDERS
     ===================================================== */
 
@@ -722,7 +755,16 @@ export async function GET(
 
               and
               ar.status = 'open'
-          ) as open_reminders
+          ) as open_reminders,
+
+          (
+            select count(*)::int
+            from animals a
+            where
+              a.current_org_id = ${orgId}
+              and a.outcome_status is null
+              and a.urgency in ('urgent', 'critical')
+          ) as urgent_animals
       `;
 
     const stats =
@@ -732,6 +774,7 @@ export async function GET(
         published_profiles: 0,
         adopted_animals: 0,
         open_reminders: 0,
+        urgent_animals: 0,
       };
 
     return NextResponse.json({
