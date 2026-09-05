@@ -10,6 +10,7 @@ type Member = {
   status: "invited" | "active" | "suspended" | "removed";
   granted_at?: string | null;
   updated_at?: string | null;
+  shelter_express_access: boolean;
 };
 
 type AuditEntry = {
@@ -97,6 +98,27 @@ export default function TeamAccessPage() {
       loadTeam();
     } catch (reasonValue) {
       setError(reasonValue instanceof Error ? reasonValue.message : "Couldn't update team access.");
+    } finally {
+      setWorkingId("");
+    }
+  }
+
+  async function updateShelterExpress(member: Member, enabled: boolean) {
+    setWorkingId(`shelter-${member.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/org-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ membershipId: member.id, action: "change_shelter_express", enabled }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Couldn't update Shelter Express access.");
+      setMessage(`Shelter Express access ${enabled ? "granted to" : "removed from"} ${member.email}.`);
+      loadTeam();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : "Couldn't update Shelter Express access.");
     } finally {
       setWorkingId("");
     }
@@ -191,6 +213,18 @@ export default function TeamAccessPage() {
                   <div><strong style={emailStyle}>{member.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(member.access_level)}</span><span style={member.status === "active" ? activeBadgeStyle : inactiveBadgeStyle}>{format(member.status)}</span></div></div>
                   {isOwner ? <strong style={{ color: COLORS.coral, fontSize: 12 }}>CURRENT OWNER</strong> : null}
                 </div>
+
+                {member.status === "active" ? (
+                  <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 9, marginTop: 14 }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(member.shelter_express_access)}
+                      disabled={workingId === `shelter-${member.id}`}
+                      onChange={(event) => updateShelterExpress(member, event.target.checked)}
+                    />
+                    Allow this person to use Shelter Express
+                  </label>
+                ) : null}
 
                 {!isOwner ? (
                   <div style={controlsStyle}>
