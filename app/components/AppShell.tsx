@@ -1627,7 +1627,7 @@ function ManagerNavigation({
         </ManagerLink>
 
         <ManagerLink href="/fosters/updates">
-          Foster Reports
+              Foster Updates
         </ManagerLink>
       </div>
 
