@@ -215,11 +215,11 @@ function statusStyle(status: string): React.CSSProperties {
 function formatDate(value: string) { return new Date(value).toLocaleString(); }
 function csvCell(value: string | number) { return `"${String(value).replaceAll('"', '""')}"`; }
 
-const pageStyle: React.CSSProperties = { maxWidth: 1120, color: COLORS.navy };
+const pageStyle: React.CSSProperties = { maxWidth: 980, color: COLORS.navy };
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" };
 const titleRowStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, flexWrap: "wrap" };
-const headingStyle: React.CSSProperties = { margin: 0, fontSize: 34, lineHeight: 1.1 };
-const introStyle: React.CSSProperties = { maxWidth: 760, margin: "12px 0 0", color: COLORS.muted, lineHeight: 1.55 };
+const headingStyle: React.CSSProperties = { margin: 0, fontSize: 30, lineHeight: 1.1 };
+const introStyle: React.CSSProperties = { maxWidth: 760, margin: "8px 0 0", color: COLORS.muted, fontSize: 13.5, lineHeight: 1.55 };
 const exportButtonStyle: React.CSSProperties = { padding: "10px 14px", border: 0, borderRadius: 7, background: COLORS.navy, color: "#fff", cursor: "pointer", fontWeight: 800 };
 const summaryGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginTop: 24 };
 const summaryCardStyle: React.CSSProperties = { display: "grid", gap: 5, padding: 16, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8 };
