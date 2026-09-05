@@ -28,6 +28,7 @@ const COLORS = {
 type RequestedPortal =
   | "admin"
   | "organization"
+  | "shelter"
   | "pet-owner"
   | "foster";
 
@@ -74,6 +75,13 @@ const PORTALS:
         COLORS.pink,
       accountNote:
         "Approved rescue and shelter accounts only.",
+    },
+
+    shelter: {
+      title: "Shelter Express",
+      description: "Sign in to quickly publish and manage animals needing urgent rescue help.",
+      accent: COLORS.peach,
+      accountNote: "Available to approved shelter organization accounts.",
     },
 
     "pet-owner": {
@@ -640,6 +648,8 @@ function normalizePortal(
     value ===
       "foster" ||
     value ===
+      "shelter" ||
+    value ===
       "organization"
   ) {
     return value;
@@ -714,6 +724,16 @@ function routeSignedInUser(
     setStatus(
       "This account does not currently have access to Rescue & Shelter Manager."
     );
+    return;
+  }
+
+  if (requestedPortal === "shelter") {
+    if (portals.includes("organization")) {
+      window.location.href = "/shelter-express";
+      return;
+    }
+
+    setStatus("This account does not currently have access to Shelter Express.");
     return;
   }
 
