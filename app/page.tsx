@@ -15,6 +15,8 @@ const COLORS = {
   org: "#FBD9D6",
   owner: "#FBE3DA",
   foster: "#DCF0E8",
+  shelter: "#FFF0E8",
+  care: "#E6EEF7",
   text: "#1E3A5F",
   muted: "#4A5D75",
   white: "#FFFFFF",
@@ -160,7 +162,7 @@ export default function HomePage() {
               textTransform: "uppercase",
             }}
           >
-            Rescue · Resources · Responsible Pet Ownership
+            One network · Five connected roles
           </p>
 
           <h1
@@ -174,7 +176,7 @@ export default function HomePage() {
               letterSpacing: "-.04em",
             }}
           >
-            Helping people help animals.
+            The whole community behind every animal.
           </h1>
 
           <p
@@ -188,10 +190,9 @@ export default function HomePage() {
               lineHeight: 1.55,
             }}
           >
-            Find rescues and shelters,
-            discover animals needing homes
-            or help, and access practical
-            animal-welfare resources.
+            Pack of Five connects organizations, volunteers, pet owners,
+            shelters, and professional care partners without mixing their
+            responsibilities or private information.
           </p>
         </div>
       </section>
@@ -260,7 +261,7 @@ export default function HomePage() {
         }}
       >
         <p style={eyebrowStyle}>
-          Portal Access
+          The Pack of Five
         </p>
 
         <div
@@ -269,7 +270,7 @@ export default function HomePage() {
             gridTemplateColumns:
               isMobile
                 ? "1fr"
-                : "repeat(3, minmax(0, 1fr))",
+                : "repeat(auto-fit, minmax(190px, 1fr))",
             gap: isMobile
               ? 8
               : 10,
@@ -279,28 +280,49 @@ export default function HomePage() {
           <PortalCard
             compact={isMobile}
             background={COLORS.org}
-            symbol="ORG"
-            title="Organization Portal"
-            text="For rescues and shelters managing animals, records, public profiles, and help offers."
+            symbol="01"
+            title="Rescue Manager"
+            text="Private operations for rescues managing animals, records, placements, teams, and public profiles."
             href="/login?portal=organization"
-          />
-
-          <PortalCard
-            compact={isMobile}
-            background={COLORS.owner}
-            symbol="PET"
-            title="Pet Owner Portal"
-            text="For personal pet-owner tools, records, resources, and future account features."
-            href="/login?portal=pet-owner"
+            action="Open Rescue Manager"
           />
 
           <PortalCard
             compact={isMobile}
             background={COLORS.foster}
-            symbol="FOS"
+            symbol="02"
             title="Volunteer Portal"
-            text="For approved foster relationships, applications, animals, and foster tools."
+            text="One volunteer profile for fostering, transport, shelter visits, events, and approved rescue relationships."
             href="/login?portal=foster"
+            action="Open Volunteer Portal"
+          />
+
+          <PortalCard
+            compact={isMobile}
+            background={COLORS.owner}
+            symbol="03"
+            title="Pet Owner"
+            text="Private pet records, care reminders, documents, and trusted information for responsible ownership."
+            href="/login?portal=pet-owner"
+            action="Open Pet Owner"
+          />
+
+          <PortalCard
+            compact={isMobile}
+            background={COLORS.shelter}
+            symbol="04"
+            title="Shelter Express"
+            text="A fast, simple way for shelters to publish urgent animals and connect with rescue help."
+            action="Coming Soon"
+          />
+
+          <PortalCard
+            compact={isMobile}
+            background={COLORS.care}
+            symbol="05"
+            title="Care Partner Portal"
+            text="Permission-based collaboration for veterinary clinics, trainers, boarding, rehabilitation, and other care providers."
+            action="Coming Soon"
           />
         </div>
       </section>
@@ -663,31 +685,18 @@ function PortalCard({
   title,
   text,
   href,
+  action,
 }: {
   compact: boolean;
   background: string;
   symbol: string;
   title: string;
   text: string;
-  href: string;
+  href?: string;
+  action: string;
 }) {
-  return (
-    <a
-      href={href}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        minHeight: compact
-          ? 0
-          : 150,
-        padding: compact
-          ? 13
-          : 15,
-        background,
-        color: "inherit",
-        textDecoration: "none",
-      }}
-    >
+  const content = (
+    <>
       <span
         aria-hidden="true"
         style={{
@@ -696,8 +705,7 @@ function PortalCard({
           justifyContent: "center",
           width: 30,
           height: 30,
-          background:
-            "rgba(255,255,255,.62)",
+          background: "rgba(255,255,255,.62)",
           color: COLORS.navy,
           fontSize: 9,
           fontWeight: 900,
@@ -708,41 +716,36 @@ function PortalCard({
         {symbol}
       </span>
 
-      <h3
-        style={{
-          margin: "0 0 5px",
-          color: COLORS.navy,
-          fontSize: compact
-            ? 17
-            : 18,
-        }}
-      >
-        {title}
-      </h3>
+      <h3 style={{ margin: "0 0 5px", color: COLORS.navy, fontSize: compact ? 17 : 18 }}>{title}</h3>
+      <p style={{ margin: "0 0 8px", color: COLORS.muted, fontSize: compact ? 12.5 : 13, lineHeight: 1.45, flex: 1 }}>{text}</p>
+      <strong style={{ color: href ? COLORS.navy : COLORS.coral, fontSize: 12.5 }}>{action}{href ? " →" : ""}</strong>
+    </>
+  );
 
-      <p
-        style={{
-          margin: "0 0 8px",
-          color: COLORS.muted,
-          fontSize: compact
-            ? 12.5
-            : 13,
-          lineHeight: 1.45,
-          flex: 1,
-        }}
-      >
-        {text}
-      </p>
+  const sharedStyle: React.CSSProperties = {
+      display: "flex",
+      flexDirection: "column",
+      minHeight: compact ? 0 : 178,
+      padding: compact ? 13 : 15,
+      background,
+      color: "inherit",
+      textDecoration: "none",
+      border: `1px solid ${COLORS.border}`,
+  };
 
-      <strong
-        style={{
-          color: COLORS.navy,
-          fontSize: 12.5,
-        }}
-      >
-        Login →
-      </strong>
+  return href ? (
+    <a href={href} style={sharedStyle}>
+      {content}
     </a>
+  ) : (
+    <div
+      style={{
+        ...sharedStyle,
+        opacity: 0.9,
+      }}
+    >
+      {content}
+    </div>
   );
 }
 
