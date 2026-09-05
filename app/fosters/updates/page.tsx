@@ -129,14 +129,16 @@ export default function FosterUpdatesPage() {
         your organization.
       </p>
 
-      <div style={statGrid}>
-        <Stat value={counts.submitted} label="Needs Review" />
-        <Stat value={counts.reviewed} label="Reviewed" />
-        <Stat value={counts.incorporated} label="Incorporated" />
+      {counts.all > 0 && <div style={statGrid}>
+        {counts.submitted > 0 && <Stat value={counts.submitted} label="Needs Review" />}
+        {counts.reviewed > 0 && <Stat value={counts.reviewed} label="Reviewed" />}
+        {counts.incorporated > 0 && <Stat value={counts.incorporated} label="Incorporated" />}
         <Stat value={counts.all} label="Total Updates" />
-      </div>
+      </div>}
 
-      <div style={filters}>
+      {counts.all > 0 && <details style={filters}>
+        <summary style={{ color: C.navy, cursor: "pointer", fontWeight: 800 }}>Filter updates</summary>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
         {[
           ["submitted", "Needs Review"],
           ["reviewed", "Reviewed"],
@@ -156,18 +158,22 @@ export default function FosterUpdatesPage() {
             {label}
           </button>
         ))}
-      </div>
+        </div>
+      </details>}
 
       {error && <p style={errorStyle}>{error}</p>}
 
       {loading ? (
         <p style={intro}>Loading…</p>
-      ) : visible.length === 0 ? (
-        <div style={card}>
+      ) : counts.all === 0 ? (
+        <div style={{ ...card, background: C.mint }}>
           <strong style={{ color: C.navy }}>
-            No foster updates in this view.
+            You’re all caught up
           </strong>
+          <p style={{ ...intro, margin: "6px 0 0" }}>No foster updates need your review right now.</p>
         </div>
+      ) : visible.length === 0 ? (
+        <div style={card}><strong style={{ color: C.navy }}>No foster updates match this filter.</strong></div>
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {visible.map((update) => (
