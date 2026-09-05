@@ -94,8 +94,21 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
       await requireAdminFresh(["platform_owner"]);
       const body=await req.json().catch(()=>null),action=body?.action;
       if(action!=="approve"&&action!=="reject")return NextResponse.json({error:"Invalid action."},{status:400});
-      const rows=await sql`update users set status=${action==="approve"?"approved":"rejected"} where id=${id} and status='pending' returning id,email,status`;
+      const rows=await sql`update users set status=${action==="approve"?"approved":"rejected"} where id=${id} and status='pending' returning id,email,status,role,org_id`;
       if(!rows[0])return NextResponse.json({error:"User not found or already reviewed."},{status:404});
+      if(action==="approve"&&rows[0].role==="org"&&rows[0].org_id){
+        const existingOwners=await sql`select id from organization_memberships where org_id=${String(rows[0].org_id)}::uuid and access_level='owner' and status='active' limit 1`;
+        const initialLevel=existingOwners[0]?"administrator":"owner";
+        await sql`
+          insert into organization_memberships(user_id,org_id,role,access_level,status,shelter_express_access,granted_by)
+          select ${id}::uuid,organization.id,${initialLevel},${initialLevel},'active',
+            case when ${initialLevel}='owner' then coalesce(organization.org_type ilike '%shelter%',false) else false end,
+            ${String((await requireAdminFresh(["platform_owner"])).id)}::uuid
+          from organizations organization where organization.id=${String(rows[0].org_id)}::uuid
+          on conflict(org_id,user_id) do update set status='active',updated_at=now()
+        `;
+        await sql`insert into organization_access_audit(org_id,affected_user_id,action,new_access_level,reason) values(${String(rows[0].org_id)}::uuid,${id}::uuid,'membership_created',${initialLevel},'Account approved by platform administrator')`;
+      }
       return NextResponse.json({user:rows[0]});
     }
     const owner=await requireAdminFresh(["platform_owner"]),body=await req.json().catch(()=>null);
