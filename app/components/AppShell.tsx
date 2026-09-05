@@ -1535,6 +1535,7 @@ function ManagerNavigation({
   const [dashboardAlerts, setDashboardAlerts] = useState({
     count: 0,
     critical: false,
+    urgentAnimals: 0,
   });
   const inAnimalsSection =
     pathname === "/animals" ||
@@ -1588,6 +1589,7 @@ function ManagerNavigation({
             alert.priority === "critical" ||
             (alert.due_at ? new Date(alert.due_at).getTime() < Date.now() : false)
           ),
+          urgentAnimals: Number(data.stats?.urgent_animals ?? 0),
         });
       } catch {
         // A badge failure must never block Rescue Manager navigation.
@@ -1672,7 +1674,10 @@ function ManagerNavigation({
         </ManagerLink>
 
         <ManagerLink href="/portal/urgent">
-          Urgent Shelter Animals
+          <span style={dashboardLinkContentStyle}>
+            <span>Urgent</span>
+            {dashboardAlerts.urgentAnimals > 0 ? <span aria-label={`${dashboardAlerts.urgentAnimals} urgent animals`} style={{...dashboardAlertBadgeStyle,background:"#C63D32"}}>{dashboardAlerts.urgentAnimals > 99 ? "99+" : dashboardAlerts.urgentAnimals}</span> : null}
+          </span>
         </ManagerLink>
       </div>
 
