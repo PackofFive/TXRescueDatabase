@@ -314,7 +314,8 @@ export default function HomePage() {
             symbol="04"
             title="Shelter Express"
             text="A fast, simple way for shelters to publish urgent animals and connect with rescue help."
-            action="Coming Soon"
+            href="/login?portal=shelter"
+            action="Open Shelter Express"
           />
 
           <PortalCard
