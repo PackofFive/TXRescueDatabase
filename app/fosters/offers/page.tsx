@@ -267,14 +267,16 @@ export default function HelpOffersPage() {
         private to your organization.
       </p>
 
-      <div style={statsGrid}>
-        <Stat value={counts.new} label="New" />
-        <Stat value={counts.active} label="Active Review" />
-        <Stat value={counts.accepted} label="Accepted" />
-        <Stat value={counts.closed} label="Declined / Closed" />
-      </div>
+      {counts.new + counts.active + counts.accepted + counts.closed > 0 && <div style={statsGrid}>
+        {counts.new > 0 && <Stat value={counts.new} label="New" />}
+        {counts.active > 0 && <Stat value={counts.active} label="Active Review" />}
+        {counts.accepted > 0 && <Stat value={counts.accepted} label="Accepted" />}
+        {counts.closed > 0 && <Stat value={counts.closed} label="Declined / Closed" />}
+      </div>}
 
-      <div style={filters}>
+      {offers.length > 0 && <details style={filters}>
+        <summary style={{ color: C.navy, cursor: "pointer", fontWeight: 800 }}>Filter offers</summary>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
         {[
           ["active", "Active"],
           ["new", "New"],
@@ -295,7 +297,8 @@ export default function HelpOffersPage() {
             {label}
           </button>
         ))}
-      </div>
+        </div>
+      </details>}
 
       {success && <p style={successStyle}>{success}</p>}
       {error && (
@@ -304,12 +307,15 @@ export default function HelpOffersPage() {
         </p>
       )}
 
-      {visible.length === 0 ? (
-        <div style={card}>
+      {offers.length === 0 ? (
+        <div style={{ ...card, background: C.mint }}>
           <strong style={{ color: C.navy }}>
-            No help offers in this view.
+            You’re all caught up
           </strong>
+          <p style={{ ...intro, margin: "6px 0 0" }}>No help offers need attention right now.</p>
         </div>
+      ) : visible.length === 0 ? (
+        <div style={card}><strong style={{ color: C.navy }}>No help offers match this filter.</strong></div>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
           {visible.map((offer) => {
