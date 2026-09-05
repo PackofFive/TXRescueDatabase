@@ -167,15 +167,17 @@ export default function TeamAccessPage() {
       {message ? <div style={successStyle}>{message}</div> : null}
       {error ? <div style={errorStyle}>{error}</div> : null}
 
-      <section style={inviteSectionStyle}>
-        <h2 style={sectionHeadingStyle}>Invite a team member</h2>
+      <details style={{ ...inviteSectionStyle, padding: 16 }}>
+        <summary style={{ ...summaryStyle, marginBottom: 0 }}>Invite a team member</summary>
+        <section style={{ marginTop: 14 }}>
         <p style={descriptionStyle}>The invitation expires after 72 hours and must be accepted using the same email address. Owner access cannot be granted by invitation.</p>
         <form onSubmit={sendInvite} style={inviteFormStyle}>
           <label style={labelStyle}>Email address<input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="person@example.org" style={inputStyle} /></label>
           <label style={labelStyle}>Starting access<select value={inviteLevel} onChange={(event) => setInviteLevel(event.target.value)} style={inputStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label>
           <button type="submit" disabled={workingId === "invite-new"} style={ownerButtonStyle}>{workingId === "invite-new" ? "Sending…" : "Send Secure Invitation"}</button>
         </form>
-      </section>
+        </section>
+      </details>
 
       <details style={detailsStyle}>
         <summary style={summaryStyle}>Organization team ({members.length})</summary>
@@ -234,8 +236,8 @@ export default function TeamAccessPage() {
 function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
-const headingStyle: React.CSSProperties = { margin: "0 0 10px", color: COLORS.navy, fontSize: 36 };
-const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 14, lineHeight: 1.6 };
+const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.navy, fontSize: 30 };
+const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 };
 const levelGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 20 };
 const levelCardStyle: React.CSSProperties = { display: "grid", gap: 7, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const descriptionStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
