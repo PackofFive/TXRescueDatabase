@@ -305,8 +305,8 @@ function organizationInitials(name:string){return name.split(/\s+/).filter(Boole
 
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
 const headingRowStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, flexWrap: "wrap" };
-const headingStyle: React.CSSProperties = { margin: "0 0 10px", color: COLORS.navy, fontSize: 36, lineHeight: 1.1 };
-const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 14, lineHeight: 1.6 };
+const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.navy, fontSize: 30, lineHeight: 1.1 };
+const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 };
 const noticeStyle: React.CSSProperties = { display: "grid", gap: 5, marginTop: 22, padding: 17, border: `1px solid ${COLORS.border}`, background: COLORS.mint, fontSize: 13, lineHeight: 1.5 };
 const successStyle: React.CSSProperties = { marginTop: 16, padding: 14, color: COLORS.navy, border: `1px solid ${COLORS.border}`, background: COLORS.mint, fontWeight: 700 };
 const errorStyle: React.CSSProperties = { marginTop: 16, padding: 14, color: "#A9362B", border: "1px solid #E9B9B4", background: "#FCE9E7" };
