@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
           membership.updated_at,
           membership.suspended_at,
           membership.removed_at,
+          membership.shelter_express_access,
           account.email
         from organization_memberships membership
         join users account on account.id = membership.user_id
@@ -477,6 +478,48 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const action = String(body?.action ?? "").trim();
     const inviteId = String(body?.inviteId ?? "").trim();
+
+    if (action === "change_shelter_express") {
+      const membershipId = String(body?.membershipId ?? "").trim();
+      const enabled = body?.enabled === true;
+
+      if (!membershipId) {
+        return NextResponse.json({ error: "Choose a team member." }, { status: 400 });
+      }
+
+      const targetRows = await sql`
+        select membership.id, membership.user_id, membership.shelter_express_access
+        from organization_memberships membership
+        where membership.id = ${membershipId}::uuid
+          and membership.org_id = ${orgId}::uuid
+          and membership.status = 'active'
+        limit 1
+      `;
+      const target = targetRows[0];
+
+      if (!target) {
+        return NextResponse.json({ error: "Active team member not found." }, { status: 404 });
+      }
+
+      await sql`
+        update organization_memberships
+        set shelter_express_access = ${enabled}, updated_at = now()
+        where id = ${membershipId}::uuid and org_id = ${orgId}::uuid
+      `;
+
+      await sql`
+        insert into organization_access_audit (
+          org_id, membership_id, affected_user_id, actor_user_id,
+          action, reason
+        ) values (
+          ${orgId}::uuid, ${membershipId}::uuid, ${String(target.user_id)}::uuid,
+          ${session.id}::uuid, 'shelter_express_access_changed',
+          ${enabled ? "Shelter Express access granted" : "Shelter Express access removed"}
+        )
+      `;
+
+      return NextResponse.json({ result: { ok: true, shelterExpressAccess: enabled } });
+    }
 
     if (["cancel_invite", "resend_invite"].includes(action)) {
       if (!inviteId) {
