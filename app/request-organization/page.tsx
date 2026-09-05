@@ -3,6 +3,10 @@
 import {
   useState,
 } from "react";
+import {
+  ORGANIZATION_TYPES,
+  organizationTypeDetails,
+} from "@/lib/organization-types";
 
 export const runtime =
   "edge";
@@ -26,7 +30,7 @@ export default function RequestOrganizationPage() {
       organizationName:
         "",
       organizationType:
-        "",
+        "Animal Rescue",
       city:
         "",
       county:
@@ -341,19 +345,26 @@ export default function RequestOrganizationPage() {
           required
         />
 
-        <Field
-          label="Organization type"
-          value={
-            form.organizationType
-          }
-          onChange={(v) =>
-            update(
-              "organizationType",
-              v
-            )
-          }
-          placeholder="Rescue, municipal shelter, sanctuary..."
-        />
+        <label style={labelStyle}>
+          Organization type *
+          <select
+            required
+            value={form.organizationType}
+            onChange={(e) => update("organizationType", e.target.value)}
+            style={inputStyle}
+          >
+            {ORGANIZATION_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+          {organizationTypeDetails(form.organizationType) && (
+            <span style={{ fontWeight: 400, color: COLORS.muted, lineHeight: 1.5 }}>
+              {organizationTypeDetails(form.organizationType)?.description}
+              <br />
+              <strong>Best fit:</strong> {organizationTypeDetails(form.organizationType)?.portal}. Access is granted only after approval.
+            </span>
+          )}
+        </label>
 
         <div
           style={
