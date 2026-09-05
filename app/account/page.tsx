@@ -114,6 +114,7 @@ export default function AccountPage() {
   const hasVolunteerPortal = portals.includes("foster");
   const hasPetOwnerPortal = portals.includes("pet-owner");
   const hasRescueManager = portals.includes("organization");
+  const hasShelterExpress = portals.includes("shelter");
   const hasAdmin = portals.includes("admin");
 
   return (
@@ -225,12 +226,15 @@ export default function AccountPage() {
                   { href: "/portal/organization-profile", label: "Organization Profile" },
                 ]}
               />
-              <ProfileCard
-                title="Shelter Express"
-                description="Use the simplified workspace to add urgent animals, publish profiles, and coordinate rescue help."
-                links={[{ href: "/shelter-express", label: "Open Shelter Express" }]}
-              />
             </>
+          )}
+
+          {hasShelterExpress && (
+            <ProfileCard
+              title="Shelter Express"
+              description="Use the simplified workspace to add urgent animals, publish profiles, and coordinate rescue help."
+              links={[{ href: "/shelter-express", label: "Open Shelter Express" }]}
+            />
           )}
 
           {hasAdmin && (
