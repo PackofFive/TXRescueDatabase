@@ -1,172 +1,42 @@
 export const runtime = "edge";
 
+const COLORS = {
+  navy: "#1E3A5F",
+  coral: "#E85C56",
+  mint: "#DCF0E8",
+  peach: "#FFF3EE",
+  muted: "#4A5D75",
+  border: "#DCE4EC",
+};
+
 export default function Page() {
   return (
-    <section
-      style={{
-        maxWidth: 900,
-        margin: "20px auto",
-      }}
-    >
-      <p
-        style={{
-          fontSize: 12,
-          fontWeight: 800,
-          letterSpacing: ".08em",
-          color: "#6B6862",
-          margin: 0,
-        }}
-      >
+    <section style={{ maxWidth: 980 }}>
+      <p style={{ margin: "0 0 6px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".08em" }}>
         RESCUE MANAGER · NETWORKING
       </p>
 
-      <h1
-        style={{
-          fontSize: 32,
-          color: "#17233C",
-          margin: "7px 0 8px",
-        }}
-      >
+      <h1 style={{ margin: "0 0 6px", color: COLORS.navy, fontSize: 30 }}>
         Urgent Shelter Animals
       </h1>
 
-      <p
-        style={{
-          color: "#6B6862",
-          lineHeight: 1.65,
-          maxWidth: 720,
-          marginTop: 0,
-        }}
-      >
-        Review animals currently in shelter custody that need rescue
-        placement, foster support, medical assistance, transfer, or other
-        urgent intervention.
+      <p style={{ margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 }}>
+        Review shelter animals needing rescue placement, foster support, medical assistance, transport, or another urgent intervention.
       </p>
 
-      <div
-        style={{
-          marginTop: 24,
-          padding: 18,
-          background: "#FFF8F5",
-          border: "1px solid #F0D3C9",
-          borderRadius: 10,
-        }}
-      >
-        <strong
-          style={{
-            color: "#17233C",
-          }}
-        >
-          These animals are not currently in your organization&apos;s care.
-        </strong>
-
-        <p
-          style={{
-            color: "#6B6862",
-            lineHeight: 1.6,
-            margin: "7px 0 0",
-          }}
-        >
-          They remain under the shelter&apos;s custody until a rescue
-          formally commits to the animal and the appropriate transfer or
-          Tag process is completed.
+      <section style={{ marginTop: 20, padding: 16, border: `1px solid ${COLORS.border}`, borderRadius: 9, background: COLORS.peach }}>
+        <strong style={{ color: COLORS.navy }}>Shelter custody stays in place until a formal commitment is completed.</strong>
+        <p style={{ margin: "6px 0 0", color: COLORS.muted, fontSize: 13, lineHeight: 1.5 }}>
+          Volunteer or foster interest does not create a rescue Tag or transfer custody. The rescue and shelter must complete their normal approval and transfer process.
         </p>
-      </div>
+      </section>
 
-      <div
-        style={{
-          marginTop: 16,
-          padding: 18,
-          background: "#fff",
-          border: "1px solid #E7E5E1",
-          borderRadius: 10,
-        }}
-      >
-        <strong
-          style={{
-            color: "#17233C",
-          }}
-        >
-          Rescue networking
-        </strong>
-
-        <p
-          style={{
-            color: "#6B6862",
-            lineHeight: 1.6,
-            margin: "7px 0 0",
-          }}
-        >
-          Approved rescues can review urgent shelter animals, identify
-          animals they may be able to help, coordinate foster commitments,
-          and begin the process of formally committing to an animal.
+      <section style={{ marginTop: 16, padding: 20, border: `1px solid ${COLORS.border}`, borderRadius: 9, background: COLORS.mint }}>
+        <strong style={{ display: "block", color: COLORS.navy, marginBottom: 5 }}>No urgent shelter listings are available yet</strong>
+        <p style={{ margin: 0, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 }}>
+          Verified shelter listings will appear here with deadlines, placement needs, rescue interest, available foster help, and Tag or transfer status.
         </p>
-      </div>
-
-      <div
-        style={{
-          marginTop: 16,
-          padding: 18,
-          background: "#fff",
-          border: "1px solid #E7E5E1",
-          borderRadius: 10,
-        }}
-      >
-        <strong
-          style={{
-            color: "#17233C",
-          }}
-        >
-          Foster participation
-        </strong>
-
-        <p
-          style={{
-            color: "#6B6862",
-            lineHeight: 1.6,
-            margin: "7px 0 0",
-          }}
-        >
-          Approved fosters may receive limited access to urgent animals
-          when a rescue enables it. A foster offering to help does not
-          constitute a rescue Tag or transfer. The rescue organization
-          makes the formal commitment to the shelter.
-        </p>
-      </div>
-
-      <div
-        style={{
-          marginTop: 24,
-          padding: 22,
-          background: "#F7F7F8",
-          border: "1px dashed #D8D6D2",
-          borderRadius: 10,
-        }}
-      >
-        <strong
-          style={{
-            display: "block",
-            color: "#17233C",
-            marginBottom: 6,
-          }}
-        >
-          Urgent animal listings will appear here
-        </strong>
-
-        <p
-          style={{
-            margin: 0,
-            color: "#6B6862",
-            lineHeight: 1.6,
-            fontSize: 13.5,
-          }}
-        >
-          This area will become the rescue-facing urgent animal board,
-          including shelter information, deadlines, animal details,
-          placement needs, foster availability, rescue interest, and Tag
-          status.
-        </p>
-      </div>
+      </section>
     </section>
   );
 }
