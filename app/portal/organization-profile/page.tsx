@@ -198,7 +198,6 @@ export default function OrganizationProfilePage() {
       <div style={headingRowStyle}>
         <div><h1 style={headingStyle}>{organization.name}</h1><p style={introStyle}>This rescue or shelter profile is separate from every staff member’s personal account.</p></div>
         <div style={buttonRowStyle}>
-          {access?.canManageOrganizationAccess && !editing ? <a href="/portal/team-access" style={teamLinkStyle}>Team &amp; Access</a> : null}
           {access?.canEditOrganizationProfile && !editing ? <button type="button" onClick={() => { setEditing(true); setMessage(""); }} style={primaryButtonStyle}>Edit Organization Profile</button> : null}
         </div>
       </div>
@@ -319,7 +318,6 @@ const valueStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 14, over
 const linkStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 14, fontWeight: 800, overflowWrap: "anywhere" };
 const primaryButtonStyle: React.CSSProperties = { border: 0, background: COLORS.navy, color: COLORS.white, padding: "11px 15px", fontWeight: 800, fontSize: 13, cursor: "pointer" };
 const secondaryButtonStyle: React.CSSProperties = { border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, padding: "10px 15px", fontWeight: 800, fontSize: 13, cursor: "pointer" };
-const teamLinkStyle: React.CSSProperties = { display: "inline-block", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, padding: "10px 15px", fontWeight: 800, fontSize: 13, textDecoration: "none" };
 const editPanelStyle: React.CSSProperties = { marginTop: 18, padding: 20, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const fieldsetStyle: React.CSSProperties = { margin: "20px 0 0", padding: 0, border: 0 };
 const legendStyle: React.CSSProperties = { width: "100%", paddingBottom: 8, borderBottom: `1px solid ${COLORS.border}`, color: COLORS.navy, fontSize: 16, fontWeight: 800 };
