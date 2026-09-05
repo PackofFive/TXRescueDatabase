@@ -128,25 +128,26 @@ export default function VolunteersPage() {
   const labelStyle = { display: "grid", gap: 6, color: C.navy, fontWeight: 700 };
 
   return (
-    <div style={{ maxWidth: 1050 }}>
-      <p style={{ color: C.coral, fontWeight: 900, letterSpacing: 1.5, marginBottom: 8 }}>PEOPLE &amp; PLACEMENT</p>
-      <h1 style={{ color: C.navy, fontSize: 42, margin: "0 0 10px" }}>Volunteers</h1>
-      <p style={{ color: C.muted, fontSize: 19, lineHeight: 1.5, maxWidth: 880 }}>
+    <div style={{ maxWidth: 980 }}>
+      <p style={{ color: C.coral, fontSize: 12, fontWeight: 900, letterSpacing: ".08em", margin: "0 0 6px" }}>PEOPLE &amp; PLACEMENT</p>
+      <h1 style={{ color: C.navy, fontSize: 30, margin: "0 0 6px" }}>Volunteers</h1>
+      <p style={{ color: C.muted, fontSize: 13.5, lineHeight: 1.5, maxWidth: 760, margin: 0 }}>
         Approve each person, service category, and Volunteer Portal level separately. Foster approval and Volunteer Portal access never grant Rescue Manager access.
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, margin: "26px 0" }}>
-        {[["Total", counts.total], ["Pending", counts.pending], ["Approved", counts.approved], ["Portal Access", counts.portal]].map(([label, value]) => (
-          <div key={String(label)} style={{ border: `1px solid ${C.border}`, padding: 18, borderRadius: 10, background: C.white }}>
-            <strong style={{ display: "block", color: C.navy, fontSize: 30 }}>{value}</strong><span style={{ color: C.muted }}>{label}</span>
+      {counts.total > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: 10, margin: "20px 0" }}>
+        {[["Total", counts.total], ["Pending", counts.pending], ["Approved", counts.approved], ["Portal Access", counts.portal]].filter(([, value]) => Number(value) > 0).map(([label, value]) => (
+          <div key={String(label)} style={{ border: `1px solid ${C.border}`, padding: 14, borderRadius: 9, background: C.white }}>
+            <strong style={{ display: "block", color: C.navy, fontSize: 24 }}>{value}</strong><span style={{ color: C.muted, fontSize: 13 }}>{label}</span>
           </div>
         ))}
-      </div>
+      </div>}
       {error && <div style={{ background: C.peach, padding: 14, marginBottom: 18, color: "#A53126" }}>{error}</div>}
       {success && <div style={{ background: C.mint, padding: 14, marginBottom: 18, color: C.navy }}>{success}</div>}
 
-      <section style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: 22, marginBottom: 28, background: C.white }}>
-        <h2 style={{ color: C.navy, marginTop: 0 }}>Add a volunteer</h2>
-        <form onSubmit={addVolunteer} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+      <details style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, margin: "20px 0 24px", background: C.white }}>
+        <summary style={{ color: C.navy, cursor: "pointer", fontWeight: 800, fontSize: 16 }}>Add a volunteer</summary>
+        <p style={{ color: C.muted, fontSize: 13, lineHeight: 1.5, margin: "10px 0 14px" }}>Add someone to your directory as pending. You can review their categories and portal access afterward.</p>
+        <form onSubmit={addVolunteer} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           <label style={labelStyle}>Full name<input required value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} /></label>
           <label style={labelStyle}>Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} /></label>
           <label style={labelStyle}>Phone<input value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} /></label>
@@ -155,11 +156,11 @@ export default function VolunteersPage() {
           <label style={labelStyle}>Availability<input value={availability} onChange={(e) => setAvailability(e.target.value)} style={inputStyle} /></label>
           <div style={{ alignSelf: "end" }}><button disabled={saving} style={buttonStyle}>{saving ? "Adding…" : "Add Pending Volunteer"}</button></div>
         </form>
-      </section>
+      </details>
 
-      <section><h2 style={{ color: C.navy }}>Volunteer directory</h2>
+      <section><h2 style={{ color: C.navy, fontSize: 20, margin: "0 0 12px" }}>Volunteer directory</h2>
         {loading ? <p>Loading volunteers…</p> : volunteers.length === 0 ? (
-          <div style={{ border: `1px solid ${C.border}`, padding: 24, background: C.white }}>No volunteers have been added yet.</div>
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, background: C.mint }}><strong style={{ color: C.navy }}>No volunteers have been added yet.</strong><p style={{ color: C.muted, fontSize: 13, margin: "5px 0 0" }}>Use “Add a volunteer” when you are ready to begin.</p></div>
         ) : volunteers.map((volunteer) => {
           const draft = drafts[volunteer.id] ?? createDraft(volunteer);
           return <article key={volunteer.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, marginBottom: 12, background: C.white }}>
