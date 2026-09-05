@@ -1532,6 +1532,10 @@ function ManagerNavigation({
   animalsLabel: string;
 }) {
   const pathname = usePathname();
+  const [dashboardAlerts, setDashboardAlerts] = useState({
+    count: 0,
+    critical: false,
+  });
   const inAnimalsSection =
     pathname === "/animals" ||
     pathname.startsWith("/animals/") ||
@@ -1564,6 +1568,42 @@ function ManagerNavigation({
     useState(true);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadDashboardAlertCount() {
+      try {
+        const response = await fetch("/api/dashboard/alerts", {
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (!response.ok || !active) return;
+
+        const actionable = Array.isArray(data.alerts)
+          ? data.alerts.filter((alert: { priority?: string }) => alert.priority !== "info")
+          : [];
+
+        setDashboardAlerts({
+          count: actionable.length,
+          critical: actionable.some((alert: { priority?: string; due_at?: string | null }) =>
+            alert.priority === "critical" ||
+            (alert.due_at ? new Date(alert.due_at).getTime() < Date.now() : false)
+          ),
+        });
+      } catch {
+        // A badge failure must never block Rescue Manager navigation.
+      }
+    }
+
+    loadDashboardAlertCount();
+    const refresh = window.setInterval(loadDashboardAlertCount, 60_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refresh);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
     if (inAnimalsSection) {
       setAnimalsOpen(true);
     }
@@ -1591,7 +1631,21 @@ function ManagerNavigation({
         href="/portal"
         exact
       >
-        Dashboard
+        <span style={dashboardLinkContentStyle}>
+          <span>Dashboard</span>
+          {dashboardAlerts.count > 0 ? (
+            <span
+              aria-label={`${dashboardAlerts.count} alert${dashboardAlerts.count === 1 ? "" : "s"} need attention`}
+              title={`${dashboardAlerts.count} alert${dashboardAlerts.count === 1 ? "" : "s"} need attention`}
+              style={{
+                ...dashboardAlertBadgeStyle,
+                background: dashboardAlerts.critical ? "#C63D32" : COLORS.coral,
+              }}
+            >
+              {dashboardAlerts.count > 99 ? "99+" : dashboardAlerts.count}
+            </span>
+          ) : null}
+        </span>
       </ManagerLink>
 
       <ManagerLink href="/fosters/offers">
@@ -1846,6 +1900,28 @@ const signOutDarkStyle = {
   fontWeight: 700,
   cursor: "pointer",
 } as const;
+
+const dashboardLinkContentStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const dashboardAlertBadgeStyle: CSSProperties = {
+  minWidth: 23,
+  height: 23,
+  padding: "0 7px",
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#fff",
+  fontSize: 11,
+  lineHeight: 1,
+  fontWeight: 800,
+  boxShadow: "0 0 0 2px rgba(255,255,255,.18)",
+};
 
 const managerFooterLink = {
   display: "block",
