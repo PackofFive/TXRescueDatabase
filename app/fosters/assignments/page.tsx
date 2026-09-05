@@ -377,28 +377,29 @@ export default function FosterAssignmentsPage() {
             "18px 0",
         }}
       >
-        <Stat
-          value={
-            fosters.length
-          }
-          label="Approved Fosters"
-        />
+        {fosters.length > 0 && <Stat value={fosters.length} label="Approved Fosters" />}
 
-        <Stat
-          value={
-            assignedAnimals.length
-          }
-          label="Animals with Fosters"
-        />
+        {assignedAnimals.length > 0 && <Stat value={assignedAnimals.length} label="Animals with Fosters" />}
 
-        <Stat
-          value={
-            availableAnimals.length
-          }
-          label="Available to Assign"
-        />
+        {availableAnimals.length > 0 && <Stat value={availableAnimals.length} label="Available to Assign" />}
       </div>
 
+      {fosters.length === 0 && (
+        <div style={{ ...cardStyle, background: COLORS.mint }}>
+          <strong style={{ color: COLORS.navy }}>No approved fosters are available</strong>
+          <p style={bodyStyle}>Approve or invite a foster before creating an animal assignment.</p>
+          <a href="/fosters" style={{ color: COLORS.navy, fontWeight: 800 }}>Manage Fosters</a>
+        </div>
+      )}
+
+      {fosters.length > 0 && availableAnimals.length === 0 && (
+        <div style={{ ...cardStyle, background: COLORS.mint }}>
+          <strong style={{ color: COLORS.navy }}>You’re all caught up</strong>
+          <p style={bodyStyle}>There are no unassigned animals available for a new foster placement.</p>
+        </div>
+      )}
+
+      {fosters.length > 0 && availableAnimals.length > 0 && (
       <form
         onSubmit={
           assign
@@ -595,6 +596,7 @@ export default function FosterAssignmentsPage() {
           </>
         )}
       </form>
+      )}
 
       {success && (
         <p
