@@ -40,9 +40,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "This listing was already claimed by someone else." }, { status: 409 });
     }
 
-    await sql`
+    const createdUsers = await sql`
       insert into users (email, password_hash, role, org_id, status)
       values (${claim.requester_email}, ${claim.password_hash}, 'org', ${claim.org_id}, 'approved')
+      returning id
+    `;
+    const userId = String(createdUsers[0].id);
+    await sql`
+      insert into organization_memberships (
+        user_id, org_id, role, access_level, status, shelter_express_access
+      )
+      select
+        ${userId}::uuid, organization.id, 'owner', 'owner', 'active',
+        coalesce(organization.org_type ilike '%shelter%', false)
+      from organizations organization
+      where organization.id = ${claim.org_id}::uuid
+      on conflict (org_id, user_id) do update set
+        access_level = 'owner',
+        role = 'owner',
+        status = 'active',
+        shelter_express_access = excluded.shelter_express_access,
+        updated_at = now()
+    `;
+    await sql`
+      insert into organization_access_audit (
+        org_id, affected_user_id, actor_user_id, action,
+        new_access_level, reason
+      ) values (
+        ${claim.org_id}::uuid, ${userId}::uuid, ${userId}::uuid,
+        'membership_created', 'owner',
+        'Initial verified organization owner created through manual claim approval'
+      )
     `;
     await sql`update claims set status = 'verified' where id = ${id}`;
 
