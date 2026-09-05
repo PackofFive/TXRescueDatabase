@@ -154,6 +154,7 @@ export default function AnimalsListPage() {
   const [approvedFosters, setApprovedFosters] = useState<FosterOption[]>([]);
   const [fosterAssignments, setFosterAssignments] = useState<Record<string, FosterAssignment>>({});
   const [assigningAnimalId, setAssigningAnimalId] = useState<string | null>(null);
+  const [updatingUrgencyId, setUpdatingUrgencyId] = useState<string | null>(null);
 
   const [
     orgName,
@@ -334,6 +335,26 @@ export default function AnimalsListPage() {
       setError(reason instanceof Error ? reason.message : "Couldn't assign this foster.");
     } finally {
       setAssigningAnimalId(null);
+    }
+  }
+
+  async function setAnimalUrgent(animalId: string, urgent: boolean) {
+    setUpdatingUrgencyId(animalId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/animals/${encodeURIComponent(animalId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ urgency: urgent ? "urgent" : "normal" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Couldn't update this animal's urgency.");
+      setAnimals((current) => current?.map((animal) => animal.id === animalId ? { ...animal, urgency: urgent ? "urgent" : "normal" } : animal) ?? null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Couldn't update this animal's urgency.");
+    } finally {
+      setUpdatingUrgencyId(null);
     }
   }
 
@@ -1354,6 +1375,8 @@ export default function AnimalsListPage() {
               assignment={fosterAssignments[animal.id] ?? null}
               assigning={assigningAnimalId === animal.id}
               onAssign={assignFoster}
+              updatingUrgency={updatingUrgencyId === animal.id}
+              onUrgencyChange={setAnimalUrgent}
             />
           )
         )}
@@ -1373,6 +1396,8 @@ function AnimalCard({
   assignment,
   assigning,
   onAssign,
+  updatingUrgency,
+  onUrgencyChange,
 }: {
   animal: Animal;
   cardFields: string[];
@@ -1380,6 +1405,8 @@ function AnimalCard({
   assignment: FosterAssignment | null;
   assigning: boolean;
   onAssign: (animalId: string, fosterId: string) => Promise<void>;
+  updatingUrgency: boolean;
+  onUrgencyChange: (animalId: string, urgent: boolean) => Promise<void>;
 }) {
   const [selectedFosterId, setSelectedFosterId] = useState("");
   const displayName =
@@ -1415,6 +1442,13 @@ function AnimalCard({
         minWidth: 0,
       }}
     >
+      {!animal.outcome_status ? (
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "10px 15px", background: animal.urgency === "urgent" || animal.urgency === "critical" ? "#FFF0ED" : "#FAFBFC", borderBottom: "1px solid #E7E5E1", color: "#17233C", cursor: updatingUrgency ? "wait" : "pointer" }}>
+          <input type="checkbox" checked={animal.urgency === "urgent" || animal.urgency === "critical"} disabled={updatingUrgency} onChange={(event) => void onUrgencyChange(animal.id, event.target.checked)} style={{ width: 17, height: 17, margin: "1px 0 0", accentColor: "#C63D32" }} />
+          <span style={{ minWidth: 0 }}><strong style={{ display: "block", fontSize: 12.5 }}>{updatingUrgency ? "Updating…" : "Needs urgent attention"}</strong><span style={{ display: "block", marginTop: 1, color: "#6B6862", fontSize: 11.5, lineHeight: 1.35 }}>{animal.urgency === "critical" ? "Currently marked Critical. Unchecking returns it to Normal." : "Show this animal in the Urgent subsection and Dashboard alerts."}</span></span>
+        </label>
+      ) : null}
+
       {/* ===============================================
           MAIN ANIMAL RECORD LINK
       ================================================ */}
