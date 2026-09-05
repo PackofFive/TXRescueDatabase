@@ -162,7 +162,7 @@ export default function HomePage() {
               textTransform: "uppercase",
             }}
           >
-            One network · Five connected roles
+            Rescue · Resources · Responsible Pet Ownership
           </p>
 
           <h1
@@ -176,7 +176,7 @@ export default function HomePage() {
               letterSpacing: "-.04em",
             }}
           >
-            The whole community behind every animal.
+            Helping people help animals.
           </h1>
 
           <p
@@ -190,9 +190,10 @@ export default function HomePage() {
               lineHeight: 1.55,
             }}
           >
-            Pack of Five connects organizations, volunteers, pet owners,
-            shelters, and professional care partners without mixing their
-            responsibilities or private information.
+            Find rescues and shelters,
+            discover animals needing homes
+            or help, and access practical
+            animal-welfare resources.
           </p>
         </div>
       </section>
