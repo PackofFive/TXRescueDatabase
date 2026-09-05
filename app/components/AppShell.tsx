@@ -60,6 +60,19 @@ export default function AppShell({
     pathname === "/volunteers" ||
     pathname.startsWith("/volunteers/");
 
+  const isShelterExpressArea =
+    pathname === "/shelter-express" ||
+    pathname.startsWith("/shelter-express/");
+
+  if (
+    isShelterExpressArea &&
+    user &&
+    user.status === "approved" &&
+    (user.role === "org" || user.role === "admin")
+  ) {
+    return <ShelterExpressShell user={user}>{children}</ShelterExpressShell>;
+  }
+
   if (isAdminArea) {
     return (
       <AdminShell user={user}>
@@ -244,6 +257,8 @@ function SignedInHeader({
       "pet-owner"
     );
 
+  const showShelterExpress = showOrganization;
+
   return (
     <header
       style={{
@@ -422,6 +437,15 @@ function SignedInHeader({
                 }
               >
                 Volunteer Portal
+              </TopPortalLink>
+            )}
+
+            {showShelterExpress && (
+              <TopPortalLink
+                href="/shelter-express"
+                active={pathname === "/shelter-express" || pathname.startsWith("/shelter-express/")}
+              >
+                Shelter Express
               </TopPortalLink>
             )}
 
@@ -1214,6 +1238,44 @@ function PetOwnerLink({
     >
       {children}
     </a>
+  );
+}
+
+/* =========================================================
+   SHELTER EXPRESS
+========================================================= */
+
+function ShelterExpressShell({ children, user }: { children: ReactNode; user: Exclude<ShellUser, null> }) {
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.background }}>
+      <SignedInHeader user={user} />
+      <div style={{ display: "grid", gridTemplateColumns: "230px minmax(0, 1fr)", minHeight: "calc(100vh - 100px)" }}>
+        <aside style={{ background: COLORS.navy, color: "#fff", padding: "24px 18px" }}>
+          <a href="/shelter-express" style={{ color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 18 }}>PACK OF FIVE</a>
+          <div style={{ fontSize: 12, opacity: .72, marginTop: 3, marginBottom: 28, letterSpacing: ".08em" }}>SHELTER EXPRESS</div>
+          <nav aria-label="Shelter Express navigation">
+            <ManagerLink href="/shelter-express" exact>Urgent Animals</ManagerLink>
+            <ManagerLink href="/animals/new">Quick Add Animal</ManagerLink>
+            <ManagerLink href="/portal/organization-profile">Shelter Profile</ManagerLink>
+          </nav>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,.16)", marginTop: 28, paddingTop: 18 }}>
+            <a href="/portal" style={managerFooterLink}>Open Full Rescue Manager</a>
+            <a href="/resources" style={managerFooterLink}>Resources</a>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", marginBottom: 14, overflowWrap: "anywhere" }}>{user.email}</div>
+            <button onClick={signOut} style={signOutDarkStyle}>Sign Out</button>
+          </div>
+        </aside>
+        <div style={{ minWidth: 0 }}>
+          <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "16px 28px" }}>
+            <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+              <div style={{ fontWeight: 800, color: COLORS.navy }}>{user.orgName ? `${user.orgName} Shelter Express` : "Shelter Express"}</div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>Fast urgent-animal publishing and rescue coordination</div>
+            </div>
+          </header>
+          <main style={{ padding: 28, maxWidth: 1120, margin: "0 auto" }}>{children}</main>
+        </div>
+      </div>
+    </div>
   );
 }
 
