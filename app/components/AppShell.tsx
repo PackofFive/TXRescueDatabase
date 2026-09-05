@@ -140,6 +140,27 @@ export default function AppShell({
     return children;
   }
 
+  if (
+    pathname === "/account" &&
+    user &&
+    user.status === "approved"
+  ) {
+    return (
+      <>
+        <SignedInHeader user={user} />
+        <main
+          style={{
+            padding: "28px 24px",
+            maxWidth: 980,
+            margin: "0 auto",
+          }}
+        >
+          {children}
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <PublicHeader user={user} />
@@ -1522,6 +1543,14 @@ function ManagerNavigation({
     pathname === "/volunteers" ||
     pathname.startsWith("/volunteers/");
   const inOrganizationSection =
+    pathname === "/portal/organization-profile" ||
+    pathname.startsWith(
+      "/portal/organization-profile/"
+    ) ||
+    pathname === "/portal/team-access" ||
+    pathname.startsWith(
+      "/portal/team-access/"
+    ) ||
     pathname === "/portal/data-imports" ||
     pathname.startsWith(
       "/portal/data-imports/"
@@ -1646,6 +1675,14 @@ function ManagerNavigation({
         hidden={!organizationOpen}
         style={managerSectionItemsStyle}
       >
+        <ManagerLink href="/portal/organization-profile">
+          Organization Profile
+        </ManagerLink>
+
+        <ManagerLink href="/portal/team-access">
+          Team &amp; Access
+        </ManagerLink>
+
         <ManagerLink href="/portal/data-imports" exact>
           Data &amp; Imports
         </ManagerLink>
