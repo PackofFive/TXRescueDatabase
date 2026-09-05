@@ -13,6 +13,13 @@ type Reminder = {
   overdue: boolean;
 };
 
+type FosterOption = { id: string; full_name: string };
+type FosterAssignment = {
+  id: string;
+  assignment_id: string | null;
+  assigned_foster_name: string | null;
+};
+
 type Animal = {
   id: string;
 
@@ -143,6 +150,10 @@ export default function AnimalsListPage() {
     useState<
       Animal[] | null
     >(null);
+
+  const [approvedFosters, setApprovedFosters] = useState<FosterOption[]>([]);
+  const [fosterAssignments, setFosterAssignments] = useState<Record<string, FosterAssignment>>({});
+  const [assigningAnimalId, setAssigningAnimalId] = useState<string | null>(null);
 
   const [
     orgName,
@@ -291,6 +302,40 @@ export default function AnimalsListPage() {
 
     loadIdentity();
   }, []);
+
+  async function loadFosterAssignments() {
+    try {
+      const response = await fetch("/api/fosters/assignments", { cache: "no-store", credentials: "same-origin" });
+      const data = await response.json();
+      if (!response.ok) return;
+      setApprovedFosters(data.fosters ?? []);
+      setFosterAssignments(Object.fromEntries((data.animals ?? []).map((animal: FosterAssignment) => [animal.id, animal])));
+    } catch {
+      // Animal records remain usable if foster assignment data is unavailable.
+    }
+  }
+
+  useEffect(() => { void loadFosterAssignments(); }, []);
+
+  async function assignFoster(animalId: string, fosterId: string) {
+    setAssigningAnimalId(animalId);
+    setError(null);
+    try {
+      const response = await fetch("/api/fosters/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ animalId, fosterId, notes: "Assigned from the animal card." }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Couldn't assign this foster.");
+      await loadFosterAssignments();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Couldn't assign this foster.");
+    } finally {
+      setAssigningAnimalId(null);
+    }
+  }
 
   /* =====================================================
      LOAD ANIMALS
@@ -1305,6 +1350,10 @@ export default function AnimalsListPage() {
               cardFields={
                 cardFields
               }
+              approvedFosters={approvedFosters}
+              assignment={fosterAssignments[animal.id] ?? null}
+              assigning={assigningAnimalId === animal.id}
+              onAssign={assignFoster}
             />
           )
         )}
@@ -1320,10 +1369,19 @@ export default function AnimalsListPage() {
 function AnimalCard({
   animal,
   cardFields,
+  approvedFosters,
+  assignment,
+  assigning,
+  onAssign,
 }: {
   animal: Animal;
   cardFields: string[];
+  approvedFosters: FosterOption[];
+  assignment: FosterAssignment | null;
+  assigning: boolean;
+  onAssign: (animalId: string, fosterId: string) => Promise<void>;
 }) {
+  const [selectedFosterId, setSelectedFosterId] = useState("");
   const displayName =
     animal.name ||
     animal.temporary_name ||
@@ -1608,6 +1666,27 @@ function AnimalCard({
           </div>
         </div>
       </a>
+
+      <div style={{ borderTop: "1px solid #E7E5E1", padding: "11px 15px", background: "#FAFBFC" }}>
+        {assignment?.assignment_id ? (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ color: "#17233C", fontSize: 12.5 }}><strong>Foster:</strong> {assignment.assigned_foster_name || "Assigned foster"}</span>
+            <a href="/fosters/assignments" style={{ color: "#17233C", fontSize: 12, fontWeight: 800 }}>Manage</a>
+          </div>
+        ) : approvedFosters.length > 0 ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select aria-label={`Assign a foster to ${displayName}`} value={selectedFosterId} onChange={(event) => setSelectedFosterId(event.target.value)} style={{ flex: "1 1 170px", minWidth: 0, padding: "7px 8px", border: "1px solid #DCE4EC", borderRadius: 6, background: "#fff", color: "#17233C", fontSize: 12 }}>
+              <option value="">Assign approved foster…</option>
+              {approvedFosters.map((foster) => <option key={foster.id} value={foster.id}>{foster.full_name}</option>)}
+            </select>
+            <button type="button" disabled={!selectedFosterId || assigning} onClick={() => void onAssign(animal.id, selectedFosterId)} style={{ border: 0, borderRadius: 6, padding: "8px 10px", background: "#1E3A5F", color: "#fff", fontSize: 12, fontWeight: 800, cursor: selectedFosterId && !assigning ? "pointer" : "default", opacity: selectedFosterId && !assigning ? 1 : 0.5 }}>
+              {assigning ? "Assigning…" : "Assign"}
+            </button>
+          </div>
+        ) : (
+          <a href="/fosters" style={{ color: "#4A5D75", fontSize: 12, fontWeight: 700 }}>Approve a foster to assign care</a>
+        )}
+      </div>
 
       {/* ===============================================
           REMINDERS
