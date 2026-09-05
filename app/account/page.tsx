@@ -216,14 +216,21 @@ export default function AccountPage() {
           )}
 
           {hasRescueManager && (
-            <ProfileCard
-              title="Rescue Manager"
-              description="Open the private workspace for your approved rescue or shelter organization."
-              links={[
-                { href: "/portal", label: "Open Rescue Manager" },
-                { href: "/portal/organization-profile", label: "Organization Profile" },
-              ]}
-            />
+            <>
+              <ProfileCard
+                title="Rescue Manager"
+                description="Open the full private workspace for your approved rescue or shelter organization."
+                links={[
+                  { href: "/portal", label: "Open Rescue Manager" },
+                  { href: "/portal/organization-profile", label: "Organization Profile" },
+                ]}
+              />
+              <ProfileCard
+                title="Shelter Express"
+                description="Use the simplified workspace to add urgent animals, publish profiles, and coordinate rescue help."
+                links={[{ href: "/shelter-express", label: "Open Shelter Express" }]}
+              />
+            </>
           )}
 
           {hasAdmin && (
