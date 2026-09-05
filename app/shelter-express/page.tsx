@@ -26,8 +26,16 @@ export default function ShelterExpressPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/animals?caseStatus=active&sort=newest", { cache: "no-store" })
-      .then(async response => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(response => response.json())
+      .then(async auth => {
+        const portals = Array.isArray(auth.user?.availablePortals) ? auth.user.availablePortals : [];
+        if (!auth.user || !portals.includes("organization")) {
+          window.location.replace("/login?portal=shelter");
+          return;
+        }
+
+        const response = await fetch("/api/animals?caseStatus=active&sort=newest", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? "Urgent animals could not be loaded.");
         setAnimals(Array.isArray(data.animals) ? data.animals : []);
