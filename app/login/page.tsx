@@ -728,7 +728,7 @@ function routeSignedInUser(
   }
 
   if (requestedPortal === "shelter") {
-    if (portals.includes("organization")) {
+    if (portals.includes("shelter")) {
       window.location.href = "/shelter-express";
       return;
     }
