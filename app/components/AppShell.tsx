@@ -257,7 +257,7 @@ function SignedInHeader({
       "pet-owner"
     );
 
-  const showShelterExpress = showOrganization;
+  const showShelterExpress = portals.includes("shelter");
 
   return (
     <header
