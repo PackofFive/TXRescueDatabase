@@ -571,43 +571,23 @@ export default function FosterManagementPage() {
             18,
         }}
       >
-        <StatCard
-          value={
-            approvedCount
-          }
-          label="Approved Fosters"
-        />
+        {approvedCount > 0 && <StatCard value={approvedCount} label="Approved Fosters" />}
 
-        <StatCard
-          value={
-            pendingCount
-          }
-          label="Pending / Invited"
-        />
+        {pendingCount > 0 && <StatCard value={pendingCount} label="Pending / Invited" />}
 
-        <StatCard
-          value={
-            invitations.filter(
-              (item) =>
-                item.status ===
-                "pending"
-            ).length
-          }
-          label="Open Invitations"
-        />
+        {invitations.filter((item) => item.status === "pending").length > 0 && (
+          <StatCard value={invitations.filter((item) => item.status === "pending").length} label="Open Invitations" />
+        )}
       </div>
 
+      <details style={{ background: COLORS.mint, padding: 16, marginBottom: 18 }}>
+        <summary style={{ color: COLORS.navy, cursor: "pointer", fontWeight: 800 }}>Invite a foster</summary>
       <form
         onSubmit={
           submitInvite
         }
         style={{
-          background:
-            COLORS.mint,
-          padding:
-            16,
-          marginBottom:
-            18,
+          paddingTop: 12,
         }}
       >
         <strong
@@ -620,7 +600,7 @@ export default function FosterManagementPage() {
               4,
           }}
         >
-          Invite a Foster
+          Foster invitation
         </strong>
 
         <p
@@ -774,6 +754,7 @@ export default function FosterManagementPage() {
           </div>
         )}
       </form>
+      </details>
 
       {error && (
         <div
