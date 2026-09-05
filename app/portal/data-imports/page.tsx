@@ -784,7 +784,7 @@ function severityStyle(
 }
 
 const pageStyle: React.CSSProperties = {
-  maxWidth: 1040,
+  maxWidth: 980,
 };
 
 const eyebrowStyle: React.CSSProperties = {
@@ -799,7 +799,7 @@ const eyebrowStyle: React.CSSProperties = {
 const headingStyle: React.CSSProperties = {
   margin: 0,
   color: COLORS.navy,
-  fontSize: 32,
+  fontSize: 30,
   lineHeight: 1.12,
 };
 
