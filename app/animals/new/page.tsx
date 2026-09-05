@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+type FosterOption = { id: string; full_name: string };
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: 9,
@@ -289,6 +291,9 @@ export default function QuickIntakePage() {
   const [placement, setPlacement] =
     useState("");
 
+  const [approvedFosters, setApprovedFosters] = useState<FosterOption[]>([]);
+  const [selectedFosterId, setSelectedFosterId] = useState("");
+
   const [urgency, setUrgency] =
     useState("normal");
 
@@ -393,6 +398,13 @@ export default function QuickIntakePage() {
     }
 
     void loadExistingNames();
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/fosters/assignments", { cache: "no-store", credentials: "same-origin" })
+      .then(async (response) => ({ ok: response.ok, data: await response.json() }))
+      .then(({ ok, data }) => { if (ok) setApprovedFosters(data.fosters ?? []); })
+      .catch(() => { /* Foster selection remains optional during intake. */ });
   }, []);
 
   useEffect(() => {
@@ -785,6 +797,21 @@ export default function QuickIntakePage() {
         String(
           data.animal.id
         );
+
+      if (selectedFosterId) {
+        try {
+          const assignmentResponse = await fetch("/api/fosters/assignments", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ animalId, fosterId: selectedFosterId, notes: "Assigned during animal intake." }),
+          });
+          const assignmentData = await assignmentResponse.json();
+          if (!assignmentResponse.ok) throw new Error(assignmentData.error ?? "The animal was created, but the foster could not be assigned.");
+        } catch (assignmentError) {
+          setSaveWarning(assignmentError instanceof Error ? assignmentError.message : "The animal was created, but the foster could not be assigned.");
+        }
+      }
 
       if (
         photoFile
@@ -1737,6 +1764,23 @@ export default function QuickIntakePage() {
               </option>
             </select>
           </div>
+
+          {approvedFosters.length > 0 && (
+            <div>
+              <label style={labelStyle}>Assign approved foster (optional)</label>
+              <select
+                value={selectedFosterId}
+                onChange={(event) => {
+                  setSelectedFosterId(event.target.value);
+                  if (event.target.value) setPlacement("in_foster");
+                }}
+                style={inputStyle}
+              >
+                <option value="">Assign later</option>
+                {approvedFosters.map((foster) => <option key={foster.id} value={foster.id}>{foster.full_name}</option>)}
+              </select>
+            </div>
+          )}
 
           <div>
             <label
