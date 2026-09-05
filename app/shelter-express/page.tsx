@@ -30,7 +30,7 @@ export default function ShelterExpressPage() {
       .then(response => response.json())
       .then(async auth => {
         const portals = Array.isArray(auth.user?.availablePortals) ? auth.user.availablePortals : [];
-        if (!auth.user || !portals.includes("organization")) {
+        if (!auth.user || !portals.includes("shelter")) {
           window.location.replace("/login?portal=shelter");
           return;
         }
