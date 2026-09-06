@@ -16,6 +16,7 @@ type AccountUser = {
     access_level: string;
     shelter_express_access: boolean;
   }>;
+  pendingProfileLinks?: Array<{ type: string; id: string; label: string }>;
 };
 
 const COLORS = {
@@ -41,9 +42,9 @@ export default function AccountPage() {
   const [inviteMessage, setInviteMessage] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [acceptingInvite, setAcceptingInvite] = useState(false);
-  const [switchingOrganization, setSwitchingOrganization] = useState("");
-  const [organizationMessage, setOrganizationMessage] = useState("");
-  const [organizationError, setOrganizationError] = useState("");
+  const [linkingProfile, setLinkingProfile] = useState("");
+  const [profileLinkMessage, setProfileLinkMessage] = useState("");
+  const [profileLinkError, setProfileLinkError] = useState("");
   const platformAdminInvite = searchParams.get("platformAdminInvite") ?? "";
 
   useEffect(() => {
@@ -107,25 +108,25 @@ export default function AccountPage() {
     }
   }
 
-  async function selectOrganization(orgId: string) {
-    setSwitchingOrganization(orgId);
-    setOrganizationMessage("");
-    setOrganizationError("");
+  async function connectProfile(profileType: string, profileId: string) {
+    setLinkingProfile(profileId);
+    setProfileLinkMessage("");
+    setProfileLinkError("");
     try {
-      const response = await fetch("/api/auth/organization", {
+      const response = await fetch("/api/auth/profile-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId }),
+        body: JSON.stringify({ profileType, profileId }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "The organization could not be selected.");
-      setOrganizationMessage(data.message);
+      if (!response.ok) throw new Error(data.error ?? "The profile could not be connected.");
+      setProfileLinkMessage(data.message);
       const refreshed = await fetch("/api/auth/me", { cache: "no-store" }).then((result) => result.json());
       setUser(refreshed.user ?? null);
     } catch (reason) {
-      setOrganizationError(reason instanceof Error ? reason.message : "The organization could not be selected.");
+      setProfileLinkError(reason instanceof Error ? reason.message : "The profile could not be connected.");
     } finally {
-      setSwitchingOrganization("");
+      setLinkingProfile("");
     }
   }
 
@@ -146,9 +147,6 @@ export default function AccountPage() {
   const portals = user.availablePortals ?? [];
   const hasVolunteerPortal = portals.includes("foster");
   const hasPetOwnerPortal = portals.includes("pet-owner");
-  const hasRescueManager = portals.includes("organization");
-  const hasShelterExpress = portals.includes("shelter");
-  const hasAdmin = portals.includes("admin");
 
   return (
     <div>
@@ -220,19 +218,35 @@ export default function AccountPage() {
       </section>
 
       <section style={{ marginTop: 24 }}>
-        <h2 style={sectionHeadingStyle}>My workspaces and profiles</h2>
+        <h2 style={sectionHeadingStyle}>My profiles and access</h2>
         <p style={bodyStyle}>
-          Choose the area you want to manage. Changes in one profile do not
-          overwrite your information in another profile.
+          Review what is connected to your account and edit your personal profiles.
+          Use the header to move between portals.
         </p>
+
+        {(user.pendingProfileLinks?.length ?? 0) > 0 && (
+          <section style={{ ...panelStyle, background: "#F2D6DC" }}>
+            <h3 style={{ ...sectionHeadingStyle, fontSize: 20 }}>Profiles available to connect</h3>
+            <p style={bodyStyle}>We found a profile using your signed-in email address. Connect it only if it belongs to you. Your current password remains unchanged.</p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {user.pendingProfileLinks?.map((profile) => (
+                <div key={`${profile.type}-${profile.id}`} style={{ border: `1px solid ${COLORS.border}`, background: COLORS.white, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                  <div><strong style={{ color: COLORS.navy }}>{profile.label}</strong><div style={{ color: COLORS.muted, fontSize: 13, marginTop: 3 }}>Matches {user.email}</div></div>
+                  <button type="button" disabled={linkingProfile === profile.id} onClick={() => connectProfile(profile.type, profile.id)} style={passwordButtonStyle}>{linkingProfile === profile.id ? "Connecting…" : "Connect to My Account"}</button>
+                </div>
+              ))}
+            </div>
+            {profileLinkMessage ? <p style={{ color: COLORS.navy, fontWeight: 700 }}>{profileLinkMessage}</p> : null}
+            {profileLinkError ? <div role="alert" style={passwordErrorStyle}>{profileLinkError}</div> : null}
+          </section>
+        )}
 
         {(user.organizationWorkspaces?.length ?? 0) > 0 && (
           <section style={{ ...panelStyle, background: COLORS.mint }}>
-            <h3 style={{ ...sectionHeadingStyle, fontSize: 20 }}>My organizations</h3>
-            <p style={bodyStyle}>Choose the organization you want to work with. Your email and password stay the same, while each organization keeps separate records and permissions.</p>
+            <h3 style={{ ...sectionHeadingStyle, fontSize: 20 }}>Connected organizations</h3>
+            <p style={bodyStyle}>These are the organizations connected to your account. Open and switch portals from the header; organization access and records remain separate.</p>
             <div style={{ display: "grid", gap: 10 }}>
               {user.organizationWorkspaces?.map((workspace) => {
-                const active = workspace.id === user.activeOrganizationId;
                 return (
                   <div key={workspace.id} style={{ border: `1px solid ${COLORS.border}`, background: COLORS.white, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
                     <div>
@@ -241,15 +255,10 @@ export default function AccountPage() {
                         {workspace.org_type || "Animal-welfare organization"} · {workspace.access_level.replaceAll("_", " ")}
                       </div>
                     </div>
-                    <button type="button" disabled={active || switchingOrganization === workspace.id} onClick={() => selectOrganization(workspace.id)} style={passwordButtonStyle}>
-                      {active ? "Current Organization" : switchingOrganization === workspace.id ? "Switching…" : "Use This Organization"}
-                    </button>
                   </div>
                 );
               })}
             </div>
-            {organizationMessage ? <p style={{ color: COLORS.navy, fontWeight: 700 }}>{organizationMessage}</p> : null}
-            {organizationError ? <div role="alert" style={passwordErrorStyle}>{organizationError}</div> : null}
           </section>
         )}
 
@@ -259,8 +268,7 @@ export default function AccountPage() {
               title="Volunteer Portal"
               description="Manage your volunteer and foster profile, rescue relationships, availability, and approved service categories."
               links={[
-                { href: "/foster", label: "Open Volunteer Portal" },
-                { href: "/foster/profile", label: "Volunteer Profile" },
+                { href: "/foster/profile", label: "Edit Volunteer Profile" },
               ]}
             />
           )}
@@ -270,40 +278,11 @@ export default function AccountPage() {
               title="Pet Owner"
               description="Manage your personal pet owner profile and private pet records."
               links={[
-                { href: "/pet-owner", label: "Open Pet Owner" },
-                { href: "/pet-owner/profile", label: "Pet Owner Profile" },
+                { href: "/pet-owner/profile", label: "Edit Pet Owner Profile" },
               ]}
             />
           )}
 
-          {hasRescueManager && (
-            <>
-              <ProfileCard
-                title="Rescue Manager"
-                description="Open the full private workspace for your approved rescue or shelter organization."
-                links={[
-                  { href: "/portal", label: "Open Rescue Manager" },
-                  { href: "/portal/organization-profile", label: "Organization Profile" },
-                ]}
-              />
-            </>
-          )}
-
-          {hasShelterExpress && (
-            <ProfileCard
-              title="Shelter Express"
-              description="Use the simplified workspace to add urgent animals, publish profiles, and coordinate rescue help."
-              links={[{ href: "/shelter-express", label: "Open Shelter Express" }]}
-            />
-          )}
-
-          {hasAdmin && (
-            <ProfileCard
-              title="Platform Administration"
-              description="Open Pack of Five platform administration. This is separate from rescue organization access."
-              links={[{ href: "/admin", label: "Open Administration" }]}
-            />
-          )}
         </div>
       </section>
 
