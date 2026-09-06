@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       user_id, org_id, role, access_level, status, shelter_express_access
     )
     select
-      ${userId}::uuid, organization.id, 'owner', 'owner', 'active',
+      ${userId}::uuid, organization.id, 'admin', 'owner', 'active',
       coalesce(
         organization.org_type ilike '%shelter%'
         or organization.org_type = 'Animal Control',
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     where organization.id = ${claim.org_id}::uuid
     on conflict (org_id, user_id) do update set
       access_level = 'owner',
-      role = 'owner',
+      role = 'admin',
       status = 'active',
       shelter_express_access = excluded.shelter_express_access,
       updated_at = now()
