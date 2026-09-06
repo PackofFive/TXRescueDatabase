@@ -45,6 +45,7 @@ export async function GET() {
     */
 
     const availablePortals: string[] = [];
+    const pendingProfileLinks: Array<{ type: string; id: string; label: string }> = [];
     const organizationWorkspaces = await sql`
       select organization.id, organization.name, organization.org_type,
         membership.access_level, membership.shelter_express_access
@@ -162,28 +163,11 @@ export async function GET() {
           fosterRows[0] ?? null;
 
         if (fosterProfile?.id) {
-          fosterId = String(
-            fosterProfile.id
-          );
-
-          if (!fosterProfile.user_id) {
-            await sql`
-              update foster_profiles
-              set
-                user_id = ${session.id}::uuid,
-                updated_at = now()
-              where
-                id = ${fosterId}
-                and user_id is null
-            `;
-          }
-
-          if (
-            Boolean(
-              fosterProfile.has_approved_relationship
-            )
-          ) {
-            availablePortals.push("foster");
+          if (fosterProfile.user_id) {
+            fosterId = String(fosterProfile.id);
+            if (Boolean(fosterProfile.has_approved_relationship)) availablePortals.push("foster");
+          } else {
+            pendingProfileLinks.push({ type: "foster", id: String(fosterProfile.id), label: "Foster profile" });
           }
         }
       }
@@ -241,18 +225,11 @@ export async function GET() {
         const volunteerProfile = volunteerRows[0] ?? null;
 
         if (volunteerProfile?.id) {
-          volunteerId = String(volunteerProfile.id);
-
-          if (!volunteerProfile.user_id) {
-            await sql`
-              update volunteer_profiles
-              set user_id = ${session.id}::uuid, updated_at = now()
-              where id = ${volunteerId}::uuid and user_id is null
-            `;
-          }
-
-          if (Boolean(volunteerProfile.has_portal_access)) {
-            availablePortals.push("foster");
+          if (volunteerProfile.user_id) {
+            volunteerId = String(volunteerProfile.id);
+            if (Boolean(volunteerProfile.has_portal_access)) availablePortals.push("foster");
+          } else {
+            pendingProfileLinks.push({ type: "volunteer", id: String(volunteerProfile.id), label: "Volunteer profile" });
           }
         }
       }
@@ -330,6 +307,7 @@ export async function GET() {
           ),
           organizationWorkspaces,
           activeOrganizationId: session.orgId,
+          pendingProfileLinks,
         },
       },
       {
