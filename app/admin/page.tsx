@@ -38,7 +38,7 @@ export default function AdminPage(){
   async function actClaim(id:string,action:"approve"|"reject"){
     setWorking(id);setClaimActionError(null);
     try{
-      const response=await fetch(`/api/admin/claims/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+      const response=await fetch("/api/admin/claims",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({claimId:id,action})});
       const data=await response.json();
       if(!response.ok)throw new Error(data.error??`The claim could not be ${action}d.`);
       await load();
