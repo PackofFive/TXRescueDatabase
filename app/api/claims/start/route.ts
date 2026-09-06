@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, verifyPassword } from "@/lib/auth";
 import { sendClaimVerificationEmail, sendClaimCaseEmail } from "@/lib/email";
 import { normalizeEmail, validateNewPassword } from "@/lib/account-security";
 
@@ -157,20 +157,17 @@ export async function POST(req: NextRequest) {
   const passwordError = validateNewPassword(password);
   if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
 
-  const existingAccount = await sql`
-    select id
+  const existingAccountRows = await sql`
+    select id, password_hash, status
     from users
     where lower(email) = ${email}
     limit 1
   `;
-  if (existingAccount[0]) {
-    return NextResponse.json(
-      {
-        error:
-          "This email already has a Pack of Five account. For this test, use a different email address. Support for managing multiple organizations from one account will be added separately.",
-      },
-      { status: 409 }
-    );
+  const existingAccount = existingAccountRows[0] as { id:string; password_hash:string; status:string } | undefined;
+  if (existingAccount) {
+    const passwordMatches = await verifyPassword(String(password), existingAccount.password_hash);
+    if (!passwordMatches) return NextResponse.json({ error: "The password does not match the existing Pack of Five account for this email." }, { status: 401 });
+    if (existingAccount.status !== "approved") return NextResponse.json({ error: "This Pack of Five account is not currently active." }, { status: 403 });
   }
 
   const orgRows = await sql`select id, name, public_email from organizations where id = ${orgId}`;
@@ -201,7 +198,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const passwordHash = await hashPassword(String(password));
+  const passwordHash = existingAccount?.password_hash ?? await hashPassword(String(password));
 
   if (!org.public_email) {
     // No email on file to verify against — queue for manual admin review
