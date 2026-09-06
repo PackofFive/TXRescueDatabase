@@ -45,6 +45,16 @@ export async function GET() {
     */
 
     const availablePortals: string[] = [];
+    const organizationWorkspaces = await sql`
+      select organization.id, organization.name, organization.org_type,
+        membership.access_level, membership.shelter_express_access
+      from organization_memberships membership
+      join organizations organization on organization.id = membership.org_id
+      where membership.user_id = ${session.id}::uuid
+        and membership.status = 'active'
+        and organization.archived_at is null
+      order by organization.name
+    `;
     const platformRows = await sql`
       select access_level
       from platform_administrator_memberships
@@ -318,6 +328,8 @@ export async function GET() {
           availablePortals: Array.from(
             new Set(availablePortals)
           ),
+          organizationWorkspaces,
+          activeOrganizationId: session.orgId,
         },
       },
       {
