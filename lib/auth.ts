@@ -176,11 +176,23 @@ export async function getSession(): Promise<SessionUser | null> {
       return null;
     }
 
+    let effectiveOrgId = current.org_id;
+    if (session.orgId && current.role !== "admin") {
+      const membership = await sql`
+        select 1 from organization_memberships
+        where user_id = ${session.id}::uuid
+          and org_id = ${session.orgId}::uuid
+          and status = 'active'
+        limit 1
+      `;
+      if (membership[0]) effectiveOrgId = session.orgId;
+    }
+
     return {
       ...session,
       email: current.email,
       role: current.role,
-      orgId: current.role === "admin" ? session.orgId : current.org_id,
+      orgId: current.role === "admin" ? session.orgId : effectiveOrgId,
       status: current.status,
       sessionVersion: Number(current.session_version),
     };
@@ -231,9 +243,14 @@ export async function requireOrgAccess(orgId: string): Promise<SessionUser> {
 
   if (session.role === "admin") return session;
 
-  if (session.role === "org" && session.orgId === orgId) {
-    return session;
-  }
+  const membership = await sql`
+    select 1 from organization_memberships
+    where user_id = ${session.id}::uuid
+      and org_id = ${orgId}::uuid
+      and status = 'active'
+    limit 1
+  `;
+  if (membership[0]) return session;
 
   throw new AuthError("You don't have access to this organization's data.", 403);
 }
