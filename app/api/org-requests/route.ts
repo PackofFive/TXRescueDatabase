@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { isOrganizationType } from "@/lib/organization-types";
 
 export const runtime = "edge";
 
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
     if (!contactEmail || typeof contactEmail !== "string") {
       return NextResponse.json(
         { error: "Contact email is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!isOrganizationType(organizationType)) {
+      return NextResponse.json(
+        { error: "Please choose a valid organization type." },
         { status: 400 }
       );
     }
