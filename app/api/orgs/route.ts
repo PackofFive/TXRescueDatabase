@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isOrganizationType } from "@/lib/organization-types";
 import { sql } from "@/lib/db";
 import {
   requireAdmin,
@@ -232,6 +233,13 @@ export async function POST(
         {
           status: 400,
         }
+      );
+    }
+
+    if (!isOrganizationType(orgType)) {
+      return NextResponse.json(
+        { error: "Please choose a valid organization type." },
+        { status: 400 }
       );
     }
 
