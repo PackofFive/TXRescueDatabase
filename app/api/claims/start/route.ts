@@ -157,6 +157,22 @@ export async function POST(req: NextRequest) {
   const passwordError = validateNewPassword(password);
   if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
 
+  const existingAccount = await sql`
+    select id
+    from users
+    where lower(email) = ${email}
+    limit 1
+  `;
+  if (existingAccount[0]) {
+    return NextResponse.json(
+      {
+        error:
+          "This email already has a Pack of Five account. For this test, use a different email address. Support for managing multiple organizations from one account will be added separately.",
+      },
+      { status: 409 }
+    );
+  }
+
   const orgRows = await sql`select id, name, public_email from organizations where id = ${orgId}`;
   const org = orgRows[0] as { id: string; name: string; public_email: string | null } | undefined;
   if (!org) {
