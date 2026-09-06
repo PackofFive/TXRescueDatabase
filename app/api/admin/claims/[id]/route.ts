@@ -41,27 +41,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const existingAccount = await sql`
-      select id
+      select id, status
       from users
       where lower(email) = lower(${claim.requester_email})
       limit 1
     `;
-    if (existingAccount[0]) {
-      return NextResponse.json(
-        {
-          error:
-            "This email already belongs to a Pack of Five account. Reject this test claim and submit a new claim with a different email address. Multiple-organization account switching is not active yet.",
-        },
-        { status: 409 }
-      );
+    if (existingAccount[0] && existingAccount[0].status !== "approved") {
+      return NextResponse.json({ error: "The existing Pack of Five account is not active." }, { status: 409 });
     }
-
-    const createdUsers = await sql`
-      insert into users (email, password_hash, role, org_id, status)
-      values (${claim.requester_email}, ${claim.password_hash}, 'org', ${claim.org_id}, 'approved')
-      returning id
-    `;
-    const userId = String(createdUsers[0].id);
+    let userId = existingAccount[0] ? String(existingAccount[0].id) : "";
+    if (!userId) {
+      const createdUsers = await sql`
+        insert into users (email, password_hash, role, org_id, status)
+        values (${claim.requester_email}, ${claim.password_hash}, 'org', ${claim.org_id}, 'approved')
+        returning id
+      `;
+      userId = String(createdUsers[0].id);
+    }
     await sql`
       insert into organization_memberships (
         user_id, org_id, role, access_level, status, shelter_express_access
