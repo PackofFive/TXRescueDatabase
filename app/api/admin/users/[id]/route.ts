@@ -102,7 +102,11 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
         await sql`
           insert into organization_memberships(user_id,org_id,role,access_level,status,shelter_express_access,granted_by)
           select ${id}::uuid,organization.id,${initialLevel},${initialLevel},'active',
-            case when ${initialLevel}='owner' then coalesce(organization.org_type ilike '%shelter%',false) else false end,
+            case when ${initialLevel}='owner' then coalesce(
+              organization.org_type ilike '%shelter%'
+              or organization.org_type = 'Animal Control',
+              false
+            ) else false end,
             ${String((await requireAdminFresh(["platform_owner"])).id)}::uuid
           from organizations organization where organization.id=${String(rows[0].org_id)}::uuid
           on conflict(org_id,user_id) do update set status='active',updated_at=now()
