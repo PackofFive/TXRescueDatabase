@@ -62,7 +62,11 @@ export async function POST(req: NextRequest) {
     )
     select
       ${userId}::uuid, organization.id, 'owner', 'owner', 'active',
-      coalesce(organization.org_type ilike '%shelter%', false)
+      coalesce(
+        organization.org_type ilike '%shelter%'
+        or organization.org_type = 'Animal Control',
+        false
+      )
     from organizations organization
     where organization.id = ${claim.org_id}::uuid
     on conflict (org_id, user_id) do update set
