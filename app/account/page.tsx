@@ -8,6 +8,14 @@ type AccountUser = {
   role?: string;
   status?: string;
   availablePortals?: string[];
+  activeOrganizationId?: string | null;
+  organizationWorkspaces?: Array<{
+    id: string;
+    name: string;
+    org_type: string | null;
+    access_level: string;
+    shelter_express_access: boolean;
+  }>;
 };
 
 const COLORS = {
@@ -33,6 +41,9 @@ export default function AccountPage() {
   const [inviteMessage, setInviteMessage] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [switchingOrganization, setSwitchingOrganization] = useState("");
+  const [organizationMessage, setOrganizationMessage] = useState("");
+  const [organizationError, setOrganizationError] = useState("");
   const platformAdminInvite = searchParams.get("platformAdminInvite") ?? "";
 
   useEffect(() => {
@@ -93,6 +104,28 @@ export default function AccountPage() {
       setInviteError(reason instanceof Error ? reason.message : "The invitation could not be accepted.");
     } finally {
       setAcceptingInvite(false);
+    }
+  }
+
+  async function selectOrganization(orgId: string) {
+    setSwitchingOrganization(orgId);
+    setOrganizationMessage("");
+    setOrganizationError("");
+    try {
+      const response = await fetch("/api/auth/organization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The organization could not be selected.");
+      setOrganizationMessage(data.message);
+      const refreshed = await fetch("/api/auth/me", { cache: "no-store" }).then((result) => result.json());
+      setUser(refreshed.user ?? null);
+    } catch (reason) {
+      setOrganizationError(reason instanceof Error ? reason.message : "The organization could not be selected.");
+    } finally {
+      setSwitchingOrganization("");
     }
   }
 
@@ -192,6 +225,33 @@ export default function AccountPage() {
           Choose the area you want to manage. Changes in one profile do not
           overwrite your information in another profile.
         </p>
+
+        {(user.organizationWorkspaces?.length ?? 0) > 0 && (
+          <section style={{ ...panelStyle, background: COLORS.mint }}>
+            <h3 style={{ ...sectionHeadingStyle, fontSize: 20 }}>My organizations</h3>
+            <p style={bodyStyle}>Choose the organization you want to work with. Your email and password stay the same, while each organization keeps separate records and permissions.</p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {user.organizationWorkspaces?.map((workspace) => {
+                const active = workspace.id === user.activeOrganizationId;
+                return (
+                  <div key={workspace.id} style={{ border: `1px solid ${COLORS.border}`, background: COLORS.white, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                    <div>
+                      <strong style={{ color: COLORS.navy }}>{workspace.name}</strong>
+                      <div style={{ color: COLORS.muted, fontSize: 13, marginTop: 3 }}>
+                        {workspace.org_type || "Animal-welfare organization"} · {workspace.access_level.replaceAll("_", " ")}
+                      </div>
+                    </div>
+                    <button type="button" disabled={active || switchingOrganization === workspace.id} onClick={() => selectOrganization(workspace.id)} style={passwordButtonStyle}>
+                      {active ? "Current Organization" : switchingOrganization === workspace.id ? "Switching…" : "Use This Organization"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {organizationMessage ? <p style={{ color: COLORS.navy, fontWeight: 700 }}>{organizationMessage}</p> : null}
+            {organizationError ? <div role="alert" style={passwordErrorStyle}>{organizationError}</div> : null}
+          </section>
+        )}
 
         <div style={cardGridStyle}>
           {hasVolunteerPortal && (
