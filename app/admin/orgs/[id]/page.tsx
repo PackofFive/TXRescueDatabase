@@ -9,6 +9,7 @@ import {
   CAPABILITY_STATUSES,
   RESOURCE_STATUS_OPTIONS,
 } from "@/lib/constants";
+import { ORGANIZATION_TYPES, organizationTypeDetails } from "@/lib/organization-types";
 
 type OrgRecord = Record<string, unknown>;
 
@@ -701,7 +702,20 @@ export default function AdminOrgEditPage() {
                 {f.label}
               </label>
 
-              {f.key ===
+              {f.key === "org_type" ? (
+                <>
+                  <select value={form[f.key] ?? ""} onChange={(e) => setField(f.key, e.target.value)} style={inputStyle}>
+                    {!organizationTypeDetails(form[f.key] ?? "") && form[f.key] && (
+                      <option value={form[f.key]}>Legacy value: {form[f.key]}</option>
+                    )}
+                    {ORGANIZATION_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+                  </select>
+                  <p style={{fontSize:12,color:"#6B6862",lineHeight:1.5,margin:"6px 0 0"}}>
+                    {organizationTypeDetails(form[f.key] ?? "")?.description}<br/>
+                    <strong>Best fit:</strong> {organizationTypeDetails(form[f.key] ?? "")?.portal}. Changing the type does not grant anyone access automatically.
+                  </p>
+                </>
+              ) : f.key ===
                 "notes" ||
               f.key ===
                 "intake_restrictions" ? (
