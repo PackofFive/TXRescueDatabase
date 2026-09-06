@@ -78,12 +78,12 @@ export async function POST(req: NextRequest) {
       insert into organization_memberships (
         user_id, org_id, role, access_level, status, shelter_express_access, granted_by
       )
-      select ${userId}::uuid, organization.id, 'owner', 'owner', 'active',
+      select ${userId}::uuid, organization.id, 'admin', 'owner', 'active',
         coalesce(organization.org_type ilike '%shelter%' or organization.org_type = 'Animal Control', false),
         ${admin.id}::uuid
       from organizations organization where organization.id = ${claim.org_id}::uuid
       on conflict (org_id, user_id) do update set
-        role = 'owner', access_level = 'owner', status = 'active',
+        role = 'admin', access_level = 'owner', status = 'active',
         shelter_express_access = excluded.shelter_express_access,
         granted_by = excluded.granted_by, updated_at = now()
       returning id
