@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
+import { ORGANIZATION_TYPES, organizationTypeDetails } from "@/lib/organization-types";
 export const runtime = "edge";
 
 export default function AdminAddOrganizationPage() {
   const [form, setForm] = useState({
-    name: "", orgType: "Rescue", city: "", county: "", state: "TX",
+    name: "", orgType: "Animal Rescue", city: "", county: "", state: "TX",
     region: "", species: "", website: "", email: "", phone: "",
     resourceStatus: "Verification Needed",
   });
@@ -50,15 +51,12 @@ export default function AdminAddOrganizationPage() {
         <label style={labelStyle}>
           Organization type
           <select value={form.orgType} onChange={e => update("orgType", e.target.value)} style={inputStyle}>
-            <option>Rescue</option>
-            <option>Municipal Shelter</option>
-            <option>Private Shelter</option>
-            <option>Wildlife Rescue</option>
-            <option>Sanctuary</option>
-            <option>Farm / Equine</option>
-            <option>Resource Organization</option>
-            <option>Other</option>
+            {ORGANIZATION_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
           </select>
+          <span style={{fontWeight:400,color:"#6B6862",lineHeight:1.5}}>
+            {organizationTypeDetails(form.orgType)?.description}<br/>
+            <strong>Best fit:</strong> {organizationTypeDetails(form.orgType)?.portal}. Portal access is still granted separately after approval.
+          </span>
         </label>
 
         <div style={twoCol}>
