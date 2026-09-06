@@ -215,9 +215,21 @@ export async function POST(req: NextRequest) {
     await sendClaimVerificationEmail(org.public_email, code, org.name);
   } catch (err) {
     console.error("Failed to send claim verification email:", err);
+
+    await sql`
+      update claims
+      set status = 'manual_review'
+      where id = ${claimId}
+    `;
+
     return NextResponse.json(
-      { error: "Couldn't send the verification email. Please try again in a moment." },
-      { status: 502 }
+      {
+        status: "manual_review",
+        message:
+          "The verification email could not be delivered, so this claim was sent to Pack of Five for private administrator review. No access has been granted yet.",
+        claimId,
+      },
+      { status: 202 }
     );
   }
 
