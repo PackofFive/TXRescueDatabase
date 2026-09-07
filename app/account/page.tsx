@@ -147,6 +147,9 @@ export default function AccountPage() {
   const portals = user.availablePortals ?? [];
   const hasVolunteerPortal = portals.includes("foster");
   const hasPetOwnerPortal = portals.includes("pet-owner");
+  const hasRescueManager = portals.includes("organization");
+  const hasShelterExpress = portals.includes("shelter");
+  const hasAdministration = portals.includes("admin");
 
   return (
     <div>
@@ -218,10 +221,10 @@ export default function AccountPage() {
       </section>
 
       <section style={{ marginTop: 24 }}>
-        <h2 style={sectionHeadingStyle}>My profiles and access</h2>
+        <h2 style={sectionHeadingStyle}>Portals connected to my login</h2>
         <p style={bodyStyle}>
-          Review what is connected to your account and edit your personal profiles.
-          Use the header to move between portals.
+          One email and password can be used across Pack of Five. Only portals
+          shown as connected will appear in your signed-in header.
         </p>
 
         {(user.pendingProfileLinks?.length ?? 0) > 0 && (
@@ -241,88 +244,39 @@ export default function AccountPage() {
           </section>
         )}
 
-        {(user.organizationWorkspaces?.length ?? 0) > 0 && (
-          <section style={{ ...panelStyle, background: COLORS.mint }}>
-            <h3 style={{ ...sectionHeadingStyle, fontSize: 20 }}>Connected organizations</h3>
-            <p style={bodyStyle}>These are the organizations connected to your account. Open and switch portals from the header; organization access and records remain separate.</p>
-            <div style={{ display: "grid", gap: 10 }}>
-              {user.organizationWorkspaces?.map((workspace) => {
-                return (
-                  <div key={workspace.id} style={{ border: `1px solid ${COLORS.border}`, background: COLORS.white, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-                    <div>
-                      <strong style={{ color: COLORS.navy }}>{workspace.name}</strong>
-                      <div style={{ color: COLORS.muted, fontSize: 13, marginTop: 3 }}>
-                        {workspace.org_type || "Animal-welfare organization"} · {workspace.access_level.replaceAll("_", " ")}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
         <div style={cardGridStyle}>
-          {hasVolunteerPortal && (
-            <ProfileCard
-              title="Volunteer Portal"
-              description="Manage your volunteer and foster profile, rescue relationships, availability, and approved service categories."
-              links={[
-                { href: "/foster/profile", label: "Edit Volunteer Profile" },
-              ]}
-            />
-          )}
-
-          {hasPetOwnerPortal && (
-            <ProfileCard
-              title="Pet Owner"
-              description="Manage your personal pet owner profile and private pet records."
-              links={[
-                { href: "/pet-owner/profile", label: "Edit Pet Owner Profile" },
-              ]}
-            />
-          )}
-
+          <PortalAccessCard title="Rescue Manager" connected={hasRescueManager} description="For approved rescue and animal-welfare organization teams." href={hasRescueManager ? undefined : "/organizations"} action="Claim or request an organization" />
+          <PortalAccessCard title="Shelter Express" connected={hasShelterExpress} description="For shelter teams granted access to the simplified urgent-animal workspace." href={hasShelterExpress ? undefined : "/organizations"} action="Claim or request a shelter" />
+          <PortalAccessCard title="Volunteer Portal" connected={hasVolunteerPortal} description="Added after a rescue approves your volunteer or foster relationship." />
+          <PortalAccessCard title="Pet Owner" connected={hasPetOwnerPortal} description="A private space for your own pets, records, and reminders." href={hasPetOwnerPortal ? undefined : "/pet-owner/setup"} action="Add Pet Owner to My Login" />
+          {hasAdministration ? <PortalAccessCard title="Platform Administration" connected description="Private Pack of Five administration access." /> : null}
         </div>
-      </section>
-
-      <section style={privacyPanelStyle}>
-        <h2 style={sectionHeadingStyle}>One sign-in, separate roles</h2>
-        <p style={{ ...bodyStyle, marginBottom: 0 }}>
-          A volunteer can work with multiple rescues, and each rescue approves
-          its own categories and access level. Your general account does not
-          give a rescue permission to edit another profile or another rescue’s
-          relationship with you.
-        </p>
       </section>
     </div>
   );
 }
 
-function ProfileCard({
+function PortalAccessCard({
   title,
   description,
-  links,
+  connected,
+  href,
+  action,
 }: {
   title: string;
   description: string;
-  links: Array<{ href: string; label: string }>;
+  connected: boolean;
+  href?: string;
+  action?: string;
 }) {
   return (
     <article style={cardStyle}>
-      <h3 style={{ margin: 0, color: COLORS.navy, fontSize: 19 }}>{title}</h3>
-      <p style={{ ...bodyStyle, margin: 0 }}>{description}</p>
-      <div style={linkRowStyle}>
-        {links.map((link, index) => (
-          <a
-            key={link.href}
-            href={link.href}
-            style={index === 0 ? primaryLinkStyle : secondaryLinkStyle}
-          >
-            {link.label}
-          </a>
-        ))}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0, color: COLORS.navy, fontSize: 19 }}>{title}</h3>
+        <strong style={connected ? approvedBadgeStyle : notConnectedBadgeStyle}>{connected ? "Connected" : "Not connected"}</strong>
       </div>
+      <p style={{ ...bodyStyle, margin: 0 }}>{description}</p>
+      {href && action ? <div style={linkRowStyle}><a href={href} style={primaryLinkStyle}>{action}</a></div> : null}
     </article>
   );
 }
@@ -390,6 +344,7 @@ const approvedBadgeStyle: React.CSSProperties = {
   padding: "5px 10px",
   fontSize: 12,
 };
+const notConnectedBadgeStyle: React.CSSProperties = { ...approvedBadgeStyle, background: "#F1F3F5", color: COLORS.muted };
 
 const securityPanelStyle: React.CSSProperties = { marginTop: 24, padding: 22, border: `1px solid ${COLORS.border}`, background: "#F2D6DC" };
 const securityEyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 11.5, fontWeight: 800, letterSpacing: ".1em" };
@@ -436,17 +391,4 @@ const primaryLinkStyle: React.CSSProperties = {
   textDecoration: "none",
   fontSize: 13,
   fontWeight: 800,
-};
-
-const secondaryLinkStyle: React.CSSProperties = {
-  color: COLORS.navy,
-  fontSize: 13,
-  fontWeight: 800,
-};
-
-const privacyPanelStyle: React.CSSProperties = {
-  marginTop: 24,
-  padding: 20,
-  border: `1px solid ${COLORS.border}`,
-  background: COLORS.mint,
 };
