@@ -35,6 +35,23 @@ export default function ShelterExpressPage() {
           return;
         }
 
+        const workspaces = Array.isArray(auth.user?.organizationWorkspaces) ? auth.user.organizationWorkspaces : [];
+        const activeWorkspace = workspaces.find((workspace: { id: string }) => workspace.id === auth.user.activeOrganizationId);
+        if (!activeWorkspace?.shelter_express_access) {
+          const shelterWorkspace = workspaces.find((workspace: { shelter_express_access?: boolean }) => Boolean(workspace.shelter_express_access));
+          if (!shelterWorkspace) {
+            window.location.replace("/login?portal=shelter");
+            return;
+          }
+          const switchResponse = await fetch("/api/auth/organization", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orgId: shelterWorkspace.id }),
+          });
+          const switchData = await switchResponse.json();
+          if (!switchResponse.ok) throw new Error(switchData.error ?? "The shelter workspace could not be opened.");
+        }
+
         const response = await fetch("/api/animals?caseStatus=active&sort=newest", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? "Urgent animals could not be loaded.");
