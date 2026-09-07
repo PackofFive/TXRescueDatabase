@@ -76,26 +76,12 @@ export async function GET() {
       }
     }
 
-    if (
-      session.role === "org" &&
-      session.status === "approved"
-    ) {
+    if (organizationWorkspaces.length > 0) {
       availablePortals.push("organization");
     }
 
-    if (session.orgId) {
-      const shelterRows = await sql`
-        select shelter_express_access
-        from organization_memberships
-        where org_id = ${session.orgId}::uuid
-          and user_id = ${session.id}::uuid
-          and status = 'active'
-        limit 1
-      `;
-
-      if (Boolean(shelterRows[0]?.shelter_express_access)) {
-        availablePortals.push("shelter");
-      }
+    if (organizationWorkspaces.some((workspace) => Boolean(workspace.shelter_express_access))) {
+      availablePortals.push("shelter");
     }
 
     /*
