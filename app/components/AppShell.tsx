@@ -804,7 +804,7 @@ function FosterShell({
             <FosterLink
               href="/foster/profile"
             >
-              Foster Profile
+              Profile &amp; Settings
             </FosterLink>
 
             <FosterLink
