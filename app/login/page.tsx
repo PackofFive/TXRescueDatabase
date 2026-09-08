@@ -68,13 +68,13 @@ const PORTALS:
 
     organization: {
       title:
-        "Rescue & Shelter Manager",
+        "Rescue Manager",
       description:
-        "Sign in to your organization's private Pack of Five workspace.",
+        "Sign in to your rescue organization's private Pack of Five workspace.",
       accent:
         COLORS.pink,
       accountNote:
-        "Approved rescue and shelter accounts only.",
+        "Approved rescue organization accounts only. Shelters use Shelter Express.",
     },
 
     shelter: {
@@ -722,7 +722,7 @@ function routeSignedInUser(
     }
 
     setStatus(
-      "This account does not currently have access to Rescue & Shelter Manager."
+      "This account does not currently have access to Rescue Manager."
     );
     return;
   }
