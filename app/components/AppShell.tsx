@@ -240,11 +240,6 @@ function SignedInHeader({
   const showOrganization =
     portals.includes(
       "organization"
-    ) ||
-    user.role === "org" ||
-    (
-      user.role === "admin" &&
-      Boolean(user.orgId)
     );
 
   const showFoster =
@@ -1256,6 +1251,9 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
           <nav aria-label="Shelter Express navigation">
             <ManagerLink href="/shelter-express" exact>Urgent Animals</ManagerLink>
             <ManagerLink href="/shelter-express/animals/new">Quick Add Animal</ManagerLink>
+            <ManagerLink href="/shelter-express/offers">Rescue &amp; Tag Offers</ManagerLink>
+            <ManagerLink href="/shelter-express/partners">Rescue Partners</ManagerLink>
+            <ManagerLink href="/shelter-express/reports">Volunteer Reports</ManagerLink>
             <ManagerLink href="/shelter-express/profile">Shelter Profile</ManagerLink>
           </nav>
           <div style={{ borderTop: "1px solid rgba(255,255,255,.16)", marginTop: 28, paddingTop: 18 }}>
