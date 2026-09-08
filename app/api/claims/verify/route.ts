@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { assertCanJoinOrganization, OrganizationMembershipConflictError } from "@/lib/organization-membership";
 
 export const runtime = "edge";
 
@@ -55,6 +56,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "The existing Pack of Five account is not active." }, { status: 409 });
   }
   let userId = existingAccounts[0] ? String(existingAccounts[0].id) : "";
+  if (userId) {
+    try {
+      await assertCanJoinOrganization(userId, claim.org_id);
+    } catch (error) {
+      if (error instanceof OrganizationMembershipConflictError) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      throw error;
+    }
+  }
   if (!userId) {
     const createdUsers = await sql`
       insert into users (email, password_hash, role, org_id, status)
