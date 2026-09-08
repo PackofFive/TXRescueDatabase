@@ -177,15 +177,15 @@ export async function getSession(): Promise<SessionUser | null> {
     }
 
     let effectiveOrgId = current.org_id;
-    if (session.orgId && current.role !== "admin") {
+    if (current.role !== "admin") {
       const membership = await sql`
-        select 1 from organization_memberships
-        where user_id = ${session.id}::uuid
-          and org_id = ${session.orgId}::uuid
-          and status = 'active'
+        select org_id
+        from organization_memberships
+        where user_id = ${session.id}::uuid and status = 'active'
+        order by case when org_id = ${current.org_id}::uuid then 0 else 1 end, granted_at
         limit 1
       `;
-      if (membership[0]) effectiveOrgId = session.orgId;
+      effectiveOrgId = membership[0]?.org_id ? String(membership[0].org_id) : current.org_id;
     }
 
     return {
