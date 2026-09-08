@@ -76,7 +76,7 @@ export default function ShelterExpressPage() {
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 26 }}>
         <a href="/animals/new" style={primaryLink}>+ Add an urgent animal</a>
-        <a href="/portal/organization-profile" style={secondaryLink}>Update shelter profile</a>
+        <a href="/shelter-express/profile" style={secondaryLink}>Update shelter profile</a>
       </div>
 
       {loading ? <div style={notice}>Loading urgent animals…</div> : null}
