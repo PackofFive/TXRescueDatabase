@@ -8,6 +8,7 @@ import {
 import { sql } from "@/lib/db";
 import { sendOrganizationTeamInviteEmail, sendClaimCaseEmail } from "@/lib/email";
 import { getRequestContext } from "@cloudflare/next-on-pages";
+import { findOrganizationForEmail, OrganizationMembershipConflictError } from "@/lib/organization-membership";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -368,6 +369,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const otherOrganization = await findOrganizationForEmail(email, orgId);
+    if (otherOrganization) {
+      return NextResponse.json(
+        { error: `This login is already connected to ${otherOrganization}. Each login may manage only one organization.` },
+        { status: 409 }
+      );
+    }
+
     await sql`
       update organization_access_invites
       set status = 'expired', updated_at = now()
@@ -454,6 +463,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof OrganizationMembershipConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error("POST /api/org-profile failed:", error);
     return NextResponse.json(
