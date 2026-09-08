@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 import { requireAdminFresh, requireUser, AuthError, type PlatformAdminAccessLevel } from "@/lib/auth";
 import { createPasswordResetToken, normalizeEmail, sha256 } from "@/lib/account-security";
 import { sendPlatformAdministratorInviteEmail } from "@/lib/email";
+import { assertCanJoinOrganization, OrganizationMembershipConflictError } from "@/lib/organization-membership";
 
 export const runtime = "edge";
 const LEVELS: PlatformAdminAccessLevel[] = ["platform_owner", "case_administrator", "directory_moderator"];
@@ -97,6 +98,7 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
       const rows=await sql`update users set status=${action==="approve"?"approved":"rejected"} where id=${id} and status='pending' returning id,email,status,role,org_id`;
       if(!rows[0])return NextResponse.json({error:"User not found or already reviewed."},{status:404});
       if(action==="approve"&&rows[0].role==="org"&&rows[0].org_id){
+        await assertCanJoinOrganization(id, String(rows[0].org_id));
         const existingOwners=await sql`select id from organization_memberships where org_id=${String(rows[0].org_id)}::uuid and access_level='owner' and status='active' limit 1`;
         const initialLevel=existingOwners[0]?"administrator":"owner";
         await sql`
@@ -134,6 +136,7 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
     return NextResponse.json({message:"Platform access was updated and previous sessions were ended."});
   } catch(error) {
     if(error instanceof AuthError)return NextResponse.json({error:error.message},{status:error.status});
+    if(error instanceof OrganizationMembershipConflictError)return NextResponse.json({error:error.message},{status:409});
     console.error("PATCH platform administrator failed:",error);
     return NextResponse.json({error:"Platform access could not be updated."},{status:500});
   }
