@@ -35,23 +35,6 @@ export default function ShelterExpressPage() {
           return;
         }
 
-        const workspaces = Array.isArray(auth.user?.organizationWorkspaces) ? auth.user.organizationWorkspaces : [];
-        const activeWorkspace = workspaces.find((workspace: { id: string }) => workspace.id === auth.user.activeOrganizationId);
-        if (!activeWorkspace?.shelter_express_access) {
-          const shelterWorkspace = workspaces.find((workspace: { shelter_express_access?: boolean }) => Boolean(workspace.shelter_express_access));
-          if (!shelterWorkspace) {
-            window.location.replace("/login?portal=shelter");
-            return;
-          }
-          const switchResponse = await fetch("/api/auth/organization", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orgId: shelterWorkspace.id }),
-          });
-          const switchData = await switchResponse.json();
-          if (!switchResponse.ok) throw new Error(switchData.error ?? "The shelter workspace could not be opened.");
-        }
-
         const response = await fetch("/api/animals?caseStatus=active&sort=newest", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? "Urgent animals could not be loaded.");
@@ -71,11 +54,11 @@ export default function ShelterExpressPage() {
       <p style={{ margin: "0 0 8px", color: coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase" }}>Shelter Express</p>
       <h1 style={{ margin: 0, color: navy, fontSize: 38, lineHeight: 1.1 }}>Urgent animals, without extra paperwork</h1>
       <p style={{ margin: "12px 0 22px", maxWidth: 760, color: muted, fontSize: 16, lineHeight: 1.6 }}>
-        Quickly add an animal, mark what help is needed, and publish a shareable profile for rescues and the community. Use the full Rescue Manager only when your shelter wants the additional tools.
+        Quickly add an urgent animal, mark what help is needed, and publish a focused listing for rescues and the community.
       </p>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 26 }}>
-        <a href="/animals/new" style={primaryLink}>+ Add an urgent animal</a>
+        <a href="/shelter-express/animals/new" style={primaryLink}>+ Add an urgent animal</a>
         <a href="/shelter-express/profile" style={secondaryLink}>Update shelter profile</a>
       </div>
 
