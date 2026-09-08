@@ -1253,14 +1253,12 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
         <aside style={{ background: COLORS.navy, color: "#fff", padding: "24px 18px" }}>
           <a href="/shelter-express" style={{ color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 18 }}>PACK OF FIVE</a>
           <div style={{ fontSize: 12, opacity: .72, marginTop: 3, marginBottom: 28, letterSpacing: ".08em" }}>SHELTER EXPRESS</div>
-          <OrganizationSwitcher currentOrgId={user.orgId} shelterOnly />
           <nav aria-label="Shelter Express navigation">
             <ManagerLink href="/shelter-express" exact>Urgent Animals</ManagerLink>
-            <ManagerLink href="/animals/new">Quick Add Animal</ManagerLink>
+            <ManagerLink href="/shelter-express/animals/new">Quick Add Animal</ManagerLink>
             <ManagerLink href="/shelter-express/profile">Shelter Profile</ManagerLink>
           </nav>
           <div style={{ borderTop: "1px solid rgba(255,255,255,.16)", marginTop: 28, paddingTop: 18 }}>
-            <a href="/portal" style={managerFooterLink}>Open Full Rescue Manager</a>
             <a href="/resources" style={managerFooterLink}>Resources</a>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", marginBottom: 14, overflowWrap: "anywhere" }}>{user.email}</div>
             <button onClick={signOut} style={signOutDarkStyle}>Sign Out</button>
@@ -1370,8 +1368,6 @@ function ManagerShell({
             </div>
           )}
 
-          <OrganizationSwitcher currentOrgId={user.orgId} />
-
           <nav
             aria-label="Rescue Manager navigation"
           >
@@ -1475,7 +1471,7 @@ function ManagerShell({
                     COLORS.muted,
                 }}
               >
-                Private rescue or shelter workspace
+                Private rescue workspace
               </div>
             </div>
           </header>
@@ -1492,48 +1488,6 @@ function ManagerShell({
         </div>
       </div>
     </div>
-  );
-}
-
-function OrganizationSwitcher({ currentOrgId, shelterOnly = false }: { currentOrgId: string | null; shelterOnly?: boolean }) {
-  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; shelter_express_access: boolean }>>([]);
-  const [switching, setSwitching] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => {
-        const rows = Array.isArray(data.user?.organizationWorkspaces) ? data.user.organizationWorkspaces : [];
-        setWorkspaces(shelterOnly ? rows.filter((row: { shelter_express_access?: boolean }) => Boolean(row.shelter_express_access)) : rows);
-      })
-      .catch(() => setWorkspaces([]));
-  }, [shelterOnly]);
-
-  if (workspaces.length < 2) return null;
-
-  async function changeOrganization(orgId: string) {
-    if (!orgId || orgId === currentOrgId) return;
-    setSwitching(true);
-    try {
-      const response = await fetch("/api/auth/organization", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId }),
-      });
-      if (!response.ok) throw new Error("The organization could not be selected.");
-      window.location.reload();
-    } catch {
-      setSwitching(false);
-    }
-  }
-
-  return (
-    <label style={{ display: "grid", gap: 6, marginBottom: 18, color: "rgba(255,255,255,.76)", fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>
-      Organization
-      <select value={currentOrgId ?? ""} disabled={switching} onChange={(event) => changeOrganization(event.target.value)} style={{ width: "100%", padding: "9px 10px", border: "1px solid rgba(255,255,255,.3)", borderRadius: 6, background: "#fff", color: COLORS.navy, fontSize: 13, fontWeight: 700 }}>
-        {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-      </select>
-    </label>
   );
 }
 
