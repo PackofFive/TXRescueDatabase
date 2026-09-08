@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireAdminFresh, AuthError } from "@/lib/auth";
+import { assertCanJoinOrganization, OrganizationMembershipConflictError } from "@/lib/organization-membership";
 
 export const runtime = "edge";
 
@@ -50,6 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "The existing Pack of Five account is not active." }, { status: 409 });
     }
     let userId = existingAccount[0] ? String(existingAccount[0].id) : "";
+    if (userId) await assertCanJoinOrganization(userId, claim.org_id);
     if (!userId) {
       const createdUsers = await sql`
         insert into users (email, password_hash, role, org_id, status)
@@ -93,6 +95,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: true, action: "approved" });
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
+    if (err instanceof OrganizationMembershipConflictError) return NextResponse.json({ error: err.message }, { status: 409 });
     throw err;
   }
 }
