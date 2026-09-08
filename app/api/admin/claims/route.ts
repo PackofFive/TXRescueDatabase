@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireAdminFresh, AuthError } from "@/lib/auth";
+import { assertCanJoinOrganization, OrganizationMembershipConflictError } from "@/lib/organization-membership";
 
 export const runtime = "edge";
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     let userId = accounts[0] ? String(accounts[0].id) : "";
+    if (userId) await assertCanJoinOrganization(userId, claim.org_id);
     if (!userId) {
       const created = await sql`
         insert into users (email, password_hash, role, org_id, status)
@@ -103,6 +105,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "The claim was approved and the organization was added to the account." });
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
+    if (err instanceof OrganizationMembershipConflictError) return NextResponse.json({ error: err.message }, { status: 409 });
     console.error("POST /api/admin/claims failed:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "The claim could not be approved." }, { status: 500 });
   }
