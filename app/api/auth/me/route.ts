@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { isShelterExpressOrganization } from "@/lib/organization-types";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -76,7 +77,7 @@ export async function GET() {
       }
     }
 
-    if (organizationWorkspaces.length > 0) {
+    if (organizationWorkspaces.some((workspace) => !isShelterExpressOrganization(workspace.org_type))) {
       availablePortals.push("organization");
     }
 
