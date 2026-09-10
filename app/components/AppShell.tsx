@@ -176,7 +176,11 @@ export default function AppShell({
 
   return (
     <>
-      <PublicHeader user={user} />
+      {user && user.status === "approved" ? (
+        <SignedInHeader user={user} />
+      ) : (
+        <PublicHeader user={user} />
+      )}
 
       <main
         style={{
