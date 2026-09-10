@@ -210,14 +210,7 @@ function SignedInHeader({
     portals,
     setPortals,
   ] = useState<string[]>(
-    user.availablePortals ??
-      (
-        user.role === "admin"
-          ? ["admin"]
-          : user.role === "org"
-          ? ["organization"]
-          : []
-      )
+    user.availablePortals ?? []
   );
 
   useEffect(() => {
