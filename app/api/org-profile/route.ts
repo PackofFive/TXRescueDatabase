@@ -145,6 +145,7 @@ export async function GET(request: NextRequest) {
           invite.id,
           invite.email,
           invite.access_level,
+          invite.shelter_express_access,
           invite.status,
           invite.expires_at,
           invite.accepted_at,
@@ -337,6 +338,7 @@ export async function POST(request: NextRequest) {
 
     const email = normalizeEmail(body?.email);
     const accessLevel = String(body?.accessLevel ?? "").trim();
+    const shelterExpressAccess = body?.shelterExpressAccess === true;
 
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       return NextResponse.json(
@@ -413,13 +415,13 @@ export async function POST(request: NextRequest) {
 
     const rows = await sql`
       insert into organization_access_invites (
-        org_id, email, access_level, token_hash, status,
+        org_id, email, access_level, shelter_express_access, token_hash, status,
         invited_by, expires_at
       ) values (
-        ${orgId}::uuid, ${email}, ${accessLevel}, ${tokenHash}, 'sent',
+        ${orgId}::uuid, ${email}, ${accessLevel}, ${shelterExpressAccess}, ${tokenHash}, 'sent',
         ${session.id}::uuid, ${expiresAt.toISOString()}::timestamptz
       )
-      returning id, email, access_level, status, expires_at, created_at
+      returning id, email, access_level, shelter_express_access, status, expires_at, created_at
     `;
 
     try {
