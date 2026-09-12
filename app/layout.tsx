@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { getSession } from "../lib/auth";
 import AppShell from "./components/AppShell";
+import "./responsive.css";
 
 export const runtime = "edge";
 
