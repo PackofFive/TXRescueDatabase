@@ -18,6 +18,7 @@ export default function AcceptOrganizationInvitePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [accountCreated, setAccountCreated] = useState(false);
+  const [shelterExpressAccess, setShelterExpressAccess] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -41,7 +42,8 @@ export default function AcceptOrganizationInvitePage() {
     setWorking(true);
     setError("");
     try {
-      await acceptInvite();
+      const result = await acceptInvite();
+      setShelterExpressAccess(Boolean(result.shelterExpressAccess));
       setSuccess("Invitation accepted. Your organization workspace is ready.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Couldn't accept the invitation.");
@@ -63,7 +65,8 @@ export default function AcceptOrganizationInvitePage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Couldn't sign in.");
       setSignedIn(true);
-      await acceptInvite();
+      const result = await acceptInvite();
+      setShelterExpressAccess(Boolean(result.shelterExpressAccess));
       setSuccess("Invitation accepted. Your organization workspace is ready.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Couldn't accept the invitation.");
@@ -83,6 +86,7 @@ export default function AcceptOrganizationInvitePage() {
     try {
       const result = await acceptInvite(password);
       setAccountCreated(Boolean(result.accountCreated));
+      setShelterExpressAccess(Boolean(result.shelterExpressAccess));
       setSuccess("Your Pack of Five account was created and the invitation was accepted.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Couldn't create the account.");
@@ -98,7 +102,10 @@ export default function AcceptOrganizationInvitePage() {
   }
 
   if (success) {
-    return <main style={pageStyle}><section style={cardStyle}><p style={eyebrowStyle}>TEAM INVITATION</p><h1 style={headingStyle}>Welcome to the team</h1><div style={successStyle}>{success}</div><p style={bodyStyle}>{accountCreated ? "Sign in with your new account to open Rescue Manager." : "You can now open Rescue Manager."}</p><a href={accountCreated ? "/login?portal=organization" : "/portal"} style={primaryLinkStyle}>{accountCreated ? "Sign In" : "Open Rescue Manager"}</a></section></main>;
+    const destination = shelterExpressAccess ? "/shelter-express" : "/portal";
+    const loginDestination = shelterExpressAccess ? "/login?portal=shelter" : "/login?portal=organization";
+    const portalName = shelterExpressAccess ? "Shelter Express" : "Rescue Manager";
+    return <main style={pageStyle}><section style={cardStyle}><p style={eyebrowStyle}>TEAM INVITATION</p><h1 style={headingStyle}>Welcome to the team</h1><div style={successStyle}>{success}</div><p style={bodyStyle}>{accountCreated ? `Sign in with your new account to open ${portalName}.` : `You can now open ${portalName}.`}</p><a href={accountCreated ? loginDestination : destination} style={primaryLinkStyle}>{accountCreated ? "Sign In" : `Open ${portalName}`}</a></section></main>;
   }
 
   return (
@@ -111,7 +118,7 @@ export default function AcceptOrganizationInvitePage() {
         {error ? <div style={errorStyle}>{error}</div> : null}
 
         {signedIn ? (
-          <div style={panelStyle}><h2 style={sectionHeadingStyle}>You are signed in</h2><p style={bodyStyle}>Accepting will add this organization to your Rescue Manager access at the level chosen by the Organization Owner.</p><button type="button" disabled={working} onClick={acceptWhileSignedIn} style={buttonStyle}>{working ? "Accepting…" : "Accept Team Invitation"}</button></div>
+          <div style={panelStyle}><h2 style={sectionHeadingStyle}>You are signed in</h2><p style={bodyStyle}>Accepting will connect this organization and grant the portal access selected by its owner.</p><button type="button" disabled={working} onClick={acceptWhileSignedIn} style={buttonStyle}>{working ? "Accepting…" : "Accept Team Invitation"}</button></div>
         ) : (
           <>
             <div style={tabRowStyle}><button type="button" onClick={() => { setMode("signin"); setError(""); }} style={mode === "signin" ? activeTabStyle : tabStyle}>I Have an Account</button><button type="button" onClick={() => { setMode("create"); setError(""); }} style={mode === "create" ? activeTabStyle : tabStyle}>Create an Account</button></div>
