@@ -253,6 +253,7 @@ function SignedInHeader({
 
   return (
     <header
+      className="pof-header"
       style={{
         background:
           COLORS.surface,
@@ -267,6 +268,7 @@ function SignedInHeader({
       }}
     >
       <div
+        className="pof-header-inner"
         style={{
           maxWidth:
             1180,
@@ -277,6 +279,7 @@ function SignedInHeader({
         }}
       >
         <div
+          className="pof-header-primary"
           style={{
             minHeight:
               58,
@@ -375,6 +378,7 @@ function SignedInHeader({
           </div>
 
           <nav
+            className="pof-portal-nav"
             aria-label="Private portal navigation"
             style={{
               display:
@@ -480,6 +484,7 @@ function SignedInHeader({
         </div>
 
         <div
+          className="pof-public-nav"
           style={{
             minHeight:
               42,
@@ -714,6 +719,7 @@ function FosterShell({
       <SignedInHeader user={user} />
 
       <div
+        className="portal-layout"
         style={{
           display: "grid",
           gridTemplateColumns:
@@ -723,6 +729,7 @@ function FosterShell({
         }}
       >
         <aside
+          className="portal-sidebar"
           style={{
             background:
               COLORS.navy,
@@ -845,12 +852,14 @@ function FosterShell({
         </aside>
 
         <div
+          className="portal-content"
           style={{
             minWidth:
               0,
           }}
         >
           <header
+            className="portal-subheader"
             style={{
               background:
                 COLORS.surface,
@@ -893,6 +902,7 @@ function FosterShell({
           </header>
 
           <main
+            className="portal-main"
             style={{
               padding:
                 28,
@@ -987,6 +997,7 @@ function PetOwnerShell({
       <SignedInHeader user={user} />
 
       <div
+        className="portal-layout"
         style={{
           display:
             "grid",
@@ -997,6 +1008,7 @@ function PetOwnerShell({
         }}
       >
         <aside
+          className="portal-sidebar"
           style={{
             background:
               COLORS.navy,
@@ -1113,12 +1125,14 @@ function PetOwnerShell({
         </aside>
 
         <div
+          className="portal-content"
           style={{
             minWidth:
               0,
           }}
         >
           <header
+            className="portal-subheader"
             style={{
               background:
                 COLORS.surface,
@@ -1161,6 +1175,7 @@ function PetOwnerShell({
           </header>
 
           <main
+            className="portal-main"
             style={{
               padding:
                 28,
@@ -1267,8 +1282,8 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
   return (
     <div style={{ minHeight: "100vh", background: COLORS.background }}>
       <SignedInHeader user={user} />
-      <div style={{ display: "grid", gridTemplateColumns: "230px minmax(0, 1fr)", minHeight: "calc(100vh - 100px)" }}>
-        <aside style={{ background: COLORS.navy, color: "#fff", padding: "24px 18px" }}>
+      <div className="portal-layout" style={{ display: "grid", gridTemplateColumns: "230px minmax(0, 1fr)", minHeight: "calc(100vh - 100px)" }}>
+        <aside className="portal-sidebar" style={{ background: COLORS.navy, color: "#fff", padding: "24px 18px" }}>
           <a href="/shelter-express" style={{ color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 18 }}>PACK OF FIVE</a>
           <div style={{ fontSize: 12, opacity: .72, marginTop: 3, marginBottom: 28, letterSpacing: ".08em" }}>SHELTER EXPRESS</div>
           <nav aria-label="Shelter Express navigation">
@@ -1286,14 +1301,14 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
             <button onClick={signOut} style={signOutDarkStyle}>Sign Out</button>
           </div>
         </aside>
-        <div style={{ minWidth: 0 }}>
-          <header style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "16px 28px" }}>
+        <div className="portal-content" style={{ minWidth: 0 }}>
+          <header className="portal-subheader" style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "16px 28px" }}>
             <div style={{ maxWidth: 1120, margin: "0 auto" }}>
               <div style={{ fontWeight: 800, color: COLORS.navy }}>{user.orgName ? `${user.orgName} Shelter Express` : "Shelter Express"}</div>
               <div style={{ fontSize: 12, color: COLORS.muted }}>Fast urgent-animal publishing and rescue coordination</div>
             </div>
           </header>
-          <main style={{ padding: 28, maxWidth: 1120, margin: "0 auto" }}>{children}</main>
+          <main className="portal-main" style={{ padding: 28, maxWidth: 1120, margin: "0 auto" }}>{children}</main>
         </div>
       </div>
     </div>
@@ -1337,6 +1352,7 @@ function ManagerShell({
       />
 
       <div
+        className="portal-layout"
         style={{
           display: "grid",
           gridTemplateColumns:
@@ -1345,6 +1361,7 @@ function ManagerShell({
         }}
       >
         <aside
+          className="portal-sidebar portal-sidebar-manager"
           style={{
             background:
               COLORS.navy,
@@ -1459,11 +1476,13 @@ function ManagerShell({
         </aside>
 
         <div
+          className="portal-content"
           style={{
             minWidth: 0,
           }}
         >
           <header
+            className="portal-subheader"
             style={{
               background:
                 COLORS.surface,
@@ -1504,6 +1523,7 @@ function ManagerShell({
           </header>
 
           <main
+            className="portal-main"
             style={{
               padding: 28,
               maxWidth: 1120,
