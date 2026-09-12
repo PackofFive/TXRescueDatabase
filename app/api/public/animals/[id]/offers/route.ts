@@ -7,12 +7,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id: animalId } = await params;
     const body = await req.json().catch(() => null);
-    const { offerType, contactName, contactEmail, contactPhone, city, postalCode, availability, householdInfo, message } = body ?? {};
-    const valid = ["foster","transport","medical_support","donation","other"];
+    const { offerType, organizationName, contactName, contactEmail, contactPhone, city, postalCode, availability, householdInfo, message } = body ?? {};
+    const valid = ["rescue_interest","tag_request","foster","transport","medical_support","donation","other"];
 
     if (!valid.includes(offerType)) return NextResponse.json({ error: "Please choose how you can help." }, { status: 400 });
     if (!contactName?.trim() || !contactEmail?.trim() || !contactPhone?.trim()) {
       return NextResponse.json({ error: "Name, email, and phone are required." }, { status: 400 });
+    }
+    if (["rescue_interest", "tag_request"].includes(offerType) && !organizationName?.trim()) {
+      return NextResponse.json({ error: "Rescue organization name is required for rescue and tag offers." }, { status: 400 });
     }
 
     const available = await sql`select id from animals where id=${animalId} and public_share_enabled=true limit 1`;
@@ -23,7 +26,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         (animal_id, offer_type, contact_name, contact_email, contact_phone, city, postal_code, availability, household_info, message)
       values
         (${animalId}, ${offerType}, ${contactName.trim()}, ${contactEmail.trim()}, ${contactPhone.trim()},
-         ${city || null}, ${postalCode || null}, ${availability || null}, ${householdInfo || null}, ${message || null})
+         ${city || null}, ${postalCode || null}, ${availability || null},
+         ${["rescue_interest", "tag_request"].includes(offerType) ? `Rescue organization: ${organizationName.trim()}${householdInfo?.trim() ? `\n\n${householdInfo.trim()}` : ""}` : householdInfo || null},
+         ${message || null})
       returning id, status, created_at
     `;
     return NextResponse.json({ offer: rows[0] }, { status: 201 });
