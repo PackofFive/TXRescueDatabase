@@ -1276,6 +1276,7 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
             <ManagerLink href="/shelter-express/partners">Rescue Partners</ManagerLink>
             <ManagerLink href="/shelter-express/reports"><span style={dashboardLinkContentStyle}><span>Volunteer Reports</span><ShelterCount value={counts.reports} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/profile">Shelter Profile</ManagerLink>
+            <ManagerLink href="/shelter-express/team-access">Team &amp; Access</ManagerLink>
           </nav>
           <div style={{ borderTop: "1px solid rgba(255,255,255,.16)", marginTop: 28, paddingTop: 18 }}>
             <a href="/resources" style={managerFooterLink}>Resources</a>
