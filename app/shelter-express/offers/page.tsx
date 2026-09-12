@@ -8,7 +8,9 @@ type Offer = {
   city: string | null; postal_code: string | null; availability: string | null;
   household_info: string | null; message: string | null;
   status: string; urgency: string | null; created_at: string; updated_at: string | null;
+  internal_notes: string;
 };
+type Activity = { id: string; offer_id: string; action: string; previous_status: string | null; new_status: string | null; note: string | null; created_at: string; actor_email: string };
 type Filter = "needs_action" | "all" | "accepted" | "closed";
 
 const C = { navy: "#1E3A5F", coral: "#E85C56", muted: "#4A5D75", border: "#DCE4EC", mint: "#DCF0E8", pink: "#F2D6DC" };
@@ -17,6 +19,8 @@ const closedStatuses = new Set(["declined", "closed"]);
 
 export default function ShelterOffersPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<Filter>("needs_action");
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -29,6 +33,8 @@ export default function ShelterOffersPage() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? "Offers could not be loaded.");
         setOffers(data.offers ?? []);
+        setActivities(data.activities ?? []);
+        setNotes(Object.fromEntries((data.offers ?? []).map((offer: Offer) => [offer.id, offer.internal_notes ?? ""])));
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Offers could not be loaded."))
       .finally(() => setLoading(false));
@@ -62,9 +68,27 @@ export default function ShelterOffersPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "The offer could not be updated.");
       setOffers((rows) => rows.map((row) => row.id === id ? { ...row, status } : row));
+      if (data.activity) setActivities((rows) => [data.activity, ...rows]);
       setMessage(statusMessage(status));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The offer could not be updated.");
+    } finally { setWorkingId(""); }
+  }
+
+  async function saveNote(id: string) {
+    setWorkingId(id); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/shelter-express/offers", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerId: id, action: "save_note", note: notes[id] ?? "" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "The private note could not be saved.");
+      setOffers((rows) => rows.map((row) => row.id === id ? { ...row, internal_notes: data.offer.internal_notes, updated_at: data.offer.updated_at } : row));
+      if (data.activity) setActivities((rows) => [data.activity, ...rows]);
+      setMessage("Private note saved to the offer history.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "The private note could not be saved.");
     } finally { setWorkingId(""); }
   }
 
@@ -106,6 +130,19 @@ export default function ShelterOffersPage() {
             {closedStatuses.has(offer.status) ? <ActionButton label="Reopen review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
           </div>
         </div>
+        <details style={privateSection}>
+          <summary style={privateSummary}>Private shelter notes &amp; activity ({activities.filter((entry) => entry.offer_id === offer.id).length})</summary>
+          <div style={privateBody}>
+            <label style={noteLabel}>Current internal note
+              <textarea rows={4} value={notes[offer.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [offer.id]: event.target.value }))} placeholder="Record verification, follow-up, concerns, or next steps. This is never shown publicly." style={noteInput}/>
+            </label>
+            <button type="button" onClick={() => void saveNote(offer.id)} disabled={workingId === offer.id || !(notes[offer.id] ?? "").trim()} style={primary}>{workingId === offer.id ? "Saving…" : "Save private note"}</button>
+            <div style={activityList}>
+              {activities.filter((entry) => entry.offer_id === offer.id).map((entry) => <div key={entry.id} style={activityRow}><strong>{entry.action === "note_added" ? "Private note saved" : `${labelFor(entry.previous_status || "unknown")} → ${labelFor(entry.new_status || "unknown")}`}</strong><span>{new Date(entry.created_at).toLocaleString()} · {entry.actor_email}</span>{entry.note ? <p>{entry.note}</p> : null}</div>)}
+              {activities.every((entry) => entry.offer_id !== offer.id) ? <p style={{ margin: 0, color: C.muted }}>No activity recorded yet.</p> : null}
+            </div>
+          </div>
+        </details>
       </article>
     )}</div>
   </div>;
@@ -142,3 +179,10 @@ const dangerButton:React.CSSProperties={...secondary,color:"#A9362B",border:"1px
 const workflow:React.CSSProperties={display:"flex",justifyContent:"space-between",alignItems:"center",gap:14,flexWrap:"wrap",marginTop:16,paddingTop:16,borderTop:`1px solid ${C.border}`};
 const workflowHelp:React.CSSProperties={maxWidth:560,marginTop:3,color:C.muted,fontSize:13,lineHeight:1.45};
 const workflowActions:React.CSSProperties={display:"flex",gap:8,flexWrap:"wrap"};
+const privateSection:React.CSSProperties={marginTop:16,border:`1px solid ${C.border}`,background:"#F8FAFC"};
+const privateSummary:React.CSSProperties={padding:14,color:C.navy,fontWeight:800,cursor:"pointer"};
+const privateBody:React.CSSProperties={display:"grid",gap:12,padding:"0 14px 14px"};
+const noteLabel:React.CSSProperties={display:"grid",gap:6,color:C.navy,fontSize:13,fontWeight:800};
+const noteInput:React.CSSProperties={width:"100%",boxSizing:"border-box",padding:11,border:`1px solid ${C.border}`,font:"inherit",color:C.navy,resize:"vertical"};
+const activityList:React.CSSProperties={display:"grid",gap:8,marginTop:4};
+const activityRow:React.CSSProperties={display:"grid",gap:3,padding:11,borderLeft:`3px solid ${C.coral}`,background:"#fff",color:C.muted,fontSize:12,lineHeight:1.45};
