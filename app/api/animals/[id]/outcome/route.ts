@@ -21,6 +21,7 @@ type OutcomeType =
   | "escaped_missing"
   | "died"
   | "euthanized"
+  | "no_longer_urgent"
   | "other";
 
 const VALID_OUTCOMES: OutcomeType[] = [
@@ -32,6 +33,7 @@ const VALID_OUTCOMES: OutcomeType[] = [
   "escaped_missing",
   "died",
   "euthanized",
+  "no_longer_urgent",
   "other",
 ];
 
@@ -149,6 +151,9 @@ export async function GET(
           and
           ao.org_id =
             ${orgId}
+
+          and
+          ao.reopened_at is null
 
         limit 1
       `;
@@ -417,6 +422,15 @@ export async function POST(
           recorded_by =
             excluded.recorded_by,
 
+          reopened_at =
+            null,
+
+          reopened_by =
+            null,
+
+          reopen_reason =
+            null,
+
           updated_at =
             now()
 
@@ -665,6 +679,9 @@ export async function PATCH(
           and
           org_id =
             ${orgId}
+
+          and
+          reopened_at is null
 
         limit 1
       `;
@@ -975,12 +992,12 @@ export async function PATCH(
 /* =========================================================
    DELETE / REOPEN ANIMAL
 
-   This removes the closing outcome and returns the animal
-   to active status without deleting any historical records.
+   This archives the closing outcome and returns the animal
+   to active status without deleting historical records.
 ========================================================= */
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   {
     params,
   }: {
@@ -1003,9 +1020,22 @@ export async function DELETE(
         animalId
       );
 
+    const body = await req
+      .json()
+      .catch(() => null);
+
+    const reopenReason =
+      cleanText(body?.reason);
+
     const rows =
       await sql`
-        delete from animal_outcomes
+        update animal_outcomes
+
+        set
+          reopened_at = now(),
+          reopened_by = ${session.id},
+          reopen_reason = ${reopenReason},
+          updated_at = now()
 
         where
           animal_id =
@@ -1014,6 +1044,9 @@ export async function DELETE(
           and
           org_id =
             ${orgId}
+
+          and
+          reopened_at is null
 
         returning
           id,
@@ -1069,7 +1102,7 @@ export async function DELETE(
           'animal',
           ${animalId},
           ${session.id},
-          'outcome_removed',
+          'outcome_reopened',
           ${JSON.stringify({
             previousOutcomeType:
               rows[0].outcome_type,
@@ -1083,7 +1116,7 @@ export async function DELETE(
       auditError
     ) {
       console.error(
-        "Outcome removal audit failed:",
+        "Outcome reopen audit failed:",
         auditError
       );
     }
