@@ -1254,7 +1254,7 @@ function PetOwnerLink({
 
 function ShelterExpressShell({ children, user }: { children: ReactNode; user: Exclude<ShellUser, null> }) {
   const pathname = usePathname();
-  const [counts, setCounts] = useState({ urgentAnimals: 0, offers: 0, reports: 0 });
+  const [counts, setCounts] = useState({ urgentAnimals: 0, unpublished: 0, offers: 0, reports: 0, partnerReviews: 0 });
   const [canManageTeam, setCanManageTeam] = useState(false);
 
   useEffect(() => {
@@ -1266,8 +1266,10 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
         if (!response.ok || !active) return;
         setCounts({
           urgentAnimals: Number(data.counts?.urgent_animals ?? 0),
+          unpublished: Number(data.counts?.unpublished_urgent_animals ?? 0),
           offers: Number(data.counts?.actionable_offers ?? 0),
           reports: Number(data.counts?.reports_needing_review ?? 0),
+          partnerReviews: Number(data.counts?.partner_reviews_due ?? 0),
         });
         setCanManageTeam(data.permissions?.can_manage_team === true);
       } catch {
@@ -1287,7 +1289,8 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
           <a href="/shelter-express" style={{ color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 18 }}>PACK OF FIVE</a>
           <div style={{ fontSize: 12, opacity: .72, marginTop: 3, marginBottom: 28, letterSpacing: ".08em" }}>SHELTER EXPRESS</div>
           <nav aria-label="Shelter Express navigation">
-            <ManagerLink href="/shelter-express" exact><span style={dashboardLinkContentStyle}><span>Urgent Animals</span><ShelterCount value={counts.urgentAnimals} /></span></ManagerLink>
+            <ManagerLink href="/shelter-express" exact><span style={dashboardLinkContentStyle}><span>Dashboard</span><ShelterCount value={counts.unpublished + counts.offers + counts.reports + counts.partnerReviews} attention /></span></ManagerLink>
+            <ManagerLink href="/shelter-express/animals"><span style={dashboardLinkContentStyle}><span>Urgent Animals</span><ShelterCount value={counts.urgentAnimals} /></span></ManagerLink>
             <ManagerLink href="/shelter-express/animals/new">Quick Add Animal</ManagerLink>
             <ManagerLink href="/shelter-express/offers"><span style={dashboardLinkContentStyle}><span>Rescue &amp; Tag Offers</span><ShelterCount value={counts.offers} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/partners">Rescue Partners</ManagerLink>
