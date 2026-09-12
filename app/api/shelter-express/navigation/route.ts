@@ -34,6 +34,14 @@ export async function GET() {
         ) as urgent_animals,
         (
           select count(*)::int
+          from animals animal
+          where animal.current_org_id = ${orgId}::uuid
+            and animal.outcome_status is null
+            and animal.urgency in ('urgent', 'critical')
+            and animal.public_share_enabled is not true
+        ) as unpublished_urgent_animals,
+        (
+          select count(*)::int
           from animal_help_offers offer
           join animals animal on animal.id = offer.animal_id
           where animal.current_org_id = ${orgId}::uuid
@@ -44,7 +52,15 @@ export async function GET() {
           from foster_animal_updates report
           where report.organization_id = ${orgId}::uuid
             and report.status = 'submitted'
-        ) as reports_needing_review
+        ) as reports_needing_review,
+        (
+          select count(*)::int
+          from shelter_rescue_partners relationship
+          where relationship.shelter_org_id = ${orgId}::uuid
+            and relationship.archived_at is null
+            and relationship.next_review_at is not null
+            and relationship.next_review_at <= current_date
+        ) as partner_reviews_due
     `;
 
     return NextResponse.json({
@@ -53,8 +69,10 @@ export async function GET() {
       },
       counts: rows[0] ?? {
         urgent_animals: 0,
+        unpublished_urgent_animals: 0,
         actionable_offers: 0,
         reports_needing_review: 0,
+        partner_reviews_due: 0,
       },
     });
   } catch (error) {
