@@ -7,11 +7,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { orgId } = await requireEffectiveOrg();
+    const { orgId }a = await requireEffectiveOrg();
     const offers = await sql`
       select offer.id, offer.animal_id, offer.offer_type, offer.contact_name,
-        offer.contact_email, offer.contact_phone, offer.city, offer.availability,
-        offer.message, offer.status, offer.created_at,
+        offer.contact_email, offer.contact_phone, offer.city, offer.postal_code,
+        offer.availability, offer.household_info, offer.message, offer.status,
+        offer.created_at, offer.updated_at,
         coalesce(nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
         animal.urgency
       from animal_help_offers offer
