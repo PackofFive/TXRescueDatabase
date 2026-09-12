@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { orgId }a = await requireEffectiveOrg();
+    const { orgId } = await requireEffectiveOrg();
     const offers = await sql`
       select offer.id, offer.animal_id, offer.offer_type, offer.contact_name,
         offer.contact_email, offer.contact_phone, offer.city, offer.postal_code,
