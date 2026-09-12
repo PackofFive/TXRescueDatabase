@@ -77,7 +77,7 @@ export default function ShelterExpressNewAnimalPage() {
         }
       }
 
-      window.location.href = "/shelter-express";
+      window.location.href = "/shelter-express/animals";
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The urgent listing could not be created.");
       setSaving(false);
