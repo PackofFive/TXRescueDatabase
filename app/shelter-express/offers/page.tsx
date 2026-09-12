@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 type Offer = {
   id: string; animal_id: string; animal_name: string; offer_type: string;
   contact_name: string; contact_email: string; contact_phone: string | null;
-  city: string | null; availability: string | null; message: string | null;
-  status: string; urgency: string | null; created_at: string;
+  city: string | null; postal_code: string | null; availability: string | null;
+  household_info: string | null; message: string | null;
+  status: string; urgency: string | null; created_at: string; updated_at: string | null;
 };
 type Filter = "needs_action" | "all" | "accepted" | "closed";
 
@@ -48,6 +49,10 @@ export default function ShelterOffersPage() {
   }, [filter, offers]);
 
   async function update(id: string, status: string) {
+    if (["declined", "closed"].includes(status)) {
+      const action = status === "declined" ? "decline this offer" : "close this offer";
+      if (!window.confirm(`Are you sure you want to ${action}? The record will remain in history.`)) return;
+    }
     setWorkingId(id); setError(""); setMessage("");
     try {
       const response = await fetch("/api/shelter-express/offers", {
@@ -57,7 +62,7 @@ export default function ShelterOffersPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "The offer could not be updated.");
       setOffers((rows) => rows.map((row) => row.id === id ? { ...row, status } : row));
-      setMessage("Offer status updated.");
+      setMessage(statusMessage(status));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The offer could not be updated.");
     } finally { setWorkingId(""); }
@@ -82,13 +87,24 @@ export default function ShelterOffersPage() {
     <div style={{ display: "grid", gap: 14 }}>{visibleOffers.map((offer) =>
       <article key={offer.id} style={card}>
         <div style={cardHeader}><div><div style={offerType}>{labelFor(offer.offer_type)}</div><h2 style={animalName}>{offer.animal_name}</h2><p style={submitted}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p></div><span style={{ ...badge, background: offer.status === "accepted" ? C.mint : C.pink }}>{labelFor(offer.status)}</span></div>
-        <div style={detailsGrid}><Detail label="From" value={offer.contact_name}/><Detail label="Location" value={offer.city || "Not provided"}/><Detail label="Availability" value={offer.availability || "Not provided"}/><Detail label="Animal priority" value={offer.urgency ? labelFor(offer.urgency) : "Not marked"}/></div>
-        {offer.message ? <div style={messagePanel}>{offer.message}</div> : null}
+        <div style={detailsGrid}><Detail label="From" value={offer.contact_name}/><Detail label="Location" value={[offer.city, offer.postal_code].filter(Boolean).join(" · ") || "Not provided"}/><Detail label="Availability" value={offer.availability || "Not provided"}/><Detail label="Animal priority" value={offer.urgency ? labelFor(offer.urgency) : "Not marked"}/></div>
+        {offer.household_info ? <DetailPanel label="Household or relevant experience" value={offer.household_info}/> : null}
+        {offer.message ? <DetailPanel label="Message" value={offer.message}/> : null}
         <div style={actions}>
-          <a href={`mailto:${offer.contact_email}`} style={primary}>Email {offer.contact_name}</a>
+          <a href={`mailto:${offer.contact_email}?subject=${encodeURIComponent(`Your offer to help ${offer.animal_name}`)}`} style={primary}>Email {offer.contact_name}</a>
           {offer.contact_phone ? <a href={`tel:${offer.contact_phone}`} style={secondary}>Call {offer.contact_phone}</a> : null}
-          <a href={`/animals/${offer.animal_id}/offers`} style={secondary}>Open animal offers</a>
-          <label style={statusLabel}>Status<select aria-label={`Status for ${offer.animal_name}`} value={offer.status} disabled={workingId === offer.id} onChange={(event) => void update(offer.id, event.target.value)} style={select}>{["new", "reviewing", "contacted", "accepted", "declined", "closed"].map((status) => <option key={status} value={status}>{labelFor(status)}</option>)}</select></label>
+          <a href={`/shelter-express/animals/${offer.animal_id}`} style={secondary}>View urgent animal</a>
+        </div>
+        <div style={workflow}>
+          <div><strong style={{ color: C.navy }}>Review status</strong><div style={workflowHelp}>{helpForStatus(offer.status)}</div></div>
+          <div style={workflowActions}>
+            {offer.status === "new" ? <ActionButton label="Start review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
+            {["new", "reviewing"].includes(offer.status) ? <ActionButton label="Mark contacted" onClick={() => void update(offer.id, "contacted")} disabled={workingId === offer.id}/> : null}
+            {actionStatuses.has(offer.status) ? <ActionButton label="Move forward" onClick={() => void update(offer.id, "accepted")} disabled={workingId === offer.id} primary/> : null}
+            {actionStatuses.has(offer.status) ? <ActionButton label="Decline" onClick={() => void update(offer.id, "declined")} disabled={workingId === offer.id} danger/> : null}
+            {offer.status === "accepted" ? <ActionButton label="Close completed offer" onClick={() => void update(offer.id, "closed")} disabled={workingId === offer.id}/> : null}
+            {closedStatuses.has(offer.status) ? <ActionButton label="Reopen review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
+          </div>
         </div>
       </article>
     )}</div>
@@ -96,7 +112,11 @@ export default function ShelterOffersPage() {
 }
 
 function Detail({ label, value }: { label: string; value: string }) { return <div><div style={detailLabel}>{label}</div><div style={detailValue}>{value}</div></div>; }
+function DetailPanel({ label, value }: { label: string; value: string }) { return <div style={messagePanel}><div style={detailLabel}>{label}</div><div style={{ marginTop: 5 }}>{value}</div></div>; }
+function ActionButton({ label, onClick, disabled, primary: isPrimary, danger }: { label: string; onClick: () => void; disabled: boolean; primary?: boolean; danger?: boolean }) { return <button type="button" onClick={onClick} disabled={disabled} style={{ ...secondary, ...(isPrimary ? primary : {}), ...(danger ? dangerButton : {}), cursor: disabled ? "wait" : "pointer" }}>{disabled ? "Saving…" : label}</button>; }
 function labelFor(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase()); }
+function statusMessage(status: string) { const messages: Record<string, string> = { reviewing: "Offer moved into review.", contacted: "Offer marked as contacted.", accepted: "Offer marked as moving forward. Custody has not been transferred.", declined: "Offer declined and retained in history.", closed: "Offer closed and retained in history." }; return messages[status] || "Offer status updated."; }
+function helpForStatus(status: string) { const help: Record<string, string> = { new: "New offer—review the details and contact the person before making a decision.", reviewing: "Your shelter is reviewing this offer.", contacted: "Your shelter has contacted the person and is awaiting or coordinating next steps.", accepted: "Your shelter intends to move forward. This does not transfer custody or complete a rescue tag.", declined: "Your shelter declined this offer. The record remains available in Closed.", closed: "Work on this offer is complete. The record remains available in Closed." }; return help[status] || "Review this offer."; }
 
 const eyebrow:React.CSSProperties={margin:"0 0 8px",color:C.coral,fontWeight:800,fontSize:12,letterSpacing:".1em",textTransform:"uppercase"};
 const title:React.CSSProperties={margin:0,color:C.navy,fontSize:38,lineHeight:1.1};
@@ -118,5 +138,7 @@ const messagePanel:React.CSSProperties={marginTop:14,padding:14,color:C.muted,li
 const actions:React.CSSProperties={display:"flex",gap:9,flexWrap:"wrap",alignItems:"end",marginTop:16};
 const primary:React.CSSProperties={padding:"10px 14px",border:0,background:C.navy,color:"#fff",fontWeight:800,textDecoration:"none"};
 const secondary:React.CSSProperties={...primary,color:C.navy,background:"#fff",border:`1px solid ${C.border}`};
-const statusLabel:React.CSSProperties={display:"grid",gap:4,marginLeft:"auto",color:C.muted,fontSize:11,fontWeight:800,textTransform:"uppercase"};
-const select:React.CSSProperties={padding:"9px 12px",border:`1px solid ${C.border}`,color:C.navy,background:"#fff",fontWeight:700};
+const dangerButton:React.CSSProperties={...secondary,color:"#A9362B",border:"1px solid #E9B9B4"};
+const workflow:React.CSSProperties={display:"flex",justifyContent:"space-between",alignItems:"center",gap:14,flexWrap:"wrap",marginTop:16,paddingTop:16,borderTop:`1px solid ${C.border}`};
+const workflowHelp:React.CSSProperties={maxWidth:560,marginTop:3,color:C.muted,fontSize:13,lineHeight:1.45};
+const workflowActions:React.CSSProperties={display:"flex",gap:8,flexWrap:"wrap"};
