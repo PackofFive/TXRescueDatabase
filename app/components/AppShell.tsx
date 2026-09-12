@@ -1291,7 +1291,6 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
           <nav aria-label="Shelter Express navigation">
             <ManagerLink href="/shelter-express" exact><span style={dashboardLinkContentStyle}><span>Dashboard</span><ShelterCount value={counts.unpublished + counts.offers + counts.reports + counts.partnerReviews} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/animals"><span style={dashboardLinkContentStyle}><span>Urgent Animals</span><ShelterCount value={counts.urgentAnimals} /></span></ManagerLink>
-            <ManagerLink href="/shelter-express/animals/new">Quick Add Animal</ManagerLink>
             <ManagerLink href="/shelter-express/offers"><span style={dashboardLinkContentStyle}><span>Rescue &amp; Tag Offers</span><ShelterCount value={counts.offers} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/partners">Rescue Partners</ManagerLink>
             <ManagerLink href="/shelter-express/reports"><span style={dashboardLinkContentStyle}><span>Volunteer Reports</span><ShelterCount value={counts.reports} attention /></span></ManagerLink>
