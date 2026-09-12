@@ -21,6 +21,8 @@ export default function ShelterExpressNewAnimalPage() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const publish = submitter?.value !== "draft";
     setSaving(true);
     setError("");
     try {
@@ -49,14 +51,14 @@ export default function ShelterExpressNewAnimalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           breedOrType: breed,
-          publicShareEnabled: true,
+          publicShareEnabled: publish,
           publicSummary: helpNeeded,
           publicNeed: deadline ? `${helpNeeded}\nDeadline: ${deadline}` : helpNeeded,
           publicSyncFields: ["name", "species", "breed_or_type"],
         }),
       });
       const published = await publishResponse.json();
-      if (!publishResponse.ok) throw new Error(published.error ?? "The listing was saved but could not be published.");
+      if (!publishResponse.ok) throw new Error(published.error ?? "The urgent listing could not be saved.");
 
       if (photo) {
         const form = new FormData();
@@ -64,7 +66,7 @@ export default function ShelterExpressNewAnimalPage() {
         form.set("title", `${name || shelterId || "Urgent animal"} photo`);
         form.set("category", "other");
         form.set("source", "Shelter Express");
-        form.set("visibility", "public");
+        form.set("visibility", publish ? "public" : "private");
         const uploadResponse = await fetch(`/api/animals/${encodeURIComponent(animalId)}/documents`, { method: "POST", body: form });
         const uploaded = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploaded.error ?? "The listing was created, but the photo could not be uploaded.");
@@ -99,11 +101,11 @@ export default function ShelterExpressNewAnimalPage() {
           <label style={label}>Shelter ID<input value={shelterId} onChange={(event) => setShelterId(event.target.value)} style={input} /></label>
         </div>
         <label style={label}>Breed or description<input value={breed} onChange={(event) => setBreed(event.target.value)} style={input} /></label>
-        <label style={label}>What help is needed?<textarea required value={helpNeeded} onChange={(event) => setHelpNeeded(event.target.value)} rows={5} style={input} placeholder="Rescue placement, foster, transport, medical support, or other urgent needs" /></label>
+        <label style={label}>What help is needed?<textarea required value={helpNeeded} onChange={(event) => setHelpNeeded(event.target.value)} rows={5} style={input} placeholder="Rescue placement, foster, transport, medical support, or other urgent needs" /><span style={hint}>Required to publish; optional when saving a draft.</span></label>
         <label style={label}>Deadline, if known<input type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} style={input} /></label>
         <label style={label}>Photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} style={input} /></label>
-        <p style={notice}>Submitting publishes this animal as an urgent listing. The shelter keeps custody unless a separate transfer is completed.</p>
-        <button type="submit" disabled={saving} style={button}>{saving ? "Publishing…" : "Publish Urgent Listing"}</button>
+        <p style={notice}>Save a draft if details still need to be completed. Publishing makes the urgent listing visible to rescues and the community. The shelter keeps custody unless a separate transfer is completed.</p>
+        <div style={actions}><button type="submit" name="action" value="publish" disabled={saving} style={button}>{saving ? "Saving…" : "Publish Urgent Listing"}</button><button type="submit" name="action" value="draft" formNoValidate disabled={saving} style={secondaryButton}>{saving ? "Saving…" : "Save Draft"}</button></div>
         {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
       </form>
     </div>
@@ -119,4 +121,7 @@ const label: React.CSSProperties = { display: "grid", gap: 6, color: navy, fontS
 const input: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 11px", border: `1px solid ${border}`, background: "#fff", color: navy, font: "inherit" };
 const notice: React.CSSProperties = { margin: 0, padding: 14, background: "#DCF0E8", color: navy, lineHeight: 1.5 };
 const button: React.CSSProperties = { justifySelf: "start", padding: "11px 16px", border: 0, background: navy, color: "#fff", fontWeight: 800, cursor: "pointer" };
+const secondaryButton:React.CSSProperties={...button,background:"#fff",color:navy,border:`1px solid ${border}`};
+const actions:React.CSSProperties={display:"flex",gap:10,flexWrap:"wrap"};
+const hint:React.CSSProperties={color:muted,fontSize:12,fontWeight:500};
 const errorStyle: React.CSSProperties = { padding: 14, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B" };
