@@ -26,6 +26,7 @@ export default function OfferHelpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offerType, setOfferType] = useState("");
 
   useEffect(() => {
     if (!animalId) return;
@@ -50,6 +51,7 @@ export default function OfferHelpPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         offerType: form.get("offerType"),
+        organizationName: form.get("organizationName"),
         contactName: form.get("contactName"),
         contactEmail: form.get("contactEmail"),
         contactPhone: form.get("contactPhone"),
@@ -101,8 +103,10 @@ export default function OfferHelpPage() {
 
       <form onSubmit={submit} style={panel}>
         <label style={label}>How can you help? *
-          <select name="offerType" required defaultValue="" style={input}>
+          <select name="offerType" required value={offerType} onChange={(event) => setOfferType(event.target.value)} style={input}>
             <option value="" disabled>Select one…</option>
+            <option value="rescue_interest">Rescue placement interest</option>
+            <option value="tag_request">Rescue tag request</option>
             <option value="foster">Foster care</option>
             <option value="transport">Transportation</option>
             <option value="medical_support">Medical support</option>
@@ -110,6 +114,13 @@ export default function OfferHelpPage() {
             <option value="other">Other help</option>
           </select>
         </label>
+
+        {["rescue_interest", "tag_request"].includes(offerType) ? (
+          <label style={label}>Rescue organization name *
+            <input name="organizationName" required style={input} placeholder="Organization you are authorized to represent" />
+            <span style={fieldHelp}>The shelter will verify your organization and authority before approving placement or a tag.</span>
+          </label>
+        ) : null}
 
         <div style={columns}>
           <label style={label}>Your name *<input name="contactName" required autoComplete="name" style={input} /></label>
@@ -142,6 +153,7 @@ const panel: React.CSSProperties = { display: "grid", gap: 17, marginTop: 24, pa
 const columns: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16 };
 const label: React.CSSProperties = { display: "grid", gap: 7, color: COLORS.navy, fontWeight: 800 };
 const input: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "12px 13px", border: `1px solid ${COLORS.border}`, background: "#fff", color: COLORS.navy, font: "inherit" };
+const fieldHelp: React.CSSProperties = { color: COLORS.muted, fontSize: 13, fontWeight: 500, lineHeight: 1.45 };
 const button: React.CSSProperties = { justifySelf: "start", padding: "13px 20px", border: 0, background: COLORS.navy, color: "#fff", font: "inherit", fontWeight: 800, cursor: "pointer" };
 const link: React.CSSProperties = { color: COLORS.navy, fontWeight: 800, textDecoration: "underline" };
 const primaryLink: React.CSSProperties = { ...button, display: "inline-block", textDecoration: "none", marginTop: 6 };
