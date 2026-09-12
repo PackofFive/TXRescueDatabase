@@ -5,6 +5,7 @@ const C={navy:"#1E3A5F",coral:"#E85C56",muted:"#4A5D75",border:"#DCE4EC",mint:"#
 export default function PartnersPage(){
  const [partners,setPartners]=useState<Org[]>([]),[candidates,setCandidates]=useState<Org[]>([]),[query,setQuery]=useState(""),[showAdd,setShowAdd]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(true),[removingId,setRemovingId]=useState("");
  const [partnerQuery,setPartnerQuery]=useState(""),[statusFilter,setStatusFilter]=useState("all"),[typeFilter,setTypeFilter]=useState("all"),[locationFilter,setLocationFilter]=useState(""),[reviewFilter,setReviewFilter]=useState("all");
+ useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("review");if(["all","due","scheduled","none"].includes(requested??""))setReviewFilter(requested??"all");},[]);
  async function load(){setError("");const r=await fetch("/api/shelter-express/partners",{cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.error);setPartners(d.partners??[]);setCandidates(d.candidates??[]);}
  useEffect(()=>{void load().catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
  const results=useMemo(()=>candidates.filter(o=>`${o.name} ${o.org_type??""} ${o.city??""} ${o.county??""} ${(o.species??[]).join(" ")}`.toLowerCase().includes(query.toLowerCase())).slice(0,50),[candidates,query]);
