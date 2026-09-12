@@ -1240,6 +1240,7 @@ function PetOwnerLink({
 function ShelterExpressShell({ children, user }: { children: ReactNode; user: Exclude<ShellUser, null> }) {
   const pathname = usePathname();
   const [counts, setCounts] = useState({ urgentAnimals: 0, offers: 0, reports: 0 });
+  const [canManageTeam, setCanManageTeam] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -1253,6 +1254,7 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
           offers: Number(data.counts?.actionable_offers ?? 0),
           reports: Number(data.counts?.reports_needing_review ?? 0),
         });
+        setCanManageTeam(data.permissions?.can_manage_team === true);
       } catch {
         // Navigation must remain usable if badge counts cannot load.
       }
@@ -1276,7 +1278,7 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
             <ManagerLink href="/shelter-express/partners">Rescue Partners</ManagerLink>
             <ManagerLink href="/shelter-express/reports"><span style={dashboardLinkContentStyle}><span>Volunteer Reports</span><ShelterCount value={counts.reports} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/profile">Shelter Profile</ManagerLink>
-            <ManagerLink href="/shelter-express/team-access">Team &amp; Access</ManagerLink>
+            {canManageTeam ? <ManagerLink href="/shelter-express/team-access">Team &amp; Access</ManagerLink> : null}
           </nav>
           <div style={{ borderTop: "1px solid rgba(255,255,255,.16)", marginTop: 28, paddingTop: 18 }}>
             <a href="/resources" style={managerFooterLink}>Resources</a>
