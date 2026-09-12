@@ -7,7 +7,21 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { orgId } = await requireEffectiveOrg();
+    const { session, orgId } = await requireEffectiveOrg();
+
+    const accessRows = session.role === "admin" ? [{ access_level: "owner", shelter_express_access: true }] : await sql`
+      select access_level, shelter_express_access
+      from organization_memberships
+      where org_id = ${orgId}::uuid
+        and user_id = ${session.id}::uuid
+        and status = 'active'
+      limit 1
+    `;
+    const access = accessRows[0];
+
+    if (!access || access.shelter_express_access !== true) {
+      throw new AuthError("Shelter Express access is required.", 403);
+    }
 
     const rows = await sql`
       select
@@ -34,6 +48,9 @@ export async function GET() {
     `;
 
     return NextResponse.json({
+      permissions: {
+        can_manage_team: access.access_level === "owner",
+      },
       counts: rows[0] ?? {
         urgent_animals: 0,
         actionable_offers: 0,
