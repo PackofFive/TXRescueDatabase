@@ -25,6 +25,8 @@ type Partner = {
   archived_at: string | null;
   archived_by_email: string | null;
 };
+type Offer={id:string;animal_id:string;animal_name:string;offer_type:string;contact_name:string;status:string;created_at:string};
+type Report={id:string;animal_id:string;animal_name:string;foster_name:string;title:string|null;update_text:string;status:string;submitted_at:string};
 
 const colors = {
   navy: "#1E3A5F",
@@ -38,27 +40,36 @@ const colors = {
 export default function ShelterExpressArchivedPage() {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [offers,setOffers]=useState<Offer[]>([]);
+  const [reports,setReports]=useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<"all" | "animals" | "partners">("all");
+  const [view, setView] = useState<"all" | "animals" | "partners" | "offers" | "reports">("all");
   const [restoringId, setRestoringId] = useState("");
 
   async function load() {
     setError("");
-    const [animalResponse, partnerResponse] = await Promise.all([
+    const [animalResponse, partnerResponse,offerResponse,reportResponse] = await Promise.all([
       fetch("/api/animals?caseStatus=closed&sort=newest", { cache: "no-store" }),
       fetch("/api/shelter-express/partners", { cache: "no-store" }),
+      fetch("/api/shelter-express/offers",{cache:"no-store"}),
+      fetch("/api/fosters/updates",{cache:"no-store"}),
     ]);
-    const [animalData, partnerData] = await Promise.all([
+    const [animalData, partnerData,offerData,reportData] = await Promise.all([
       animalResponse.json(),
       partnerResponse.json(),
+      offerResponse.json(),reportResponse.json(),
     ]);
     if (!animalResponse.ok) throw new Error(animalData.error ?? "Resolved animals could not be loaded.");
     if (!partnerResponse.ok) throw new Error(partnerData.error ?? "Archived partners could not be loaded.");
+    if(!offerResponse.ok)throw new Error(offerData.error??"Closed offers could not be loaded.");
+    if(!reportResponse.ok)throw new Error(reportData.error??"Archived reports could not be loaded.");
     setAnimals((animalData.animals ?? []).filter((animal: Animal) => animal.outcome_status));
     setPartners(partnerData.archivedPartners ?? []);
+    setOffers((offerData.offers??[]).filter((offer:Offer)=>["declined","closed"].includes(offer.status)));
+    setReports((reportData.updates??[]).filter((report:Report)=>report.status==="archived"));
   }
 
   useEffect(() => {
@@ -68,6 +79,8 @@ export default function ShelterExpressArchivedPage() {
   const normalizedQuery = query.trim().toLowerCase();
   const visibleAnimals = useMemo(() => animals.filter((animal) => `${animal.name ?? ""} ${animal.temporary_name ?? ""} ${animal.species ?? ""} ${animal.breed_or_type ?? ""} ${animal.outcome_status ?? ""}`.toLowerCase().includes(normalizedQuery)), [animals, normalizedQuery]);
   const visiblePartners = useMemo(() => partners.filter((partner) => `${partner.name} ${partner.org_type ?? ""} ${partner.city ?? ""} ${partner.county ?? ""} ${partner.state ?? ""} ${partner.relationship_status ?? ""} ${partner.private_notes ?? ""}`.toLowerCase().includes(normalizedQuery)), [partners, normalizedQuery]);
+  const visibleOffers=useMemo(()=>offers.filter(offer=>`${offer.animal_name} ${offer.offer_type} ${offer.contact_name} ${offer.status}`.toLowerCase().includes(normalizedQuery)),[offers,normalizedQuery]);
+  const visibleReports=useMemo(()=>reports.filter(report=>`${report.animal_name} ${report.foster_name} ${report.title??""} ${report.update_text}`.toLowerCase().includes(normalizedQuery)),[reports,normalizedQuery]);
 
   async function restorePartner(partner: Partner) {
     if (!window.confirm(`Restore ${partner.name} to the active Rescue Partners list?`)) return;
@@ -91,22 +104,24 @@ export default function ShelterExpressArchivedPage() {
     }
   }
 
-  const shownCount = (view === "partners" ? 0 : visibleAnimals.length) + (view === "animals" ? 0 : visiblePartners.length);
+  const shownCount=(view==="all"||view==="animals"?visibleAnimals.length:0)+(view==="all"||view==="partners"?visiblePartners.length:0)+(view==="all"||view==="offers"?visibleOffers.length:0)+(view==="all"||view==="reports"?visibleReports.length:0);
 
   return <div>
     <p style={eyebrow}>Retained history</p>
     <h1 style={title}>Archived Records</h1>
-    <p style={intro}>Resolved urgent animals and inactive rescue-partner relationships remain available for review. Restoring a record never erases its prior history.</p>
+    <p style={intro}>Resolved animals, inactive partner relationships, closed offers, and archived volunteer reports remain available for private review.</p>
 
     <section style={summaryGrid}>
       <Summary value={animals.length} label="Resolved animals" />
       <Summary value={partners.length} label="Archived partners" />
+      <Summary value={offers.length} label="Closed offers" />
+      <Summary value={reports.length} label="Archived reports" />
     </section>
 
     <section style={tools}>
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search archived names, IDs, locations, outcomes, or private notes" style={input} />
       <div style={filters}>
-        {(["all", "animals", "partners"] as const).map((key) => <button key={key} type="button" onClick={() => setView(key)} style={{ ...filterButton, ...(view === key ? activeFilter : {}) }}>{key === "all" ? "All records" : key === "animals" ? "Resolved animals" : "Archived partners"}</button>)}
+        {(["all","animals","partners","offers","reports"] as const).map(key=><button key={key} type="button" onClick={()=>setView(key)} style={{...filterButton,...(view===key?activeFilter:{})}}>{key==="all"?"All records":key==="animals"?"Resolved animals":key==="partners"?"Archived partners":key==="offers"?"Closed offers":"Archived reports"}</button>)}
       </div>
     </section>
 
@@ -115,7 +130,7 @@ export default function ShelterExpressArchivedPage() {
     {loading ? <div style={notice}>Loading archived records…</div> : null}
     {!loading && !error && shownCount === 0 ? <div style={{ ...notice, background: colors.mint }}><strong>No archived records match this view.</strong></div> : null}
 
-    {!loading && view !== "partners" && visibleAnimals.length > 0 ? <section style={section}>
+    {!loading && (view === "all" || view === "animals") && visibleAnimals.length > 0 ? <section style={section}>
       <h2 style={sectionTitle}>Resolved urgent animals ({visibleAnimals.length})</h2>
       <div style={list}>{visibleAnimals.map((animal) => <article key={animal.id} style={card}>
         <div><h3 style={cardTitle}>{animal.name || animal.temporary_name || "Unnamed animal"}</h3><p style={meta}>{[animal.species, animal.breed_or_type, label(animal.outcome_status)].filter(Boolean).join(" · ")}</p><p style={meta}>{animal.outcome_date ? `Resolved ${new Date(`${animal.outcome_date.slice(0, 10)}T00:00:00`).toLocaleDateString()}` : "Resolution date not recorded"}</p></div>
@@ -123,13 +138,15 @@ export default function ShelterExpressArchivedPage() {
       </article>)}</div>
     </section> : null}
 
-    {!loading && view !== "animals" && visiblePartners.length > 0 ? <section style={section}>
+    {!loading && (view === "all" || view === "partners") && visiblePartners.length > 0 ? <section style={section}>
       <h2 style={sectionTitle}>Archived rescue partners ({visiblePartners.length})</h2>
       <div style={list}>{visiblePartners.map((partner) => <article key={partner.id} style={card}>
         <div><h3 style={cardTitle}>{partner.name}</h3><p style={meta}>{[partner.org_type, partner.city, partner.county, partner.state].filter(Boolean).join(" · ") || "Organization details pending"}</p><p style={meta}>{label(partner.relationship_status)}{partner.archived_at ? ` · Archived ${new Date(partner.archived_at).toLocaleDateString()}` : ""}{partner.archived_by_email ? ` by ${partner.archived_by_email}` : ""}</p>{partner.private_notes ? <p style={privateNote}><strong>Private notes:</strong> {partner.private_notes}</p> : null}</div>
         <button type="button" disabled={restoringId === partner.id} onClick={() => restorePartner(partner)} style={primary}>{restoringId === partner.id ? "Restoring…" : "Restore partner"}</button>
       </article>)}</div>
     </section> : null}
+    {!loading&&(view==="all"||view==="offers")&&visibleOffers.length>0?<section style={section}><h2 style={sectionTitle}>Closed and declined offers ({visibleOffers.length})</h2><div style={list}>{visibleOffers.map(offer=><article key={offer.id} style={card}><div><h3 style={cardTitle}>{offer.animal_name}</h3><p style={meta}>{label(offer.offer_type)} from {offer.contact_name} · {label(offer.status)}</p><p style={meta}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p></div><a href="/shelter-express/offers" style={primary}>View offers</a></article>)}</div></section>:null}
+    {!loading&&(view==="all"||view==="reports")&&visibleReports.length>0?<section style={section}><h2 style={sectionTitle}>Archived volunteer reports ({visibleReports.length})</h2><div style={list}>{visibleReports.map(report=><article key={report.id} style={card}><div><h3 style={cardTitle}>{report.animal_name}: {report.title||"Volunteer update"}</h3><p style={meta}>From {report.foster_name} · {new Date(report.submitted_at).toLocaleDateString()}</p><p style={privateNote}>{report.update_text}</p></div><a href="/shelter-express/reports" style={primary}>View reports</a></article>)}</div></section>:null}
   </div>;
 }
 
