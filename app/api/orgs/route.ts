@@ -108,7 +108,17 @@ export async function GET(req: NextRequest) {
             a.current_org_id = o.id
             and a.public_share_enabled = true
             and coalesce(a.outcome_status, '') <> 'adopted'
-        ) as public_animal_count
+        ) as public_animal_count,
+
+        (
+          select count(*)::int
+          from animals a
+          where
+            a.current_org_id = o.id
+            and a.public_share_enabled = true
+            and a.urgency in ('urgent', 'critical')
+            and coalesce(a.outcome_status, '') = ''
+        ) as public_urgent_animal_count
 
       from organizations o
 
