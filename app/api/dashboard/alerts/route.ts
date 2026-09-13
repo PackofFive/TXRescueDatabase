@@ -52,6 +52,11 @@ const DEFAULT_PREFERENCES: Record<
     priority: "high",
     enabled: true,
   },
+
+  shelter_tag: {
+    priority: "high",
+    enabled: true,
+  },
 };
 
 const PRIORITY_RANK: Record<
@@ -482,6 +487,38 @@ export async function GET(
     }
 
     /* =====================================================
+       SHELTER TAG UPDATES FOR THIS RESCUE
+    ===================================================== */
+
+    const shelterTagPreference = preferences.shelter_tag;
+    if (shelterTagPreference?.enabled) {
+      const shelterTagRows = await sql`
+        select offer.id, offer.animal_id, offer.status,
+          coalesce(nullif(animal.public_name, ''), nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed Animal') as animal_name,
+          coalesce(offer.updated_at, offer.created_at) as alert_at
+        from animal_help_offers offer
+        join animals animal on animal.id = offer.animal_id
+        where offer.requesting_org_id = ${orgId}::uuid
+          and offer.offer_type = 'tag_request'
+          and offer.status in ('contacted', 'accepted')
+        order by coalesce(offer.updated_at, offer.created_at) desc
+      `;
+
+      for (const row of shelterTagRows) {
+        alerts.push({
+          id: `shelter-tag-${row.id}`,
+          animal_id: row.animal_id,
+          animal_name: row.animal_name,
+          alert_type: "shelter_tag",
+          title: row.status === "accepted" ? "Shelter approved rescue tag" : "Shelter contacted rescue about tag",
+          due_at: null,
+          created_at: row.alert_at,
+          priority: shelterTagPreference.priority,
+        });
+      }
+    }
+
+    /* =====================================================
        ANIMALS MARKED URGENT OR CRITICAL
     ===================================================== */
 
@@ -764,7 +801,14 @@ export async function GET(
               a.current_org_id = ${orgId}
               and a.outcome_status is null
               and a.urgency in ('urgent', 'critical')
-          ) as urgent_animals
+          ) as urgent_animals,
+          (
+            select count(*)::int
+            from animal_help_offers offer
+            where offer.requesting_org_id = ${orgId}::uuid
+              and offer.offer_type = 'tag_request'
+              and offer.status in ('contacted', 'accepted')
+          ) as shelter_tag_attention
       `;
 
     const stats =
@@ -775,6 +819,7 @@ export async function GET(
         adopted_animals: 0,
         open_reminders: 0,
         urgent_animals: 0,
+        shelter_tag_attention: 0,
       };
 
     return NextResponse.json({
