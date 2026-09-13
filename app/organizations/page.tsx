@@ -52,6 +52,10 @@ type Org = {
     | number
     | string
     | null;
+  public_urgent_animal_count:
+    | number
+    | string
+    | null;
 
   [key: string]: unknown;
 };
@@ -844,6 +848,10 @@ export default function DirectoryPage() {
     );
   }
 
+  function urgentAnimalsHref(org: Org) {
+    return `/urgent-animals?organizationId=${encodeURIComponent(org.id)}`;
+  }
+
   /* =====================================================
      ERROR
   ===================================================== */
@@ -1599,6 +1607,15 @@ export default function DirectoryPage() {
                     o.public_animal_count ??
                       0
                   );
+                const publicUrgentAnimalCount = Number(
+                  o.public_urgent_animal_count ?? 0
+                );
+                const isShelter = [
+                  "Shelter",
+                  "Municipal Shelter",
+                  "Private Shelter",
+                  "Animal Control",
+                ].includes(o.org_type ?? "");
 
                 const activeBadges =
                   CAPABILITY_FIELDS.filter(
@@ -1781,6 +1798,16 @@ export default function DirectoryPage() {
                     {/* PUBLIC ACTIONS */}
 
                     <div className="txdir-actions">
+                      {isShelter && publicUrgentAnimalCount > 0 && (
+                        <a
+                          href={urgentAnimalsHref(o)}
+                          className="txdir-adoptable-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View Urgent Shelter Animals ({publicUrgentAnimalCount})
+                        </a>
+                      )}
+
                       {publicAnimalCount >
                         0 && (
                         <a
