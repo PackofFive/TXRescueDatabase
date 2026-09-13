@@ -520,6 +520,10 @@ function SignedInHeader({
             Adoptable Pets
           </a>
 
+          <a href="/urgent-animals" style={publicLinkStyle}>
+            Urgent Shelter Animals
+          </a>
+
           <a
             href="/resources"
             style={
@@ -683,6 +687,10 @@ function PublicHeader({
             style={publicLinkStyle}
           >
             Adoptable Pets
+          </a>
+
+          <a href="/urgent-animals" style={publicLinkStyle}>
+            Urgent Shelter Animals
           </a>
 
           <a
@@ -1337,10 +1345,7 @@ function ManagerShell({
   const organizationName =
     user.orgName || null;
 
-  const animalsLabel =
-    organizationName
-      ? `${organizationName} Animals`
-      : "Animals in Our Care";
+  const animalsLabel = "Animals in Our Care";
 
   return (
     <div
@@ -1671,12 +1676,17 @@ function ManagerNavigation({
     pathname.startsWith(
       "/portal/data-imports/"
     );
+  const inShelterTagsSection =
+    pathname === "/portal/shelter-tags" ||
+    pathname.startsWith("/portal/shelter-tags/");
 
   const [animalsOpen, setAnimalsOpen] =
     useState(true);
   const [peopleOpen, setPeopleOpen] =
     useState(true);
   const [organizationOpen, setOrganizationOpen] =
+    useState(true);
+  const [shelterTagsOpen, setShelterTagsOpen] =
     useState(true);
 
   useEffect(() => {
@@ -1734,6 +1744,12 @@ function ManagerNavigation({
     }
   }, [inOrganizationSection]);
 
+  useEffect(() => {
+    if (inShelterTagsSection) {
+      setShelterTagsOpen(true);
+    }
+  }, [inShelterTagsSection]);
+
   return (
     <>
       <ManagerSectionLabel>
@@ -1786,10 +1802,11 @@ function ManagerNavigation({
 
         <ManagerLink href="/portal/urgent">
           <span style={dashboardLinkContentStyle}>
-            <span>Urgent</span>
+            <span>Urgent in Our Care</span>
             {dashboardAlerts.urgentAnimals > 0 ? <span aria-label={`${dashboardAlerts.urgentAnimals} urgent animals`} style={{...dashboardAlertBadgeStyle,background:"#C63D32"}}>{dashboardAlerts.urgentAnimals > 99 ? "99+" : dashboardAlerts.urgentAnimals}</span> : null}
           </span>
         </ManagerLink>
+
       </div>
 
       <ManagerSectionToggle
@@ -1859,6 +1876,24 @@ function ManagerNavigation({
 
         <ManagerLink href="/portal/data-imports/audit">
           Import Audit
+        </ManagerLink>
+      </div>
+
+      <ManagerSectionToggle
+        expanded={shelterTagsOpen}
+        controls="manager-shelter-tags-navigation"
+        onClick={() => setShelterTagsOpen((open) => !open)}
+      >
+        Shelter Tags
+      </ManagerSectionToggle>
+
+      <div
+        id="manager-shelter-tags-navigation"
+        hidden={!shelterTagsOpen}
+        style={managerSectionItemsStyle}
+      >
+        <ManagerLink href="/portal/shelter-tags">
+          Tag Requests &amp; Transfers
         </ManagerLink>
       </div>
     </>
