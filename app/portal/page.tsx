@@ -80,6 +80,9 @@ const ALERT_TYPE_LABELS:
   foster_offer:
     "Foster / Help Offers",
 
+  shelter_tag:
+    "Shelter Tag Updates",
+
   custom_reminder:
     "Custom Reminders",
 };
@@ -1264,6 +1267,10 @@ function AlertRow({
       )}/offers`;
   }
 
+  if (alert.alert_type === "shelter_tag") {
+    destination = "/portal/shelter-tags";
+  }
+
   return (
     <div
       style={{
@@ -1284,9 +1291,7 @@ function AlertRow({
       }}
     >
       <a
-        href={`/animals/${encodeURIComponent(
-          alert.animal_id
-        )}`}
+        href={destination}
         style={{
           color:
             "#17233C",
