@@ -53,6 +53,7 @@ export default function PublicAnimalPage() {
   const [animal, setAnimal] = useState<PublicAnimal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canRequestRescueTag, setCanRequestRescueTag] = useState(false);
 
   useEffect(() => {
     if (!animalId) return;
@@ -88,6 +89,18 @@ export default function PublicAnimalPage() {
 
     loadAnimal();
   }, [animalId]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        setCanRequestRescueTag(
+          Array.isArray(data.user?.availablePortals) &&
+          data.user.availablePortals.includes("organization")
+        );
+      })
+      .catch(() => setCanRequestRescueTag(false));
+  }, []);
 
   if (loading) {
     return <p>Loading…</p>;
@@ -411,13 +424,24 @@ export default function PublicAnimalPage() {
                 marginTop: 24,
               }}
             >
+              {canRequestRescueTag ? (
+                <a
+                  href={`/pet/${encodeURIComponent(
+                    animal.id
+                  )}/help?type=tag_request`}
+                  style={primaryButton}
+                >
+                  Request Rescue Tag
+                </a>
+              ) : null}
+
               <a
                 href={`/pet/${encodeURIComponent(
                   animal.id
-                )}/help`}
-                style={primaryButton}
+                )}/help?type=foster`}
+                style={canRequestRescueTag ? secondaryButton : primaryButton}
               >
-                Offer Foster / Help
+                Offer Foster / Other Help
               </a>
 
               {animal.external_listing_url && (
