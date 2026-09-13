@@ -1652,12 +1652,11 @@ function ManagerNavigation({
     count: 0,
     critical: false,
     urgentAnimals: 0,
+    shelterTags: 0,
   });
   const inAnimalsSection =
     pathname === "/animals" ||
-    pathname.startsWith("/animals/") ||
-    pathname === "/portal/urgent" ||
-    pathname.startsWith("/portal/urgent/");
+    pathname.startsWith("/animals/");
   const inPeopleSection =
     pathname === "/fosters" ||
     pathname.startsWith("/fosters/") ||
@@ -1711,6 +1710,7 @@ function ManagerNavigation({
             (alert.due_at ? new Date(alert.due_at).getTime() < Date.now() : false)
           ),
           urgentAnimals: Number(data.stats?.urgent_animals ?? 0),
+          shelterTags: Number(data.stats?.shelter_tag_attention ?? 0),
         });
       } catch {
         // A badge failure must never block Rescue Manager navigation.
@@ -1800,13 +1800,6 @@ function ManagerNavigation({
           {animalsLabel}
         </ManagerLink>
 
-        <ManagerLink href="/portal/urgent">
-          <span style={dashboardLinkContentStyle}>
-            <span>Urgent in Our Care</span>
-            {dashboardAlerts.urgentAnimals > 0 ? <span aria-label={`${dashboardAlerts.urgentAnimals} urgent animals`} style={{...dashboardAlertBadgeStyle,background:"#C63D32"}}>{dashboardAlerts.urgentAnimals > 99 ? "99+" : dashboardAlerts.urgentAnimals}</span> : null}
-          </span>
-        </ManagerLink>
-
       </div>
 
       <ManagerSectionToggle
@@ -1893,7 +1886,14 @@ function ManagerNavigation({
         style={managerSectionItemsStyle}
       >
         <ManagerLink href="/portal/shelter-tags">
-          Tag Requests &amp; Transfers
+          <span style={dashboardLinkContentStyle}>
+            <span>Tag Requests &amp; Transfers</span>
+            {dashboardAlerts.shelterTags > 0 ? (
+              <span aria-label={`${dashboardAlerts.shelterTags} shelter tag updates`} style={{...dashboardAlertBadgeStyle,background:"#C63D32"}}>
+                {dashboardAlerts.shelterTags > 99 ? "99+" : dashboardAlerts.shelterTags}
+              </span>
+            ) : null}
+          </span>
         </ManagerLink>
       </div>
     </>
