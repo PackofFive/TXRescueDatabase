@@ -1,12 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 type Animal = {
   id: string;
   name: string | null;
   organization: { name: string };
+};
+
+type Account = {
+  orgName?: string | null;
+  availablePortals?: string[];
 };
 
 const COLORS = {
@@ -20,13 +25,19 @@ const COLORS = {
 
 export default function OfferHelpPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const animalId = params?.id as string;
   const [animal, setAnimal] = useState<Animal | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [offerType, setOfferType] = useState("");
+  const [account, setAccount] = useState<Account | null>(null);
+  const [accountChecked, setAccountChecked] = useState(false);
+  const requestedType = searchParams.get("type");
+  const initialType = requestedType === "foster" ? requestedType : "";
+  const [offerType, setOfferType] = useState(initialType);
+  const canRequestRescueTag = Boolean(account?.availablePortals?.includes("organization"));
 
   useEffect(() => {
     if (!animalId) return;
@@ -39,6 +50,23 @@ export default function OfferHelpPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "This animal profile is not available."))
       .finally(() => setLoading(false));
   }, [animalId]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setAccount(data.user ?? null))
+      .catch(() => setAccount(null))
+      .finally(() => setAccountChecked(true));
+  }, []);
+
+  useEffect(() => {
+    if (!accountChecked) return;
+    if (requestedType === "tag_request" && canRequestRescueTag) {
+      setOfferType("tag_request");
+    } else if (offerType === "tag_request" && !canRequestRescueTag) {
+      setOfferType("");
+    }
+  }, [accountChecked, canRequestRescueTag, requestedType, offerType]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,7 +125,7 @@ export default function OfferHelpPage() {
   return (
     <main style={page}>
       <a href={`/pet/${encodeURIComponent(animalId)}`} style={link}>← Back to {name}&apos;s profile</a>
-      <p style={{ ...eyebrow, marginTop: 24 }}>Offer foster care or help</p>
+      <p style={{ ...eyebrow, marginTop: 24 }}>{offerType === "tag_request" ? "Rescue tag request" : "Offer foster care or help"}</p>
       <h1 style={title}>How can you help {name}?</h1>
       <p style={body}>Send your offer directly to {animal.organization.name}. They will review it and contact you if it may be a good fit.</p>
 
@@ -106,7 +134,7 @@ export default function OfferHelpPage() {
           <select name="offerType" required value={offerType} onChange={(event) => setOfferType(event.target.value)} style={input}>
             <option value="" disabled>Select one…</option>
             <option value="rescue_interest">Rescue placement interest</option>
-            <option value="tag_request">Rescue tag request</option>
+            {canRequestRescueTag ? <option value="tag_request">Rescue tag request</option> : null}
             <option value="foster">Foster care</option>
             <option value="transport">Transportation</option>
             <option value="medical_support">Medical support</option>
@@ -117,7 +145,7 @@ export default function OfferHelpPage() {
 
         {["rescue_interest", "tag_request"].includes(offerType) ? (
           <label style={label}>Rescue organization name *
-            <input name="organizationName" required style={input} placeholder="Organization you are authorized to represent" />
+            <input name="organizationName" required readOnly={offerType === "tag_request"} defaultValue={offerType === "tag_request" ? account?.orgName ?? "" : ""} style={input} placeholder="Organization you are authorized to represent" />
             <span style={fieldHelp}>The shelter will verify your organization and authority before approving placement or a tag.</span>
           </label>
         ) : null}
@@ -139,7 +167,7 @@ export default function OfferHelpPage() {
           Your information is sent privately to {animal.organization.name}. An offer is not an approval, reservation, rescue tag, or transfer of custody.
         </div>
         {error ? <p role="alert" style={{ margin: 0, color: "#B63A2B", fontWeight: 700 }}>{error}</p> : null}
-        <button type="submit" disabled={submitting} style={button}>{submitting ? "Sending…" : "Send offer to help"}</button>
+        <button type="submit" disabled={submitting} style={button}>{submitting ? "Sending…" : offerType === "tag_request" ? "Send Rescue Tag Request" : "Send Offer to Help"}</button>
       </form>
     </main>
   );
