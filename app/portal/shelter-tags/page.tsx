@@ -1,82 +1,26 @@
-const C = {
-  navy: "#1E3A5F",
-  coral: "#E85C56",
-  mint: "#DCF0E8",
-  muted: "#4A5D75",
-  border: "#DCE4EC",
-  white: "#FFFFFF",
-};
+"use client";
+import {useEffect,useMemo,useState} from "react";
 
-export default function ShelterTagsPage() {
-  return (
-    <section style={{ maxWidth: 980 }}>
-      <p style={eyebrow}>SHELTER TAGS</p>
-      <div style={headingRow}>
-        <div>
-          <h1 style={heading}>Tag Requests &amp; Transfers</h1>
-          <p style={intro}>
-            Track shelter animals your rescue has offered to tag, without adding
-            them to Animals in Our Care before the shelter approves the request
-            and custody is formally transferred.
-          </p>
-        </div>
-        <a href="/urgent-animals" style={primaryButton}>
-          Find Urgent Shelter Animals
-        </a>
-      </div>
+type TagRequest={id:string;animal_id:string;status:string;created_at:string;updated_at:string|null;message:string|null;animal_name:string;species:string|null;breed_or_type:string|null;urgency:string|null;public_share_enabled:boolean;outcome_status:string|null;shelter_name:string;shelter_city:string|null;shelter_state:string|null};
+const C={navy:"#1E3A5F",coral:"#E85C56",red:"#B9362B",mint:"#DCF0E8",muted:"#4A5D75",border:"#DCE4EC",white:"#FFFFFF"};
+const pendingStatuses=new Set(["new","reviewing","contacted"]),approvedStatuses=new Set(["accepted"]);
 
-      <div style={notice}>
-        <strong>These are not rescue-owned animal records.</strong> The shelter
-        remains the source of record while a request is pending. After approval,
-        the transfer must still be completed before the animal moves into your
-        rescue&apos;s Animals in Our Care.
-      </div>
-
-      <div style={statusGrid}>
-        <StatusCard
-          title="Pending Shelter Approval"
-          description="Tag requests sent by your rescue that the shelter has not approved or declined yet."
-        />
-        <StatusCard
-          title="Approved for Transfer"
-          description="Requests the shelter approved that still need custody and file transfer completed."
-        />
-        <StatusCard
-          title="Transfer History"
-          description="Completed, declined, withdrawn, and expired requests retained for your records."
-        />
-      </div>
-
-      <div style={emptyState}>
-        <strong style={{ display: "block", marginBottom: 6 }}>
-          No shelter tag requests are connected yet.
-        </strong>
-        When your rescue submits a tag request from an urgent shelter animal&apos;s
-        public profile, it will appear here as Pending Shelter Approval.
-      </div>
-    </section>
-  );
+export default function ShelterTagsPage(){
+ const [requests,setRequests]=useState<TagRequest[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const [view,setView]=useState<"pending"|"approved"|"history">("pending");
+ useEffect(()=>{fetch("/api/rescue/shelter-tags",{cache:"no-store"}).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error??"Shelter tag requests could not be loaded.");setRequests(Array.isArray(data.requests)?data.requests:[])}).catch(reason=>setError(reason instanceof Error?reason.message:"Shelter tag requests could not be loaded.")).finally(()=>setLoading(false))},[]);
+ const groups=useMemo(()=>({pending:requests.filter(r=>pendingStatuses.has(r.status)),approved:requests.filter(r=>approvedStatuses.has(r.status)),history:requests.filter(r=>!pendingStatuses.has(r.status)&&!approvedStatuses.has(r.status))}),[requests]);
+ const visible=groups[view];
+ return <section style={{maxWidth:980}}>
+  <p style={eyebrow}>SHELTER TAGS</p><div style={headingRow}><div><h1 style={heading}>Tag Requests &amp; Transfers</h1><p style={intro}>Track shelter animals your rescue has offered to tag without adding them to Animals in Our Care before approval and formal transfer.</p></div><a href="/urgent-animals" style={primaryButton}>Find Urgent Shelter Animals</a></div>
+  <div style={notice}><strong>The shelter remains the source of record.</strong> Approval means the shelter intends to move forward; it does not itself transfer custody. Move the animal into Animals in Our Care only after the transfer is completed.</div>
+  <div style={statusGrid}><StatusCard active={view==="pending"} count={groups.pending.length} title="Pending Shelter Approval" onClick={()=>setView("pending")}/><StatusCard active={view==="approved"} count={groups.approved.length} title="Approved for Transfer" onClick={()=>setView("approved")}/><StatusCard active={view==="history"} count={groups.history.length} title="Transfer History" onClick={()=>setView("history")}/></div>
+  {loading?<div style={emptyState}>Loading shelter tag requests…</div>:null}{error?<div role="alert" style={errorBox}>{error}</div>:null}
+  {!loading&&!error&&visible.length===0?<div style={emptyState}><strong style={{display:"block",marginBottom:6}}>No {view==="pending"?"pending tag requests":view==="approved"?"approved transfers":"tag history"} yet.</strong>{view==="pending"?"Tag requests submitted by your rescue will appear here while the shelter reviews them.":view==="approved"?"Shelter-approved tag requests will remain here until the transfer is completed.":"Declined and closed requests will be retained here for your records."}</div>:null}
+  <div style={list}>{!loading&&!error?visible.map(request=><RequestCard key={request.id} request={request}/>):null}</div>
+ </section>
 }
-
-function StatusCard({ title, description }: { title: string; description: string }) {
-  return (
-    <article style={statusCard}>
-      <div style={statusCount}>0</div>
-      <h2 style={statusTitle}>{title}</h2>
-      <p style={statusDescription}>{description}</p>
-    </article>
-  );
-}
-
-const eyebrow: React.CSSProperties = { margin: "0 0 7px", color: C.coral, fontSize: 12, fontWeight: 900, letterSpacing: ".09em" };
-const headingRow: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 18, flexWrap: "wrap" };
-const heading: React.CSSProperties = { margin: "0 0 8px", color: C.navy, fontSize: "clamp(30px, 5vw, 46px)" };
-const intro: React.CSSProperties = { margin: 0, color: C.muted, maxWidth: 760, lineHeight: 1.55, fontSize: 16 };
-const primaryButton: React.CSSProperties = { display: "inline-block", padding: "11px 14px", background: C.navy, color: C.white, textDecoration: "none", borderRadius: 7, fontWeight: 850 };
-const notice: React.CSSProperties = { marginTop: 24, padding: 18, background: C.mint, border: `1px solid ${C.border}`, color: C.navy, lineHeight: 1.55 };
-const statusGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 230px), 1fr))", gap: 14, marginTop: 22 };
-const statusCard: React.CSSProperties = { padding: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9 };
-const statusCount: React.CSSProperties = { color: C.navy, fontSize: 32, fontWeight: 900 };
-const statusTitle: React.CSSProperties = { margin: "6px 0", color: C.navy, fontSize: 18 };
-const statusDescription: React.CSSProperties = { margin: 0, color: C.muted, lineHeight: 1.5, fontSize: 13.5 };
-const emptyState: React.CSSProperties = { marginTop: 18, padding: 20, background: C.white, border: `1px dashed ${C.border}`, color: C.muted, lineHeight: 1.55 };
+function StatusCard({active,count,title,onClick}:{active:boolean;count:number;title:string;onClick:()=>void}){return <button type="button" onClick={onClick} style={{...statusCard,borderColor:active?C.coral:C.border,background:active?"#FFF5F2":C.white}}><span style={statusCount}>{count}</span><span style={statusTitle}>{title}</span></button>}
+function RequestCard({request:r}:{request:TagRequest}){const publicProfileAvailable=r.public_share_enabled&&!r.outcome_status;return <article style={requestCard}><div style={requestHead}><div><h2 style={requestTitle}>{r.animal_name}</h2><p style={meta}>{[r.species,r.breed_or_type].filter(Boolean).join(" · ")||"Animal details pending"}</p></div><span style={badge}>{statusLabel(r.status)}</span></div><p style={shelterName}>{r.shelter_name}</p><p style={meta}>{[r.shelter_city,r.shelter_state].filter(Boolean).join(", ")}</p><p style={meta}>Requested {new Date(r.created_at).toLocaleDateString()}</p>{r.message?<p style={message}>{r.message}</p>:null}<div style={actions}>{publicProfileAvailable?<a href={`/pet/${encodeURIComponent(r.animal_id)}?returnTo=${encodeURIComponent("/portal/shelter-tags")}`} style={primaryButton}>View Shelter Listing</a>:<span style={unavailable}>The public shelter listing is no longer active.</span>}</div></article>}
+function statusLabel(status:string){return ({new:"Sent",reviewing:"Under Review",contacted:"Shelter Contacted Rescue",accepted:"Approved",declined:"Declined",closed:"Closed"} as Record<string,string>)[status]??status.replaceAll("_"," ")}
+const eyebrow:React.CSSProperties={margin:"0 0 7px",color:C.coral,fontSize:12,fontWeight:900,letterSpacing:".09em"},headingRow:React.CSSProperties={display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:18,flexWrap:"wrap"},heading:React.CSSProperties={margin:"0 0 8px",color:C.navy,fontSize:"clamp(30px, 5vw, 46px)"},intro:React.CSSProperties={margin:0,color:C.muted,maxWidth:720,lineHeight:1.55,fontSize:16},primaryButton:React.CSSProperties={display:"inline-block",padding:"10px 13px",background:C.navy,color:C.white,textDecoration:"none",borderRadius:7,fontWeight:850},notice:React.CSSProperties={marginTop:24,padding:18,background:C.mint,border:`1px solid ${C.border}`,color:C.navy,lineHeight:1.55},statusGrid:React.CSSProperties={display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 210px), 1fr))",gap:12,marginTop:22},statusCard:React.CSSProperties={padding:17,border:"2px solid",borderRadius:9,textAlign:"left",cursor:"pointer"},statusCount:React.CSSProperties={display:"block",color:C.navy,fontSize:30,fontWeight:900},statusTitle:React.CSSProperties={display:"block",marginTop:5,color:C.navy,fontSize:15,fontWeight:850},emptyState:React.CSSProperties={marginTop:18,padding:20,background:C.white,border:`1px dashed ${C.border}`,color:C.muted,lineHeight:1.55},errorBox:React.CSSProperties={marginTop:18,padding:18,background:"#FFF0ED",border:"1px solid #E7B6AF",color:C.red},list:React.CSSProperties={display:"grid",gap:12,marginTop:18},requestCard:React.CSSProperties={padding:18,background:C.white,border:`1px solid ${C.border}`,borderLeft:`5px solid ${C.coral}`,borderRadius:9},requestHead:React.CSSProperties={display:"flex",justifyContent:"space-between",alignItems:"start",gap:12,flexWrap:"wrap"},requestTitle:React.CSSProperties={margin:0,color:C.navy,fontSize:21},meta:React.CSSProperties={margin:"4px 0",color:C.muted,fontSize:13},shelterName:React.CSSProperties={margin:"13px 0 0",color:C.navy,fontWeight:850},badge:React.CSSProperties={padding:"5px 9px",borderRadius:999,background:"#FFE7DE",color:C.red,fontSize:11,fontWeight:900},message:React.CSSProperties={margin:"12px 0 0",padding:12,background:"#F7F8FA",color:C.muted,lineHeight:1.5,whiteSpace:"pre-wrap"},actions:React.CSSProperties={marginTop:14,display:"flex",gap:9,flexWrap:"wrap"},unavailable:React.CSSProperties={color:C.muted,fontSize:13,fontStyle:"italic"};
