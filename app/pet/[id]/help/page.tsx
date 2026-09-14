@@ -68,6 +68,14 @@ export default function OfferHelpPage() {
     }
   }, [accountChecked, canRequestRescueTag, requestedType, offerType]);
 
+  useEffect(() => {
+    if (!submitted || offerType !== "tag_request") return;
+    const redirect = window.setTimeout(() => {
+      window.location.assign("/portal/shelter-tags");
+    }, 1800);
+    return () => window.clearTimeout(redirect);
+  }, [submitted, offerType]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -110,15 +118,20 @@ export default function OfferHelpPage() {
   const name = animal.name || "this animal";
 
   if (submitted) {
+    const tagWasSubmitted = offerType === "tag_request";
     return (
-      <main style={page}>
+      <div style={page}>
         <section style={{ ...panel, background: COLORS.mint }}>
-          <p style={eyebrow}>Offer sent</p>
-          <h1 style={title}>Thank you for offering to help {name}.</h1>
+          <p style={eyebrow}>{tagWasSubmitted ? "Tag request sent" : "Offer sent"}</p>
+          <h1 style={title}>{tagWasSubmitted ? `Your rescue tag request for ${name} was sent.` : `Thank you for offering to help ${name}.`}</h1>
           <p style={body}>{animal.organization.name} received your contact information and offer. Submitting an offer does not confirm placement or transfer custody; the organization will contact you about next steps.</p>
-          <a href={`/pet/${encodeURIComponent(animalId)}`} style={primaryLink}>Return to {name}&apos;s profile</a>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            {tagWasSubmitted ? <a href="/portal/shelter-tags" style={primaryLink}>View Request in Shelter Tags</a> : null}
+            <a href={`/pet/${encodeURIComponent(animalId)}`} style={tagWasSubmitted ? link : primaryLink}>Return to {name}&apos;s profile</a>
+          </div>
+          {tagWasSubmitted ? <p style={{...fieldHelp,margin:0}}>Taking you to Shelter Tags…</p> : null}
         </section>
-      </main>
+      </div>
     );
   }
 
