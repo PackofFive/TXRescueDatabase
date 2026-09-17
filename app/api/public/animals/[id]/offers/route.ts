@@ -40,17 +40,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Rescue organization name is required for rescue and tag offers." }, { status: 400 });
     }
 
-    const available = await sql`select id from animals where id=${animalId} and public_share_enabled=true limit 1`;
+    const available = await sql`select id, current_org_id from animals where id=${animalId} and public_share_enabled=true limit 1`;
     if (!available[0]) return NextResponse.json({ error: "Animal profile is not available." }, { status: 404 });
 
     const rows = await sql`
       insert into animal_help_offers
-        (animal_id, offer_type, contact_name, contact_email, contact_phone, city, postal_code, availability, household_info, message, requesting_org_id, requesting_user_id)
+        (animal_id, offer_type, contact_name, contact_email, contact_phone, city, postal_code, availability, household_info, message, requesting_org_id, requesting_user_id, source_org_id)
       values
         (${animalId}, ${offerType}, ${contactName.trim()}, ${contactEmail.trim()}, ${contactPhone.trim()},
          ${city || null}, ${postalCode || null}, ${availability || null},
          ${["rescue_interest", "tag_request"].includes(offerType) ? `Rescue organization: ${verifiedOrganizationName ?? organizationName.trim()}${householdInfo?.trim() ? `\n\n${householdInfo.trim()}` : ""}` : householdInfo || null},
-         ${message || null}, ${requestingOrgId}::uuid, ${requestingUserId}::uuid)
+         ${message || null}, ${requestingOrgId}::uuid, ${requestingUserId}::uuid,
+         ${offerType === "tag_request" ? available[0].current_org_id : null}::uuid)
       returning id, status, created_at
     `;
     return NextResponse.json({ offer: rows[0] }, { status: 201 });
