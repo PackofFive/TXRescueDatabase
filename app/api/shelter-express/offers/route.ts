@@ -12,12 +12,12 @@ export async function GET() {
       select offer.id, offer.animal_id, offer.offer_type, offer.contact_name,
         offer.contact_email, offer.contact_phone, offer.city, offer.postal_code,
         offer.availability, offer.household_info, offer.message, offer.status,
-        offer.created_at, offer.updated_at, offer.internal_notes,
+        offer.created_at, offer.updated_at, offer.internal_notes, offer.transfer_completed_at,
         coalesce(nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
         animal.urgency
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
-      where animal.current_org_id = ${orgId}::uuid
+      where coalesce(offer.source_org_id, animal.current_org_id) = ${orgId}::uuid
       order by case offer.status when 'new' then 0 when 'reviewing' then 1 when 'contacted' then 2 else 3 end,
         offer.created_at desc
     `;
@@ -55,13 +55,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Choose a valid offer and status." }, { status: 400 });
     }
     const currentRows = await sql`
-      select offer.id, offer.status
+      select offer.id, offer.status, offer.transfer_completed_at
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
-      where offer.id = ${offerId}::uuid and animal.current_org_id = ${orgId}::uuid
+      where offer.id = ${offerId}::uuid
+        and coalesce(offer.source_org_id, animal.current_org_id) = ${orgId}::uuid
       limit 1
     `;
     if (!currentRows[0]) return NextResponse.json({ error: "Offer not found." }, { status: 404 });
+    if (currentRows[0].transfer_completed_at) {
+      return NextResponse.json({ error: "Completed transfer records are read-only." }, { status: 409 });
+    }
 
     if (action === "save_note") {
       const rows = await sql`
