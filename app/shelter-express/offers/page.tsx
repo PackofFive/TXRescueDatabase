@@ -29,6 +29,10 @@ export default function ShelterOffersPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    if (["needs_action", "all", "accepted", "transferred", "closed"].includes(requestedView ?? "")) {
+      setFilter(requestedView as Filter);
+    }
     fetch("/api/shelter-express/offers", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
