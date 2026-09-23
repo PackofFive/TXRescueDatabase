@@ -301,6 +301,28 @@ export async function GET(
       `;
 
     /* -----------------------------------------------------
+       MOST RECENT ORGANIZATION TRANSFER
+    ----------------------------------------------------- */
+
+    const transferRows = await sql`
+      select
+        transfer.id,
+        transfer.from_org_id,
+        transfer.to_org_id,
+        transfer.completed_at,
+        source_org.name as source_organization_name,
+        receiving_org.name as receiving_organization_name,
+        coalesce(confirmed_by.email, 'Former staff member') as confirmed_by_email
+      from animal_transfer_events transfer
+      join organizations source_org on source_org.id = transfer.from_org_id
+      join organizations receiving_org on receiving_org.id = transfer.to_org_id
+      left join users confirmed_by on confirmed_by.id = transfer.completed_by
+      where transfer.animal_id = ${animalId}
+      order by transfer.completed_at desc
+      limit 1
+    `;
+
+    /* -----------------------------------------------------
        HELP / FOSTER OFFER COUNT
     ----------------------------------------------------- */
 
@@ -341,6 +363,10 @@ export async function GET(
         timeline:
           timelineRows ??
           [],
+
+        transfer:
+          transferRows[0] ??
+          null,
 
         open_help_offers:
           Number(
