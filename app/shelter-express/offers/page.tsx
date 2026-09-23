@@ -8,10 +8,10 @@ type Offer = {
   city: string | null; postal_code: string | null; availability: string | null;
   household_info: string | null; message: string | null;
   status: string; urgency: string | null; created_at: string; updated_at: string | null;
-  internal_notes: string;
+  internal_notes: string; transfer_completed_at: string | null;
 };
 type Activity = { id: string; offer_id: string; action: string; previous_status: string | null; new_status: string | null; note: string | null; created_at: string; actor_email: string };
-type Filter = "needs_action" | "all" | "accepted" | "closed";
+type Filter = "needs_action" | "all" | "accepted" | "transferred" | "closed";
 
 const C = { navy: "#1E3A5F", coral: "#E85C56", muted: "#4A5D75", border: "#DCE4EC", mint: "#DCF0E8", pink: "#F2D6DC" };
 const actionStatuses = new Set(["new", "reviewing", "contacted"]);
@@ -43,13 +43,15 @@ export default function ShelterOffersPage() {
   const counts = useMemo(() => ({
     needs_action: offers.filter((offer) => actionStatuses.has(offer.status)).length,
     all: offers.length,
-    accepted: offers.filter((offer) => offer.status === "accepted").length,
+    accepted: offers.filter((offer) => offer.status === "accepted" && !offer.transfer_completed_at).length,
+    transferred: offers.filter((offer) => Boolean(offer.transfer_completed_at)).length,
     closed: offers.filter((offer) => closedStatuses.has(offer.status)).length,
   }), [offers]);
 
   const visibleOffers = useMemo(() => {
     if (filter === "needs_action") return offers.filter((offer) => actionStatuses.has(offer.status));
-    if (filter === "accepted") return offers.filter((offer) => offer.status === "accepted");
+    if (filter === "accepted") return offers.filter((offer) => offer.status === "accepted" && !offer.transfer_completed_at);
+    if (filter === "transferred") return offers.filter((offer) => Boolean(offer.transfer_completed_at));
     if (filter === "closed") return offers.filter((offer) => closedStatuses.has(offer.status));
     return offers;
   }, [filter, offers]);
@@ -99,7 +101,7 @@ export default function ShelterOffersPage() {
     {message ? <div role="status" style={{ ...notice, background: C.mint }}>{message}</div> : null}
 
     <section aria-label="Offer filters" style={filterPanel}>
-      {([["needs_action", "Needs action"], ["all", "All"], ["accepted", "Accepted"], ["closed", "Closed"]] as Array<[Filter, string]>).map(([key, label]) =>
+      {([["needs_action", "Needs action"], ["all", "All"], ["accepted", "Awaiting transfer"], ["transferred", "Transferred"], ["closed", "Closed"]] as Array<[Filter, string]>).map(([key, label]) =>
         <button key={key} type="button" onClick={() => setFilter(key)} style={{ ...filterButton, ...(filter === key ? activeFilterButton : {}) }}>{label} ({counts[key]})</button>
       )}
     </section>
@@ -110,16 +112,16 @@ export default function ShelterOffersPage() {
 
     <div style={{ display: "grid", gap: 14 }}>{visibleOffers.map((offer) =>
       <article key={offer.id} style={card}>
-        <div style={cardHeader}><div><div style={offerType}>{labelFor(offer.offer_type)}</div><h2 style={animalName}>{offer.animal_name}</h2><p style={submitted}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p></div><span style={{ ...badge, background: offer.status === "accepted" ? C.mint : C.pink }}>{labelFor(offer.status)}</span></div>
+        <div style={cardHeader}><div><div style={offerType}>{labelFor(offer.offer_type)}</div><h2 style={animalName}>{offer.animal_name}</h2><p style={submitted}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p>{offer.transfer_completed_at?<p style={submitted}>Transfer completed {new Date(offer.transfer_completed_at).toLocaleString()}</p>:null}</div><span style={{ ...badge, background: offer.status === "accepted" ? C.mint : C.pink }}>{offer.transfer_completed_at?"Transferred":labelFor(offer.status)}</span></div>
         <div style={detailsGrid}><Detail label="From" value={offer.contact_name}/><Detail label="Location" value={[offer.city, offer.postal_code].filter(Boolean).join(" · ") || "Not provided"}/><Detail label="Availability" value={offer.availability || "Not provided"}/><Detail label="Animal priority" value={offer.urgency ? labelFor(offer.urgency) : "Not marked"}/></div>
         {offer.household_info ? <DetailPanel label="Household or relevant experience" value={offer.household_info}/> : null}
         {offer.message ? <DetailPanel label="Message" value={offer.message}/> : null}
         <div style={actions}>
           <a href={`mailto:${offer.contact_email}?subject=${encodeURIComponent(`Your offer to help ${offer.animal_name}`)}`} style={primary}>Email {offer.contact_name}</a>
           {offer.contact_phone ? <a href={`tel:${offer.contact_phone}`} style={secondary}>Call {offer.contact_phone}</a> : null}
-          <a href={`/shelter-express/animals/${offer.animal_id}`} style={secondary}>View urgent animal</a>
+          {!offer.transfer_completed_at?<a href={`/shelter-express/animals/${offer.animal_id}`} style={secondary}>View urgent animal</a>:null}
         </div>
-        <div style={workflow}>
+        {offer.transfer_completed_at?<div style={completedTransfer}><strong>Custody transfer completed.</strong><span>This permanent record is now read-only. The receiving rescue manages the animal&apos;s current record.</span></div>:<div style={workflow}>
           <div><strong style={{ color: C.navy }}>Review status</strong><div style={workflowHelp}>{helpForStatus(offer.status)}</div></div>
           <div style={workflowActions}>
             {offer.status === "new" ? <ActionButton label="Start review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
@@ -129,14 +131,14 @@ export default function ShelterOffersPage() {
             {offer.status === "accepted" ? <ActionButton label="Close completed offer" onClick={() => void update(offer.id, "closed")} disabled={workingId === offer.id}/> : null}
             {closedStatuses.has(offer.status) ? <ActionButton label="Reopen review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
           </div>
-        </div>
+        </div>}
         <details style={privateSection}>
           <summary style={privateSummary}>Private shelter notes &amp; activity ({activities.filter((entry) => entry.offer_id === offer.id).length})</summary>
           <div style={privateBody}>
             <label style={noteLabel}>Current internal note
-              <textarea rows={4} value={notes[offer.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [offer.id]: event.target.value }))} placeholder="Record verification, follow-up, concerns, or next steps. This is never shown publicly." style={noteInput}/>
+              <textarea rows={4} value={notes[offer.id] ?? ""} readOnly={Boolean(offer.transfer_completed_at)} onChange={(event) => setNotes((current) => ({ ...current, [offer.id]: event.target.value }))} placeholder="Record verification, follow-up, concerns, or next steps. This is never shown publicly." style={{...noteInput,background:offer.transfer_completed_at?"#EEF2F5":"#fff"}}/>
             </label>
-            <button type="button" onClick={() => void saveNote(offer.id)} disabled={workingId === offer.id || !(notes[offer.id] ?? "").trim()} style={primary}>{workingId === offer.id ? "Saving…" : "Save private note"}</button>
+            {!offer.transfer_completed_at?<button type="button" onClick={() => void saveNote(offer.id)} disabled={workingId === offer.id || !(notes[offer.id] ?? "").trim()} style={primary}>{workingId === offer.id ? "Saving…" : "Save private note"}</button>:null}
             <div style={activityList}>
               {activities.filter((entry) => entry.offer_id === offer.id).map((entry) => <div key={entry.id} style={activityRow}><strong>{entry.action === "note_added" ? "Private note saved" : `${labelFor(entry.previous_status || "unknown")} → ${labelFor(entry.new_status || "unknown")}`}</strong><span>{new Date(entry.created_at).toLocaleString()} · {entry.actor_email}</span>{entry.note ? <p>{entry.note}</p> : null}</div>)}
               {activities.every((entry) => entry.offer_id !== offer.id) ? <p style={{ margin: 0, color: C.muted }}>No activity recorded yet.</p> : null}
@@ -186,3 +188,4 @@ const noteLabel:React.CSSProperties={display:"grid",gap:6,color:C.navy,fontSize:
 const noteInput:React.CSSProperties={width:"100%",boxSizing:"border-box",padding:11,border:`1px solid ${C.border}`,font:"inherit",color:C.navy,resize:"vertical"};
 const activityList:React.CSSProperties={display:"grid",gap:8,marginTop:4};
 const activityRow:React.CSSProperties={display:"grid",gap:3,padding:11,borderLeft:`3px solid ${C.coral}`,background:"#fff",color:C.muted,fontSize:12,lineHeight:1.45};
+const completedTransfer:React.CSSProperties={display:"grid",gap:4,marginTop:16,padding:14,background:C.mint,border:`1px solid ${C.border}`,color:C.navy,lineHeight:1.45};
