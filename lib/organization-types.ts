@@ -72,5 +72,5 @@ export function organizationTypeDetails(value: string) {
 }
 
 export function isShelterExpressOrganization(value: unknown) {
-  return value === "Municipal Shelter" || value === "Private Shelter" || value === "Animal Control";
+  return value === "Shelter" || value === "Municipal Shelter" || value === "Private Shelter" || value === "Animal Control";
 }
