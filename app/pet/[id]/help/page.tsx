@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 type Animal = {
   id: string;
   name: string | null;
+  tag_pending: boolean;
   organization: { name: string; type: string | null };
 };
 
@@ -38,7 +39,7 @@ export default function OfferHelpPage() {
   const initialType = requestedType === "foster" ? requestedType : "";
   const [offerType, setOfferType] = useState(initialType);
   const shelterTypes = new Set(["Shelter", "Municipal Shelter", "Private Shelter", "Animal Control"]);
-  const canRequestRescueTag = Boolean(account?.availablePortals?.includes("organization") && animal?.organization?.type && shelterTypes.has(animal.organization.type));
+  const canRequestRescueTag = Boolean(account?.availablePortals?.includes("organization") && animal?.organization?.type && shelterTypes.has(animal.organization.type) && !animal.tag_pending);
 
   useEffect(() => {
     if (!animalId) return;
@@ -142,6 +143,7 @@ export default function OfferHelpPage() {
       <p style={{ ...eyebrow, marginTop: 24 }}>{offerType === "tag_request" ? "Rescue tag request" : "Offer foster care or help"}</p>
       <h1 style={title}>How can you help {name}?</h1>
       <p style={body}>Send your offer directly to {animal.organization.name}. They will review it and contact you if it may be a good fit.</p>
+      {animal.tag_pending?<div style={{padding:16,background:COLORS.mint,border:`1px solid ${COLORS.border}`,color:COLORS.navy,lineHeight:1.5}}><strong>Rescue tag approved.</strong> This animal is awaiting transfer to another rescue. Foster, transport, medical, donation, and other help may still be offered.</div>:null}
 
       <form onSubmit={submit} style={panel}>
         <label style={label}>How can you help? *
