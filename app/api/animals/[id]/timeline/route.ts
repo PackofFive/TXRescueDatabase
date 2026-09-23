@@ -78,9 +78,13 @@ export async function GET(
           ace.id,
           ace.event_type,
           ace.started_at,
-          ace.org_id
+          ace.org_id,
+          organization.name as organization_name
 
         from animal_custody_events ace
+
+        left join organizations organization
+          on organization.id = ace.org_id
 
         where
           ace.animal_id =
@@ -89,6 +93,21 @@ export async function GET(
         order by
           ace.started_at desc
       `;
+
+    const transferRows = await sql`
+      select
+        transfer.id,
+        transfer.completed_at,
+        source_org.name as source_organization_name,
+        receiving_org.name as receiving_organization_name,
+        confirmed_by.email as confirmed_by_email
+      from animal_transfer_events transfer
+      join organizations source_org on source_org.id = transfer.from_org_id
+      join organizations receiving_org on receiving_org.id = transfer.to_org_id
+      left join users confirmed_by on confirmed_by.id = transfer.completed_by
+      where transfer.animal_id = ${animalId}
+      order by transfer.completed_at desc
+    `;
 
     const auditRows =
       await sql`
@@ -114,6 +133,8 @@ export async function GET(
           and
           al.entity_id =
             ${animalId}
+
+          and al.field_name <> 'shelter_tag_transfer_completed'
 
         order by
           al.created_at desc
@@ -144,13 +165,30 @@ export async function GET(
             ),
 
           detail:
-            null,
+            row.organization_name
+              ? `Organization: ${row.organization_name}`
+              : null,
 
           actorEmail:
             null,
 
           rawValue:
             null,
+        })
+      ),
+
+      ...transferRows.map(
+        (row) => ({
+          id: `transfer:${row.id}`,
+          source: "custody",
+          eventType: "shelter_tag_transfer_completed",
+          occurredAt: row.completed_at,
+          title: `Transferred from ${row.source_organization_name} to ${row.receiving_organization_name}`,
+          detail: row.confirmed_by_email
+            ? `Custody receipt confirmed by ${row.confirmed_by_email}.`
+            : "Custody receipt was confirmed by the receiving rescue.",
+          actorEmail: row.confirmed_by_email ?? null,
+          rawValue: null,
         })
       ),
 
