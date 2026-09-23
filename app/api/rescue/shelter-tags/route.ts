@@ -16,6 +16,12 @@ export async function GET() {
     const requests = await sql`
       select offer.id, offer.animal_id, offer.status, offer.created_at, offer.updated_at, offer.message,
         offer.transfer_completed_at,
+        exists (
+          select 1
+          from shelter_offer_activity activity
+          where activity.offer_id = offer.id
+            and activity.action = 'auto_closed_after_transfer'
+        ) as placed_with_another_rescue,
         coalesce(nullif(animal.public_name, ''), nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
         coalesce(nullif(animal.public_species, ''), nullif(animal.species, '')) as species,
         coalesce(nullif(animal.public_breed_or_type, ''), nullif(animal.breed_or_type, '')) as breed_or_type,
