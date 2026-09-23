@@ -501,6 +501,7 @@ export async function GET(
         where offer.requesting_org_id = ${orgId}::uuid
           and offer.offer_type = 'tag_request'
           and offer.status in ('contacted', 'accepted')
+          and offer.transfer_completed_at is null
         order by coalesce(offer.updated_at, offer.created_at) desc
       `;
 
@@ -808,6 +809,7 @@ export async function GET(
             where offer.requesting_org_id = ${orgId}::uuid
               and offer.offer_type = 'tag_request'
               and offer.status in ('contacted', 'accepted')
+              and offer.transfer_completed_at is null
           ) as shelter_tag_attention
       `;
 
