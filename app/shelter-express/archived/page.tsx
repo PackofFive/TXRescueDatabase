@@ -25,7 +25,7 @@ type Partner = {
   archived_at: string | null;
   archived_by_email: string | null;
 };
-type Offer={id:string;animal_id:string;animal_name:string;offer_type:string;contact_name:string;status:string;created_at:string};
+type Offer={id:string;animal_id:string;animal_name:string;offer_type:string;contact_name:string;status:string;created_at:string;transfer_completed_at:string|null};
 type Report={id:string;animal_id:string;animal_name:string;foster_name:string;title:string|null;update_text:string;status:string;submitted_at:string};
 
 const colors = {
@@ -68,7 +68,7 @@ export default function ShelterExpressArchivedPage() {
     if(!reportResponse.ok)throw new Error(reportData.error??"Archived reports could not be loaded.");
     setAnimals((animalData.animals ?? []).filter((animal: Animal) => animal.outcome_status));
     setPartners(partnerData.archivedPartners ?? []);
-    setOffers((offerData.offers??[]).filter((offer:Offer)=>["declined","closed"].includes(offer.status)));
+    setOffers((offerData.offers??[]).filter((offer:Offer)=>Boolean(offer.transfer_completed_at)||["declined","closed"].includes(offer.status)));
     setReports((reportData.updates??[]).filter((report:Report)=>report.status==="archived"));
   }
 
@@ -114,14 +114,14 @@ export default function ShelterExpressArchivedPage() {
     <section style={summaryGrid}>
       <Summary value={animals.length} label="Resolved animals" />
       <Summary value={partners.length} label="Archived partners" />
-      <Summary value={offers.length} label="Closed offers" />
+      <Summary value={offers.length} label="Closed and transferred offers" />
       <Summary value={reports.length} label="Archived reports" />
     </section>
 
     <section style={tools}>
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search archived names, IDs, locations, outcomes, or private notes" style={input} />
       <div style={filters}>
-        {(["all","animals","partners","offers","reports"] as const).map(key=><button key={key} type="button" onClick={()=>setView(key)} style={{...filterButton,...(view===key?activeFilter:{})}}>{key==="all"?"All records":key==="animals"?"Resolved animals":key==="partners"?"Archived partners":key==="offers"?"Closed offers":"Archived reports"}</button>)}
+        {(["all","animals","partners","offers","reports"] as const).map(key=><button key={key} type="button" onClick={()=>setView(key)} style={{...filterButton,...(view===key?activeFilter:{})}}>{key==="all"?"All records":key==="animals"?"Resolved animals":key==="partners"?"Archived partners":key==="offers"?"Closed & transferred offers":"Archived reports"}</button>)}
       </div>
     </section>
 
@@ -145,7 +145,7 @@ export default function ShelterExpressArchivedPage() {
         <button type="button" disabled={restoringId === partner.id} onClick={() => restorePartner(partner)} style={primary}>{restoringId === partner.id ? "Restoring…" : "Restore partner"}</button>
       </article>)}</div>
     </section> : null}
-    {!loading&&(view==="all"||view==="offers")&&visibleOffers.length>0?<section style={section}><h2 style={sectionTitle}>Closed and declined offers ({visibleOffers.length})</h2><div style={list}>{visibleOffers.map(offer=><article key={offer.id} style={card}><div><h3 style={cardTitle}>{offer.animal_name}</h3><p style={meta}>{label(offer.offer_type)} from {offer.contact_name} · {label(offer.status)}</p><p style={meta}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p></div><a href="/shelter-express/offers" style={primary}>View offers</a></article>)}</div></section>:null}
+    {!loading&&(view==="all"||view==="offers")&&visibleOffers.length>0?<section style={section}><h2 style={sectionTitle}>Closed, declined, and transferred offers ({visibleOffers.length})</h2><div style={list}>{visibleOffers.map(offer=><article key={offer.id} style={card}><div><h3 style={cardTitle}>{offer.animal_name}</h3><p style={meta}>{label(offer.offer_type)} from {offer.contact_name} · {offer.transfer_completed_at?"Transferred":label(offer.status)}</p><p style={meta}>{offer.transfer_completed_at?`Transfer completed ${new Date(offer.transfer_completed_at).toLocaleString()}`:`Submitted ${new Date(offer.created_at).toLocaleDateString()}`}</p></div><a href="/shelter-express/offers" style={primary}>View retained record</a></article>)}</div></section>:null}
     {!loading&&(view==="all"||view==="reports")&&visibleReports.length>0?<section style={section}><h2 style={sectionTitle}>Archived volunteer reports ({visibleReports.length})</h2><div style={list}>{visibleReports.map(report=><article key={report.id} style={card}><div><h3 style={cardTitle}>{report.animal_name}: {report.title||"Volunteer update"}</h3><p style={meta}>From {report.foster_name} · {new Date(report.submitted_at).toLocaleDateString()}</p><p style={privateNote}>{report.update_text}</p></div><a href="/shelter-express/reports" style={primary}>View reports</a></article>)}</div></section>:null}
   </div>;
 }
