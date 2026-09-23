@@ -40,8 +40,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Rescue organization name is required for rescue and tag offers." }, { status: 400 });
     }
 
-    const available = await sql`select id, current_org_id from animals where id=${animalId} and public_share_enabled=true limit 1`;
+    const available = await sql`
+      select animal.id, animal.current_org_id, organization.org_type
+      from animals animal
+      join organizations organization on organization.id = animal.current_org_id
+      where animal.id=${animalId} and animal.public_share_enabled=true
+      limit 1
+    `;
     if (!available[0]) return NextResponse.json({ error: "Animal profile is not available." }, { status: 404 });
+    if (offerType === "tag_request") {
+      if (!isShelterExpressOrganization(available[0].org_type)) {
+        return NextResponse.json({ error: "Rescue tags can only be requested for Shelter Express animals." }, { status: 400 });
+      }
+      const existing = await sql`
+        select id, status
+        from animal_help_offers
+        where animal_id = ${animalId}::uuid
+          and requesting_org_id = ${requestingOrgId}::uuid
+          and offer_type = 'tag_request'
+          and status not in ('declined', 'closed')
+          and transfer_completed_at is null
+        order by created_at desc
+        limit 1
+      `;
+      if (existing[0]) {
+        return NextResponse.json({ error: "Your rescue already has an active tag request for this animal. View it under Shelter Tags." }, { status: 409 });
+      }
+    }
 
     const rows = await sql`
       insert into animal_help_offers
