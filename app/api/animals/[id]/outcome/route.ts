@@ -245,6 +245,24 @@ export async function POST(
         animalId
       );
 
+    const pendingTransferRows = await sql`
+      select offer.id
+      from animal_help_offers offer
+      where offer.animal_id = ${animalId}
+        and offer.offer_type = 'tag_request'
+        and offer.status = 'accepted'
+        and offer.transfer_completed_at is null
+        and coalesce(offer.source_org_id, ${orgId}::uuid) = ${orgId}::uuid
+      limit 1
+    `;
+
+    if (pendingTransferRows[0]) {
+      return NextResponse.json(
+        { error: "This animal has an approved rescue tag awaiting custody confirmation. Withdraw that approval before recording a different outcome." },
+        { status: 409 }
+      );
+    }
+
     const body =
       await req
         .json()
