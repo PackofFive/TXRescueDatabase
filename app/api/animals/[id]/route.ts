@@ -322,6 +322,22 @@ export async function GET(
       limit 1
     `;
 
+    const pendingTransferRows = await sql`
+      select
+        offer.id as offer_id,
+        offer.updated_at as approved_at,
+        receiving_org.id as receiving_organization_id,
+        receiving_org.name as receiving_organization_name
+      from animal_help_offers offer
+      join organizations receiving_org on receiving_org.id = offer.requesting_org_id
+      where offer.animal_id = ${animalId}
+        and offer.offer_type = 'tag_request'
+        and offer.status = 'accepted'
+        and offer.transfer_completed_at is null
+      order by offer.updated_at desc
+      limit 1
+    `;
+
     /* -----------------------------------------------------
        HELP / FOSTER OFFER COUNT
     ----------------------------------------------------- */
@@ -366,6 +382,10 @@ export async function GET(
 
         transfer:
           transferRows[0] ??
+          null,
+
+        pending_transfer:
+          pendingTransferRows[0] ??
           null,
 
         open_help_offers:
