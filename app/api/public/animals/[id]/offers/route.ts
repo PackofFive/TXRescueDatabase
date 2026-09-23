@@ -52,6 +52,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!isShelterExpressOrganization(available[0].org_type)) {
         return NextResponse.json({ error: "Rescue tags can only be requested for Shelter Express animals." }, { status: 400 });
       }
+      const approvedTag = await sql`
+        select id
+        from animal_help_offers
+        where animal_id = ${animalId}::uuid
+          and offer_type = 'tag_request'
+          and status = 'accepted'
+          and transfer_completed_at is null
+        limit 1
+      `;
+      if (approvedTag[0]) {
+        return NextResponse.json({ error: "This animal already has an approved rescue tag awaiting transfer. You may still offer foster, transport, or other help." }, { status: 409 });
+      }
       const existing = await sql`
         select id, status
         from animal_help_offers
