@@ -13,10 +13,15 @@ export async function GET() {
         offer.contact_email, offer.contact_phone, offer.city, offer.postal_code,
         offer.availability, offer.household_info, offer.message, offer.status,
         offer.created_at, offer.updated_at, offer.internal_notes, offer.transfer_completed_at,
+        receiving_org.name as receiving_organization_name,
+        coalesce(confirmed_by.email, 'Former staff member') as transfer_confirmed_by_email,
         coalesce(nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
         animal.urgency
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
+      left join animal_transfer_events transfer on transfer.offer_id = offer.id
+      left join organizations receiving_org on receiving_org.id = transfer.to_org_id
+      left join users confirmed_by on confirmed_by.id = transfer.completed_by
       where coalesce(offer.source_org_id, animal.current_org_id) = ${orgId}::uuid
       order by case offer.status when 'new' then 0 when 'reviewing' then 1 when 'contacted' then 2 else 3 end,
         offer.created_at desc
