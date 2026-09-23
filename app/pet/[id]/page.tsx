@@ -32,6 +32,7 @@ type PublicAnimal = {
   show_on_success_wall: boolean;
 
   active_help_offer_count: number;
+  tag_pending: boolean;
 
   photo: {
     id: string;
@@ -415,6 +416,13 @@ export default function PublicAnimalPage() {
 
           {/* ACTIONS */}
 
+          {!adopted && animal.tag_pending ? (
+            <div style={{marginTop:20,padding:14,background:"#EEF4F0",border:"1px solid #C9DDD1",borderRadius:9,color:"#2F6F4E",lineHeight:1.5}}>
+              <strong>Rescue tag approved—transfer pending.</strong>
+              <div style={{marginTop:4,fontSize:13}}>Additional foster, transport, medical, donation, or other help may still be offered.</div>
+            </div>
+          ) : null}
+
           {!adopted && (
             <div
               style={{
@@ -424,7 +432,7 @@ export default function PublicAnimalPage() {
                 marginTop: 24,
               }}
             >
-              {canRequestRescueTag ? (
+              {canRequestRescueTag && !animal.tag_pending ? (
                 <a
                   href={`/pet/${encodeURIComponent(
                     animal.id
@@ -439,7 +447,7 @@ export default function PublicAnimalPage() {
                 href={`/pet/${encodeURIComponent(
                   animal.id
                 )}/help?type=foster`}
-                style={canRequestRescueTag ? secondaryButton : primaryButton}
+                style={canRequestRescueTag && !animal.tag_pending ? secondaryButton : primaryButton}
               >
                 Offer Foster / Other Help
               </a>
