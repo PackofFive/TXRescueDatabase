@@ -9,6 +9,7 @@ type Offer = {
   household_info: string | null; message: string | null;
   status: string; urgency: string | null; created_at: string; updated_at: string | null;
   internal_notes: string; transfer_completed_at: string | null;
+  receiving_organization_name: string | null; transfer_confirmed_by_email: string | null;
 };
 type Activity = { id: string; offer_id: string; action: string; previous_status: string | null; new_status: string | null; note: string | null; created_at: string; actor_email: string };
 type Filter = "needs_action" | "all" | "accepted" | "transferred" | "closed";
@@ -121,7 +122,7 @@ export default function ShelterOffersPage() {
           {offer.contact_phone ? <a href={`tel:${offer.contact_phone}`} style={secondary}>Call {offer.contact_phone}</a> : null}
           {!offer.transfer_completed_at?<a href={`/shelter-express/animals/${offer.animal_id}`} style={secondary}>View urgent animal</a>:null}
         </div>
-        {offer.transfer_completed_at?<div style={completedTransfer}><strong>Custody transfer completed.</strong><span>This permanent record is now read-only. The receiving rescue manages the animal&apos;s current record.</span></div>:<div style={workflow}>
+        {offer.transfer_completed_at?<div style={completedTransfer}><strong>Custody transferred to {offer.receiving_organization_name||"the receiving rescue"}.</strong><span>Confirmed {new Date(offer.transfer_completed_at).toLocaleString()}{offer.transfer_confirmed_by_email?` by ${offer.transfer_confirmed_by_email}`:""}.</span><span>This permanent record is now read-only. The receiving rescue manages the animal&apos;s current record.</span></div>:<div style={workflow}>
           <div><strong style={{ color: C.navy }}>Review status</strong><div style={workflowHelp}>{helpForStatus(offer.status)}</div></div>
           <div style={workflowActions}>
             {offer.status === "new" ? <ActionButton label="Start review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
