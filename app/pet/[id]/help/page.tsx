@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 type Animal = {
   id: string;
   name: string | null;
-  organization: { name: string };
+  organization: { name: string; type: string | null };
 };
 
 type Account = {
@@ -37,7 +37,8 @@ export default function OfferHelpPage() {
   const requestedType = searchParams.get("type");
   const initialType = requestedType === "foster" ? requestedType : "";
   const [offerType, setOfferType] = useState(initialType);
-  const canRequestRescueTag = Boolean(account?.availablePortals?.includes("organization"));
+  const shelterTypes = new Set(["Shelter", "Municipal Shelter", "Private Shelter", "Animal Control"]);
+  const canRequestRescueTag = Boolean(account?.availablePortals?.includes("organization") && animal?.organization?.type && shelterTypes.has(animal.organization.type));
 
   useEffect(() => {
     if (!animalId) return;
