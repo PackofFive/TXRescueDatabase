@@ -9,6 +9,7 @@ type Offer = {
   household_info: string | null; message: string | null;
   status: string; urgency: string | null; created_at: string; updated_at: string | null;
   internal_notes: string; transfer_completed_at: string | null;
+  placed_with_another_rescue: boolean;
   receiving_organization_name: string | null; transfer_confirmed_by_email: string | null;
 };
 type Activity = { id: string; offer_id: string; action: string; previous_status: string | null; new_status: string | null; note: string | null; created_at: string; actor_email: string };
@@ -117,7 +118,7 @@ export default function ShelterOffersPage() {
 
     <div style={{ display: "grid", gap: 14 }}>{visibleOffers.map((offer) =>
       <article key={offer.id} style={card}>
-        <div style={cardHeader}><div><div style={offerType}>{labelFor(offer.offer_type)}</div><h2 style={animalName}>{offer.animal_name}</h2><p style={submitted}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p>{offer.transfer_completed_at?<p style={submitted}>Transfer completed {new Date(offer.transfer_completed_at).toLocaleString()}</p>:null}</div><span style={{ ...badge, background: offer.status === "accepted" ? C.mint : C.pink }}>{offer.transfer_completed_at?"Transferred":offer.status==="accepted"&&offer.offer_type==="tag_request"?"Awaiting Rescue Confirmation":labelFor(offer.status)}</span></div>
+        <div style={cardHeader}><div><div style={offerType}>{labelFor(offer.offer_type)}</div><h2 style={animalName}>{offer.animal_name}</h2><p style={submitted}>Submitted {new Date(offer.created_at).toLocaleDateString()}</p>{offer.transfer_completed_at?<p style={submitted}>Transfer completed {new Date(offer.transfer_completed_at).toLocaleString()}</p>:null}</div><span style={{ ...badge, background: offer.status === "accepted" ? C.mint : C.pink }}>{offer.transfer_completed_at?"Transferred":offer.placed_with_another_rescue?"Placed with Another Rescue":offer.status==="accepted"&&offer.offer_type==="tag_request"?"Awaiting Rescue Confirmation":labelFor(offer.status)}</span></div>
         <div style={detailsGrid}><Detail label="From" value={offer.contact_name}/><Detail label="Location" value={[offer.city, offer.postal_code].filter(Boolean).join(" · ") || "Not provided"}/><Detail label="Availability" value={offer.availability || "Not provided"}/><Detail label="Animal priority" value={offer.urgency ? labelFor(offer.urgency) : "Not marked"}/></div>
         {offer.household_info ? <DetailPanel label="Household or relevant experience" value={offer.household_info}/> : null}
         {offer.message ? <DetailPanel label="Message" value={offer.message}/> : null}
@@ -126,7 +127,7 @@ export default function ShelterOffersPage() {
           {offer.contact_phone ? <a href={`tel:${offer.contact_phone}`} style={secondary}>Call {offer.contact_phone}</a> : null}
           {!offer.transfer_completed_at?<a href={`/shelter-express/animals/${offer.animal_id}`} style={secondary}>View urgent animal</a>:null}
         </div>
-        {offer.transfer_completed_at?<div style={completedTransfer}><strong>Custody transferred to {offer.receiving_organization_name||"the receiving rescue"}.</strong><span>Confirmed {new Date(offer.transfer_completed_at).toLocaleString()}{offer.transfer_confirmed_by_email?` by ${offer.transfer_confirmed_by_email}`:""}.</span><span>This permanent record is now read-only. The receiving rescue manages the animal&apos;s current record.</span></div>:<div style={workflow}>
+        {offer.transfer_completed_at?<div style={completedTransfer}><strong>Custody transferred to {offer.receiving_organization_name||"the receiving rescue"}.</strong><span>Confirmed {new Date(offer.transfer_completed_at).toLocaleString()}{offer.transfer_confirmed_by_email?` by ${offer.transfer_confirmed_by_email}`:""}.</span><span>This permanent record is now read-only. The receiving rescue manages the animal&apos;s current record.</span></div>:offer.placed_with_another_rescue?<div style={completedTransfer}><strong>This request closed when the animal transferred to another rescue.</strong><span>The request remains available as a permanent private record and cannot be reopened.</span></div>:<div style={workflow}>
           <div><strong style={{ color: C.navy }}>Review status</strong><div style={workflowHelp}>{helpForStatus(offer.status)}</div></div>
           <div style={workflowActions}>
             {offer.status === "new" ? <ActionButton label="Start review" onClick={() => void update(offer.id, "reviewing")} disabled={workingId === offer.id}/> : null}
