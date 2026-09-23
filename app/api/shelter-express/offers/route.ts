@@ -29,7 +29,10 @@ export async function GET() {
     const activities = offers.length ? await sql`
       select activity.id, activity.offer_id, activity.action, activity.previous_status,
         activity.new_status, activity.note, activity.created_at,
-        coalesce(account.email, 'Former staff member') as actor_email
+        case
+          when activity.action = 'auto_closed_after_transfer' then 'System'
+          else coalesce(account.email, 'Former staff member')
+        end as actor_email
       from shelter_offer_activity activity
       left join users account on account.id = activity.actor_user_id
       where activity.org_id = ${orgId}::uuid
