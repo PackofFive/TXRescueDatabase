@@ -68,6 +68,18 @@ type Animal = {
     | null;
 
   timeline: TimelineEvent[];
+
+  transfer:
+    | {
+        id: string;
+        from_org_id: string;
+        to_org_id: string;
+        completed_at: string;
+        source_organization_name: string;
+        receiving_organization_name: string;
+        confirmed_by_email: string;
+      }
+    | null;
 };
 
 type OverviewDraft = {
@@ -787,6 +799,16 @@ export default function AnimalRecordPage() {
       animal.id
     )}`;
 
+  const missingIntakeDetails = [
+    !animal.name && !animal.temporary_name ? "name" : null,
+    !animal.breed_or_type ? "breed or description" : null,
+    !animal.birth_date ? "estimated age" : null,
+    !animal.sex ? "sex" : null,
+    animal.weight_lbs == null ? "weight" : null,
+    !animal.placement ? "placement" : null,
+    !animal.photo ? "photo" : null,
+  ].filter(Boolean) as string[];
+
   return (
     <section>
       <a
@@ -964,6 +986,28 @@ export default function AnimalRecordPage() {
 
         </div>
       </div>
+
+      {animal.transfer ? (
+        <section style={transferNotice}>
+          <div>
+            <p style={transferEyebrow}>SHELTER TRANSFER</p>
+            <h2 style={transferTitle}>Received from {animal.transfer.source_organization_name}</h2>
+            <p style={transferText}>
+              Custody was confirmed {new Date(animal.transfer.completed_at).toLocaleString()} by {animal.transfer.confirmed_by_email}. The original shelter transfer remains in the permanent timeline.
+            </p>
+            {missingIntakeDetails.length > 0 ? (
+              <p style={transferMissing}><strong>Still needs review:</strong> {missingIntakeDetails.join(", ")}.</p>
+            ) : (
+              <p style={transferComplete}><strong>Intake details are complete.</strong> Review the medical and public-sharing sections when ready.</p>
+            )}
+          </div>
+          {missingIntakeDetails.length > 0 ? (
+            <button type="button" onClick={() => { startOverviewEdit(); window.setTimeout(() => window.scrollTo({ top: 760, behavior: "smooth" }), 0); }} style={transferButton}>
+              Complete Intake Details
+            </button>
+          ) : null}
+        </section>
+      ) : null}
 
       <nav
         aria-label="Animal file sections"
@@ -2960,4 +3004,60 @@ const alertLink:
   color:
     "#2F6F4E",
   fontSize: 13,
+};
+
+const transferNotice: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 18,
+  flexWrap: "wrap",
+  marginBottom: 18,
+  padding: 18,
+  background: "#DCF0E8",
+  border: "1px solid #C9DDD1",
+  borderLeft: "5px solid #E85C56",
+};
+
+const transferEyebrow: React.CSSProperties = {
+  margin: "0 0 5px",
+  color: "#E85C56",
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: ".09em",
+};
+
+const transferTitle: React.CSSProperties = {
+  margin: 0,
+  color: "#17233C",
+  fontSize: 21,
+};
+
+const transferText: React.CSSProperties = {
+  maxWidth: 720,
+  margin: "7px 0 0",
+  color: "#4A5D75",
+  fontSize: 13,
+  lineHeight: 1.5,
+};
+
+const transferMissing: React.CSSProperties = {
+  ...transferText,
+  color: "#85571F",
+};
+
+const transferComplete: React.CSSProperties = {
+  ...transferText,
+  color: "#2F6F4E",
+};
+
+const transferButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  padding: "10px 14px",
+  background: "#1E3A5F",
+  color: "#fff",
+  border: 0,
+  borderRadius: 7,
+  fontWeight: 800,
+  cursor: "pointer",
 };
