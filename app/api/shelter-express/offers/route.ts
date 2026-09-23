@@ -60,7 +60,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Choose a valid offer and status." }, { status: 400 });
     }
     const currentRows = await sql`
-      select offer.id, offer.status, offer.transfer_completed_at
+      select offer.id, offer.status, offer.offer_type, offer.transfer_completed_at
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
       where offer.id = ${offerId}::uuid
@@ -70,6 +70,14 @@ export async function PATCH(request: NextRequest) {
     if (!currentRows[0]) return NextResponse.json({ error: "Offer not found." }, { status: 404 });
     if (currentRows[0].transfer_completed_at) {
       return NextResponse.json({ error: "Completed transfer records are read-only." }, { status: 409 });
+    }
+    if (
+      action === "change_status" &&
+      currentRows[0].offer_type === "tag_request" &&
+      currentRows[0].status === "accepted" &&
+      status === "closed"
+    ) {
+      return NextResponse.json({ error: "This tag cannot be closed before the receiving rescue confirms the transfer. Withdraw approval instead if plans changed." }, { status: 409 });
     }
 
     if (action === "save_note") {
