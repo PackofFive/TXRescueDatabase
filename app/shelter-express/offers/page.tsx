@@ -146,7 +146,7 @@ export default function ShelterOffersPage() {
             </label>
             {!offer.transfer_completed_at?<button type="button" onClick={() => void saveNote(offer.id)} disabled={workingId === offer.id || !(notes[offer.id] ?? "").trim()} style={primary}>{workingId === offer.id ? "Saving…" : "Save private note"}</button>:null}
             <div style={activityList}>
-              {activities.filter((entry) => entry.offer_id === offer.id).map((entry) => <div key={entry.id} style={activityRow}><strong>{entry.action === "note_added" ? "Private note saved" : `${labelFor(entry.previous_status || "unknown")} → ${labelFor(entry.new_status || "unknown")}`}</strong><span>{new Date(entry.created_at).toLocaleString()} · {entry.actor_email}</span>{entry.note ? <p>{entry.note}</p> : null}</div>)}
+              {activities.filter((entry) => entry.offer_id === offer.id).map((entry) => <div key={entry.id} style={activityRow}><strong>{entry.action === "note_added" ? "Private note saved" : entry.action === "auto_closed_after_transfer" ? "Automatically closed after transfer" : `${labelFor(entry.previous_status || "unknown")} → ${labelFor(entry.new_status || "unknown")}`}</strong><span>{new Date(entry.created_at).toLocaleString()} · {entry.actor_email}</span>{entry.note ? <p>{entry.note}</p> : null}</div>)}
               {activities.every((entry) => entry.offer_id !== offer.id) ? <p style={{ margin: 0, color: C.muted }}>No activity recorded yet.</p> : null}
             </div>
           </div>
