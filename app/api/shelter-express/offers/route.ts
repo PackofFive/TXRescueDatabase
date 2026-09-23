@@ -79,6 +79,27 @@ export async function PATCH(request: NextRequest) {
     ) {
       return NextResponse.json({ error: "This tag cannot be closed before the receiving rescue confirms the transfer. Withdraw approval instead if plans changed." }, { status: 409 });
     }
+    if (
+      action === "change_status" &&
+      currentRows[0].offer_type === "tag_request" &&
+      status === "accepted"
+    ) {
+      const approvedRows = await sql`
+        select id
+        from animal_help_offers
+        where animal_id = (
+          select animal_id from animal_help_offers where id = ${offerId}::uuid
+        )
+          and id <> ${offerId}::uuid
+          and offer_type = 'tag_request'
+          and status = 'accepted'
+          and transfer_completed_at is null
+        limit 1
+      `;
+      if (approvedRows[0]) {
+        return NextResponse.json({ error: "Another rescue is already approved for this animal. Withdraw that approval before approving a different rescue." }, { status: 409 });
+      }
+    }
 
     if (action === "save_note") {
       const rows = await sql`
