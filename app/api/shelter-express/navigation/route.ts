@@ -44,8 +44,15 @@ export async function GET() {
           select count(*)::int
           from animal_help_offers offer
           join animals animal on animal.id = offer.animal_id
-          where animal.current_org_id = ${orgId}::uuid
-            and offer.status in ('new', 'reviewing', 'contacted')
+          where coalesce(offer.source_org_id, animal.current_org_id) = ${orgId}::uuid
+            and (
+              offer.status in ('new', 'reviewing', 'contacted')
+              or (
+                offer.offer_type = 'tag_request'
+                and offer.status = 'accepted'
+                and offer.transfer_completed_at is null
+              )
+            )
         ) as actionable_offers,
         (
           select count(*)::int
