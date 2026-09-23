@@ -13,6 +13,11 @@ export async function GET() {
         offer.contact_email, offer.contact_phone, offer.city, offer.postal_code,
         offer.availability, offer.household_info, offer.message, offer.status,
         offer.created_at, offer.updated_at, offer.internal_notes, offer.transfer_completed_at,
+        exists (
+          select 1 from shelter_offer_activity closure
+          where closure.offer_id = offer.id
+            and closure.action = 'auto_closed_after_transfer'
+        ) as placed_with_another_rescue,
         receiving_org.name as receiving_organization_name,
         coalesce(confirmed_by.email, 'Former staff member') as transfer_confirmed_by_email,
         coalesce(nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
@@ -63,7 +68,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Choose a valid offer and status." }, { status: 400 });
     }
     const currentRows = await sql`
-      select offer.id, offer.status, offer.offer_type, offer.transfer_completed_at
+      select offer.id, offer.status, offer.offer_type, offer.transfer_completed_at,
+        exists (
+          select 1 from shelter_offer_activity closure
+          where closure.offer_id = offer.id
+            and closure.action = 'auto_closed_after_transfer'
+        ) as placed_with_another_rescue
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
       where offer.id = ${offerId}::uuid
@@ -73,6 +83,9 @@ export async function PATCH(request: NextRequest) {
     if (!currentRows[0]) return NextResponse.json({ error: "Offer not found." }, { status: 404 });
     if (currentRows[0].transfer_completed_at) {
       return NextResponse.json({ error: "Completed transfer records are read-only." }, { status: 409 });
+    }
+    if (action === "change_status" && currentRows[0].placed_with_another_rescue) {
+      return NextResponse.json({ error: "This request closed after the animal transferred to another rescue and cannot be reopened." }, { status: 409 });
     }
     if (
       action === "change_status" &&
