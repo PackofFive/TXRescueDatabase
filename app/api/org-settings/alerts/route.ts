@@ -25,6 +25,8 @@ const ALERT_TYPES = [
   "medical",
   "medication",
   "foster_offer",
+  "shelter_tag",
+  "transfer_intake",
 ];
 
 const PRIORITIES = [
@@ -52,6 +54,16 @@ const DEFAULTS: Record<
   },
 
   foster_offer: {
+    priority: "high",
+    enabled: true,
+  },
+
+  shelter_tag: {
+    priority: "high",
+    enabled: true,
+  },
+
+  transfer_intake: {
     priority: "high",
     enabled: true,
   },
