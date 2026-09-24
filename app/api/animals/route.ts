@@ -47,6 +47,11 @@ export async function GET(
         "placement"
       ) || null;
 
+    const transferredFromShelter =
+      searchParams.get(
+        "source"
+      ) === "shelter_transfer";
+
     const attentionOnly =
       searchParams.get(
         "attention"
@@ -179,6 +184,16 @@ export async function GET(
         and (
           ${placement}::text is null
           or a.placement = ${placement}
+        )
+
+        and (
+          ${transferredFromShelter} = false
+          or exists (
+            select 1
+            from animal_transfer_events transfer_filter
+            where transfer_filter.animal_id = a.id
+              and transfer_filter.to_org_id = a.current_org_id
+          )
         )
 
         and (
