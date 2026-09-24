@@ -73,6 +73,10 @@ export default function ShelterExpressArchivedPage() {
   }
 
   useEffect(() => {
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    if (["all", "animals", "partners", "offers", "reports"].includes(requestedView ?? "")) {
+      setView(requestedView as "all" | "animals" | "partners" | "offers" | "reports");
+    }
     void load().catch((reason) => setError(reason instanceof Error ? reason.message : "Archived records could not be loaded.")).finally(() => setLoading(false));
   }, []);
 
