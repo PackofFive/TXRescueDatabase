@@ -1001,11 +1001,14 @@ export default function AnimalRecordPage() {
               <p style={transferComplete}><strong>Intake details are complete.</strong> Review the medical and public-sharing sections when ready.</p>
             )}
           </div>
-          {missingIntakeDetails.length > 0 ? (
-            <button type="button" onClick={() => { startOverviewEdit(); window.setTimeout(() => window.scrollTo({ top: 760, behavior: "smooth" }), 0); }} style={transferButton}>
-              Complete Intake Details
-            </button>
-          ) : null}
+          <div style={transferActions}>
+            {missingIntakeDetails.length > 0 ? (
+              <button type="button" onClick={() => { startOverviewEdit(); window.setTimeout(() => window.scrollTo({ top: 760, behavior: "smooth" }), 0); }} style={transferButton}>
+                Complete Intake Details
+              </button>
+            ) : null}
+            <a href="/portal/shelter-tags?view=history" style={transferHistoryLink}>View Shelter Tag History</a>
+          </div>
         </section>
       ) : null}
 
@@ -3060,4 +3063,22 @@ const transferButton: React.CSSProperties = {
   borderRadius: 7,
   fontWeight: 800,
   cursor: "pointer",
+};
+
+const transferActions: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  flexWrap: "wrap",
+};
+
+const transferHistoryLink: React.CSSProperties = {
+  flex: "0 0 auto",
+  padding: "9px 13px",
+  background: "#fff",
+  color: "#1E3A5F",
+  border: "1px solid #1E3A5F",
+  borderRadius: 7,
+  fontWeight: 800,
+  textDecoration: "none",
 };
