@@ -78,6 +78,10 @@ type Animal = {
 
   created_at: string;
 
+  transferred_from_organization_name: string | null;
+
+  transferred_at: string | null;
+
   photo_url:
     | string
     | null;
@@ -1569,6 +1573,12 @@ function AnimalCard({
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
+                {animal.transferred_from_organization_name ? (
+                  <div style={transferSource}>
+                    Transferred from {animal.transferred_from_organization_name}
+                    {animal.transferred_at ? ` · ${formatDate(animal.transferred_at)}` : ""}
+                  </div>
+                ) : null}
               </div>
 
               <span
@@ -2202,6 +2212,18 @@ const inputStyle:
     "inherit",
   background: "#fff",
   color: "#1C1B19",
+};
+
+const transferSource: React.CSSProperties = {
+  display: "inline-block",
+  marginTop: 7,
+  padding: "4px 7px",
+  borderRadius: 20,
+  background: "#DCF0E8",
+  border: "1px solid #C9DDD1",
+  color: "#2F6F4E",
+  fontSize: 11,
+  fontWeight: 800,
 };
 
 const primaryButton:
