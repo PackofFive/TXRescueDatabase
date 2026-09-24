@@ -83,6 +83,9 @@ const ALERT_TYPE_LABELS:
   shelter_tag:
     "Shelter Tag Updates",
 
+  transfer_intake:
+    "Transferred Animal Intake",
+
   custom_reminder:
     "Custom Reminders",
 };
