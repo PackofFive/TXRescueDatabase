@@ -57,6 +57,11 @@ const DEFAULT_PREFERENCES: Record<
     priority: "high",
     enabled: true,
   },
+
+  transfer_intake: {
+    priority: "high",
+    enabled: true,
+  },
 };
 
 const PRIORITY_RANK: Record<
@@ -515,6 +520,60 @@ export async function GET(
           due_at: null,
           created_at: row.alert_at,
           priority: shelterTagPreference.priority,
+        });
+      }
+    }
+
+    /* =====================================================
+       INCOMPLETE INTAKE AFTER A SHELTER TRANSFER
+    ===================================================== */
+
+    const transferIntakePreference = preferences.transfer_intake;
+    if (transferIntakePreference?.enabled) {
+      const transferIntakeRows = await sql`
+        select
+          animal.id,
+          coalesce(nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed Animal') as animal_name,
+          max(transfer.completed_at) as transferred_at,
+          (nullif(trim(coalesce(animal.name, '')), '') is null
+            and nullif(trim(coalesce(animal.temporary_name, '')), '') is null) as missing_name,
+          nullif(trim(coalesce(animal.species, '')), '') is null as missing_species,
+          nullif(trim(coalesce(animal.sex, '')), '') is null as missing_sex,
+          animal.weight_lbs is null as missing_weight
+        from animals animal
+        join animal_transfer_events transfer
+          on transfer.animal_id = animal.id
+          and transfer.to_org_id = animal.current_org_id
+        where animal.current_org_id = ${orgId}::uuid
+          and animal.outcome_status is null
+          and (
+            (nullif(trim(coalesce(animal.name, '')), '') is null
+              and nullif(trim(coalesce(animal.temporary_name, '')), '') is null)
+            or nullif(trim(coalesce(animal.species, '')), '') is null
+            or nullif(trim(coalesce(animal.sex, '')), '') is null
+            or animal.weight_lbs is null
+          )
+        group by animal.id, animal.name, animal.temporary_name, animal.species, animal.sex, animal.weight_lbs
+        order by max(transfer.completed_at) desc
+      `;
+
+      for (const row of transferIntakeRows) {
+        const missing = [
+          row.missing_name ? "name" : null,
+          row.missing_species ? "species" : null,
+          row.missing_sex ? "sex" : null,
+          row.missing_weight ? "weight" : null,
+        ].filter(Boolean);
+
+        alerts.push({
+          id: `transfer-intake-${row.id}`,
+          animal_id: row.id,
+          animal_name: row.animal_name,
+          alert_type: "transfer_intake",
+          title: `Complete transferred-animal intake: ${missing.join(", ")}`,
+          due_at: null,
+          created_at: row.transferred_at,
+          priority: transferIntakePreference.priority,
         });
       }
     }
