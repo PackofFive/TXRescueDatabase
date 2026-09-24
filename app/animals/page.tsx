@@ -243,6 +243,12 @@ export default function AnimalsListPage() {
     useState("");
 
   const [
+    sourceFilter,
+    setSourceFilter,
+  ] =
+    useState<"" | "shelter_transfer">("");
+
+  const [
     needsAttention,
     setNeedsAttention,
   ] =
@@ -405,6 +411,10 @@ export default function AnimalsListPage() {
           );
         }
 
+        if (sourceFilter) {
+          params.set("source", sourceFilter);
+        }
+
         if (
           needsAttention
         ) {
@@ -500,6 +510,7 @@ export default function AnimalsListPage() {
     search,
     speciesFilter,
     placementFilter,
+    sourceFilter,
     needsAttention,
     sort,
     caseStatus,
@@ -1108,7 +1119,7 @@ export default function AnimalsListPage() {
         style={{
           display: "grid",
           gridTemplateColumns:
-            "minmax(220px, 2fr) repeat(3, minmax(140px, 1fr))",
+            "minmax(220px, 2fr) repeat(4, minmax(140px, 1fr))",
           gap: 10,
           marginBottom: 12,
         }}
@@ -1204,6 +1215,16 @@ export default function AnimalsListPage() {
           <option value="name">
             Name A–Z
           </option>
+        </select>
+
+        <select
+          value={sourceFilter}
+          onChange={(event) => setSourceFilter(event.target.value as "" | "shelter_transfer")}
+          style={inputStyle}
+          aria-label="Filter by intake source"
+        >
+          <option value="">All intake sources</option>
+          <option value="shelter_transfer">Transferred from shelter</option>
         </select>
       </div>
 
