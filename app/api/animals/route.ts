@@ -83,6 +83,25 @@ export async function GET(
         a.created_at,
 
         (
+          select source_org.name
+          from animal_transfer_events transfer
+          join organizations source_org on source_org.id = transfer.from_org_id
+          where transfer.animal_id = a.id
+            and transfer.to_org_id = a.current_org_id
+          order by transfer.completed_at desc
+          limit 1
+        ) as transferred_from_organization_name,
+
+        (
+          select transfer.completed_at
+          from animal_transfer_events transfer
+          where transfer.animal_id = a.id
+            and transfer.to_org_id = a.current_org_id
+          order by transfer.completed_at desc
+          limit 1
+        ) as transferred_at,
+
+        (
           select
             '/api/animals/' ||
             a.id::text ||
