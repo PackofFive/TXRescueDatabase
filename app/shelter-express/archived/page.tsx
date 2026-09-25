@@ -73,17 +73,20 @@ export default function ShelterExpressArchivedPage() {
   }
 
   useEffect(() => {
-    const requestedView = new URLSearchParams(window.location.search).get("view");
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedView = searchParams.get("view");
     if (["all", "animals", "partners", "offers", "reports"].includes(requestedView ?? "")) {
       setView(requestedView as "all" | "animals" | "partners" | "offers" | "reports");
     }
+    const requestedQuery = searchParams.get("q");
+    if (requestedQuery) setQuery(requestedQuery);
     void load().catch((reason) => setError(reason instanceof Error ? reason.message : "Archived records could not be loaded.")).finally(() => setLoading(false));
   }, []);
 
   const normalizedQuery = query.trim().toLowerCase();
   const visibleAnimals = useMemo(() => animals.filter((animal) => `${animal.name ?? ""} ${animal.temporary_name ?? ""} ${animal.species ?? ""} ${animal.breed_or_type ?? ""} ${animal.outcome_status ?? ""}`.toLowerCase().includes(normalizedQuery)), [animals, normalizedQuery]);
   const visiblePartners = useMemo(() => partners.filter((partner) => `${partner.name} ${partner.org_type ?? ""} ${partner.city ?? ""} ${partner.county ?? ""} ${partner.state ?? ""} ${partner.relationship_status ?? ""} ${partner.private_notes ?? ""}`.toLowerCase().includes(normalizedQuery)), [partners, normalizedQuery]);
-  const visibleOffers=useMemo(()=>offers.filter(offer=>`${offer.animal_name} ${offer.offer_type} ${offer.contact_name} ${offer.status} ${offer.placed_with_another_rescue?"placed with another rescue":""}`.toLowerCase().includes(normalizedQuery)),[offers,normalizedQuery]);
+  const visibleOffers=useMemo(()=>offers.filter(offer=>`${offer.animal_name} ${offer.offer_type} ${offer.contact_name} ${offer.status} ${offer.receiving_organization_name??""} ${offer.placed_with_another_rescue?"placed with another rescue":""}`.toLowerCase().includes(normalizedQuery)),[offers,normalizedQuery]);
   const visibleReports=useMemo(()=>reports.filter(report=>`${report.animal_name} ${report.foster_name} ${report.title??""} ${report.update_text}`.toLowerCase().includes(normalizedQuery)),[reports,normalizedQuery]);
 
   async function restorePartner(partner: Partner) {
