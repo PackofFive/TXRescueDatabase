@@ -19,6 +19,8 @@ export async function GET() {
             and closure.action = 'auto_closed_after_transfer'
         ) as placed_with_another_rescue,
         coalesce(transfer.to_organization_name, receiving_org.name) as receiving_organization_name,
+        transfer.animal_snapshot as transfer_animal_snapshot,
+        transfer.snapshot_captured_at,
         coalesce(confirmed_by.email, 'Former staff member') as transfer_confirmed_by_email,
         coalesce(
           nullif(transfer.animal_snapshot ->> 'publicName', ''),
