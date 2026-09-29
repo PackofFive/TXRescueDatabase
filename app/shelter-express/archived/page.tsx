@@ -25,7 +25,8 @@ type Partner = {
   archived_at: string | null;
   archived_by_email: string | null;
 };
-type Offer={id:string;animal_id:string;animal_name:string;offer_type:string;contact_name:string;status:string;created_at:string;transfer_completed_at:string|null;placed_with_another_rescue:boolean;receiving_organization_name:string|null;transfer_confirmed_by_email:string|null};
+type TransferSnapshot={name?:string|null;temporaryName?:string|null;publicName?:string|null;species?:string|null;publicSpecies?:string|null;breedOrType?:string|null;publicBreedOrType?:string|null;sex?:string|null;birthDate?:string|null;weightLbs?:string|number|null;urgency?:string|null;custody?:string|null;placement?:string|null;notes?:string|null;publicSummary?:string|null;publicNeed?:string|null;externalListingUrl?:string|null};
+type Offer={id:string;animal_id:string;animal_name:string;offer_type:string;contact_name:string;status:string;created_at:string;transfer_completed_at:string|null;placed_with_another_rescue:boolean;receiving_organization_name:string|null;transfer_confirmed_by_email:string|null;transfer_animal_snapshot:TransferSnapshot|null;snapshot_captured_at:string|null};
 type Report={id:string;animal_id:string;animal_name:string;foster_name:string;title:string|null;update_text:string;status:string;submitted_at:string};
 
 const colors = {
@@ -152,13 +153,19 @@ export default function ShelterExpressArchivedPage() {
         <button type="button" disabled={restoringId === partner.id} onClick={() => restorePartner(partner)} style={primary}>{restoringId === partner.id ? "Restoring…" : "Restore partner"}</button>
       </article>)}</div>
     </section> : null}
-    {!loading&&(view==="all"||view==="offers")&&visibleOffers.length>0?<section style={section}><h2 style={sectionTitle}>Closed, declined, and transferred offers ({visibleOffers.length})</h2><div style={list}>{visibleOffers.map(offer=><article key={offer.id} style={card}><div><h3 style={cardTitle}>{offer.animal_name}</h3><p style={meta}>{label(offer.offer_type)} from {offer.contact_name} · {offer.transfer_completed_at?"Transferred":offer.placed_with_another_rescue?"Placed with another rescue":label(offer.status)}</p><p style={meta}>{offer.transfer_completed_at?`Transferred to ${offer.receiving_organization_name||"receiving rescue"} on ${new Date(offer.transfer_completed_at).toLocaleString()}${offer.transfer_confirmed_by_email?` · Confirmed by ${offer.transfer_confirmed_by_email}`:""}`:offer.placed_with_another_rescue?"Automatically closed when the animal transferred to a different rescue.":`Submitted ${new Date(offer.created_at).toLocaleDateString()}`}</p></div><a href="/shelter-express/offers" style={primary}>View retained record</a></article>)}</div></section>:null}
+    {!loading&&(view==="all"||view==="offers")&&visibleOffers.length>0?<section style={section}><h2 style={sectionTitle}>Closed, declined, and transferred offers ({visibleOffers.length})</h2><div style={list}>{visibleOffers.map(offer=><article key={offer.id} style={card}><div style={{minWidth:0,flex:"1 1 560px"}}><h3 style={cardTitle}>{offer.animal_name}</h3><p style={meta}>{label(offer.offer_type)} from {offer.contact_name} · {offer.transfer_completed_at?"Transferred":offer.placed_with_another_rescue?"Placed with another rescue":label(offer.status)}</p><p style={meta}>{offer.transfer_completed_at?`Transferred to ${offer.receiving_organization_name||"receiving rescue"} on ${new Date(offer.transfer_completed_at).toLocaleString()}${offer.transfer_confirmed_by_email?` · Confirmed by ${offer.transfer_confirmed_by_email}`:""}`:offer.placed_with_another_rescue?"Automatically closed when the animal transferred to a different rescue.":`Submitted ${new Date(offer.created_at).toLocaleDateString()}`}</p>{offer.transfer_animal_snapshot?<TransferSnapshotDetails snapshot={offer.transfer_animal_snapshot} capturedAt={offer.snapshot_captured_at}/>:offer.transfer_completed_at?<p style={legacySnapshot}>This transfer predates permanent animal snapshots. The original transfer event is still retained.</p>:null}</div><a href="/shelter-express/offers" style={primary}>View retained record</a></article>)}</div></section>:null}
     {!loading&&(view==="all"||view==="reports")&&visibleReports.length>0?<section style={section}><h2 style={sectionTitle}>Archived volunteer reports ({visibleReports.length})</h2><div style={list}>{visibleReports.map(report=><article key={report.id} style={card}><div><h3 style={cardTitle}>{report.animal_name}: {report.title||"Volunteer update"}</h3><p style={meta}>From {report.foster_name} · {new Date(report.submitted_at).toLocaleDateString()}</p><p style={privateNote}>{report.update_text}</p></div><a href="/shelter-express/reports" style={primary}>View reports</a></article>)}</div></section>:null}
   </div>;
 }
 
 function Summary({ value, label: text }: { value: number; label: string }) {
   return <div style={summary}><strong style={{ color: colors.navy, fontSize: 30 }}>{value}</strong><span style={{ color: colors.muted }}>{text}</span></div>;
+}
+
+function TransferSnapshotDetails({snapshot,capturedAt}:{snapshot:TransferSnapshot;capturedAt:string|null}){
+  const identity=snapshot.publicName||snapshot.name||snapshot.temporaryName||"Unnamed animal";
+  const details=[snapshot.publicSpecies||snapshot.species,snapshot.publicBreedOrType||snapshot.breedOrType,snapshot.sex?label(snapshot.sex):null,snapshot.birthDate?`Born ${new Date(`${snapshot.birthDate.slice(0,10)}T00:00:00`).toLocaleDateString()}`:null,snapshot.weightLbs?`${snapshot.weightLbs} lb`:null].filter(Boolean).join(" · ");
+  return <details style={snapshotPanel}><summary style={snapshotSummary}>Animal details at transfer</summary><div style={snapshotBody}><p style={snapshotName}>{identity}</p>{snapshot.temporaryName?<p style={meta}>Shelter ID: {snapshot.temporaryName}</p>:null}{details?<p style={meta}>{details}</p>:null}<p style={meta}>{[snapshot.urgency?`Urgency: ${label(snapshot.urgency)}`:null,snapshot.custody?`Custody: ${label(snapshot.custody)}`:null,snapshot.placement?`Placement: ${label(snapshot.placement)}`:null].filter(Boolean).join(" · ")}</p>{snapshot.publicSummary?<p style={privateNote}><strong>Public summary:</strong> {snapshot.publicSummary}</p>:null}{snapshot.publicNeed?<p style={privateNote}><strong>Help requested:</strong> {snapshot.publicNeed}</p>:null}{snapshot.notes?<p style={privateNote}><strong>Recorded notes:</strong> {snapshot.notes}</p>:null}{snapshot.externalListingUrl?<p style={privateNote}><strong>Original external listing:</strong> <a href={snapshot.externalListingUrl} target="_blank" rel="noreferrer">Open link</a></p>:null}{capturedAt?<p style={snapshotTime}>Snapshot captured {new Date(capturedAt).toLocaleString()}</p>:null}</div></details>;
 }
 
 function label(value: string | null) {
@@ -184,3 +191,9 @@ const cardTitle: React.CSSProperties = { margin: 0, color: colors.navy, fontSize
 const meta: React.CSSProperties = { margin: "5px 0", color: colors.muted };
 const privateNote: React.CSSProperties = { margin: "9px 0 0", maxWidth: 700, color: colors.muted, lineHeight: 1.45 };
 const primary: React.CSSProperties = { display: "inline-block", padding: "10px 14px", border: 0, background: colors.navy, color: "#fff", fontWeight: 800, textDecoration: "none", cursor: "pointer" };
+const snapshotPanel:React.CSSProperties={marginTop:12,border:`1px solid ${colors.border}`,background:"#F8FAFC"};
+const snapshotSummary:React.CSSProperties={padding:"10px 12px",color:colors.navy,fontWeight:800,cursor:"pointer"};
+const snapshotBody:React.CSSProperties={padding:"0 12px 12px",color:colors.muted};
+const snapshotName:React.CSSProperties={margin:"4px 0",color:colors.navy,fontWeight:800};
+const snapshotTime:React.CSSProperties={margin:"10px 0 0",fontSize:11,color:colors.muted};
+const legacySnapshot:React.CSSProperties={margin:"10px 0 0",fontSize:12,fontStyle:"italic",color:colors.muted};
