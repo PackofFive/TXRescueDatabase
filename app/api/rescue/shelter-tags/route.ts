@@ -22,14 +22,15 @@ export async function GET() {
           where activity.offer_id = offer.id
             and activity.action = 'auto_closed_after_transfer'
         ) as placed_with_another_rescue,
-        coalesce(nullif(animal.public_name, ''), nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
-        coalesce(nullif(animal.public_species, ''), nullif(animal.species, '')) as species,
-        coalesce(nullif(animal.public_breed_or_type, ''), nullif(animal.breed_or_type, '')) as breed_or_type,
+        coalesce(nullif(transfer.animal_snapshot ->> 'publicName', ''), nullif(transfer.animal_snapshot ->> 'name', ''), nullif(transfer.animal_snapshot ->> 'temporaryName', ''), nullif(animal.public_name, ''), nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
+        coalesce(nullif(transfer.animal_snapshot ->> 'publicSpecies', ''), nullif(transfer.animal_snapshot ->> 'species', ''), nullif(animal.public_species, ''), nullif(animal.species, '')) as species,
+        coalesce(nullif(transfer.animal_snapshot ->> 'publicBreedOrType', ''), nullif(transfer.animal_snapshot ->> 'breedOrType', ''), nullif(animal.public_breed_or_type, ''), nullif(animal.breed_or_type, '')) as breed_or_type,
         animal.urgency, animal.public_share_enabled, animal.outcome_status,
-        shelter.name as shelter_name, shelter.city as shelter_city, shelter.state as shelter_state
+        coalesce(transfer.from_organization_name, shelter.name) as shelter_name, shelter.city as shelter_city, shelter.state as shelter_state
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
       join organizations shelter on shelter.id = coalesce(offer.source_org_id, animal.current_org_id)
+      left join animal_transfer_events transfer on transfer.offer_id = offer.id
       where offer.requesting_org_id = ${orgId}::uuid and offer.offer_type = 'tag_request'
       order by offer.created_at desc
     `;
