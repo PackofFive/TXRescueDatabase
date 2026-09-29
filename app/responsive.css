@@ -157,3 +157,25 @@ svg {
     font-size: clamp(30px, 10vw, 42px) !important;
   }
 }
+
+@media print {
+  .pof-header,
+  .portal-sidebar,
+  .portal-subheader,
+  .pof-no-print {
+    display: none !important;
+  }
+
+  .portal-layout {
+    display: block !important;
+  }
+
+  .portal-main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .pof-transfer-record {
+    max-width: none !important;
+  }
+}
