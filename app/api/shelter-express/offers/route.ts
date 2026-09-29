@@ -18,9 +18,16 @@ export async function GET() {
           where closure.offer_id = offer.id
             and closure.action = 'auto_closed_after_transfer'
         ) as placed_with_another_rescue,
-        receiving_org.name as receiving_organization_name,
+        coalesce(transfer.to_organization_name, receiving_org.name) as receiving_organization_name,
         coalesce(confirmed_by.email, 'Former staff member') as transfer_confirmed_by_email,
-        coalesce(nullif(animal.name, ''), nullif(animal.temporary_name, ''), 'Unnamed animal') as animal_name,
+        coalesce(
+          nullif(transfer.animal_snapshot ->> 'publicName', ''),
+          nullif(transfer.animal_snapshot ->> 'name', ''),
+          nullif(transfer.animal_snapshot ->> 'temporaryName', ''),
+          nullif(animal.name, ''),
+          nullif(animal.temporary_name, ''),
+          'Unnamed animal'
+        ) as animal_name,
         animal.urgency
       from animal_help_offers offer
       join animals animal on animal.id = offer.animal_id
