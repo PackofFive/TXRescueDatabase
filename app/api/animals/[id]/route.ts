@@ -307,6 +307,7 @@ export async function GET(
     const transferRows = await sql`
       select
         transfer.id,
+        transfer.offer_id,
         transfer.from_org_id,
         transfer.to_org_id,
         transfer.completed_at,
