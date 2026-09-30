@@ -47,6 +47,8 @@ export default function ShelterExpressArchivedPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [dateFrom,setDateFrom]=useState("");
+  const [dateTo,setDateTo]=useState("");
   const [view, setView] = useState<"all" | "animals" | "partners" | "offers" | "reports">("all");
   const [restoringId, setRestoringId] = useState("");
 
@@ -85,10 +87,10 @@ export default function ShelterExpressArchivedPage() {
   }, []);
 
   const normalizedQuery = query.trim().toLowerCase();
-  const visibleAnimals = useMemo(() => animals.filter((animal) => `${animal.name ?? ""} ${animal.temporary_name ?? ""} ${animal.species ?? ""} ${animal.breed_or_type ?? ""} ${animal.outcome_status ?? ""}`.toLowerCase().includes(normalizedQuery)), [animals, normalizedQuery]);
-  const visiblePartners = useMemo(() => partners.filter((partner) => `${partner.name} ${partner.org_type ?? ""} ${partner.city ?? ""} ${partner.county ?? ""} ${partner.state ?? ""} ${partner.relationship_status ?? ""} ${partner.private_notes ?? ""}`.toLowerCase().includes(normalizedQuery)), [partners, normalizedQuery]);
-  const visibleOffers=useMemo(()=>offers.filter(offer=>`${offer.animal_name} ${offer.offer_type} ${offer.contact_name} ${offer.status} ${offer.receiving_organization_name??""} ${offer.placed_with_another_rescue?"placed with another rescue":""}`.toLowerCase().includes(normalizedQuery)),[offers,normalizedQuery]);
-  const visibleReports=useMemo(()=>reports.filter(report=>`${report.animal_name} ${report.foster_name} ${report.title??""} ${report.update_text}`.toLowerCase().includes(normalizedQuery)),[reports,normalizedQuery]);
+  const visibleAnimals = useMemo(() => animals.filter((animal) => `${animal.name ?? ""} ${animal.temporary_name ?? ""} ${animal.species ?? ""} ${animal.breed_or_type ?? ""} ${animal.outcome_status ?? ""}`.toLowerCase().includes(normalizedQuery)&&inDateRange(animal.outcome_date,dateFrom,dateTo)), [animals, normalizedQuery,dateFrom,dateTo]);
+  const visiblePartners = useMemo(() => partners.filter((partner) => `${partner.name} ${partner.org_type ?? ""} ${partner.city ?? ""} ${partner.county ?? ""} ${partner.state ?? ""} ${partner.relationship_status ?? ""} ${partner.private_notes ?? ""}`.toLowerCase().includes(normalizedQuery)&&inDateRange(partner.archived_at,dateFrom,dateTo)), [partners, normalizedQuery,dateFrom,dateTo]);
+  const visibleOffers=useMemo(()=>offers.filter(offer=>`${offer.animal_name} ${offer.offer_type} ${offer.contact_name} ${offer.status} ${offer.receiving_organization_name??""} ${offer.placed_with_another_rescue?"placed with another rescue":""}`.toLowerCase().includes(normalizedQuery)&&inDateRange(offer.transfer_completed_at||offer.created_at,dateFrom,dateTo)),[offers,normalizedQuery,dateFrom,dateTo]);
+  const visibleReports=useMemo(()=>reports.filter(report=>`${report.animal_name} ${report.foster_name} ${report.title??""} ${report.update_text}`.toLowerCase().includes(normalizedQuery)&&inDateRange(report.submitted_at,dateFrom,dateTo)),[reports,normalizedQuery,dateFrom,dateTo]);
 
   async function restorePartner(partner: Partner) {
     if (!window.confirm(`Restore ${partner.name} to the active Rescue Partners list?`)) return;
@@ -139,6 +141,7 @@ export default function ShelterExpressArchivedPage() {
 
     <section style={tools}>
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search archived names, IDs, locations, outcomes, or private notes" style={input} />
+      <div style={dateFilters}><label style={dateLabel}>From<input type="date" value={dateFrom} max={dateTo||undefined} onChange={event=>setDateFrom(event.target.value)} style={dateInput}/></label><label style={dateLabel}>Through<input type="date" value={dateTo} min={dateFrom||undefined} onChange={event=>setDateTo(event.target.value)} style={dateInput}/></label>{dateFrom||dateTo?<button type="button" onClick={()=>{setDateFrom("");setDateTo("")}} style={clearDates}>Clear dates</button>:null}</div>
       <div style={filters}>
         {(["all","animals","partners","offers","reports"] as const).map(key=><button key={key} type="button" onClick={()=>setView(key)} style={{...filterButton,...(view===key?activeFilter:{})}}>{key==="all"?"All records":key==="animals"?"Resolved animals":key==="partners"?"Archived partners":key==="offers"?"Closed & transferred offers":"Archived reports"}</button>)}
       </div>
@@ -186,6 +189,8 @@ function label(value: string | null) {
 
 function csvCell(value:string){const safe=/^[=+\-@]/.test(value)?`'${value}`:value;return `"${safe.replaceAll('"','""')}"`}
 
+function inDateRange(value:string|null,from:string,to:string){if(!from&&!to)return true;if(!value)return false;const day=value.slice(0,10);return(!from||day>=from)&&(!to||day<=to)}
+
 const eyebrow: React.CSSProperties = { margin: "0 0 8px", color: colors.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase" };
 const title: React.CSSProperties = { margin: 0, color: colors.navy, fontSize: 40 };
 const intro: React.CSSProperties = { maxWidth: 760, color: colors.muted, lineHeight: 1.6 };
@@ -193,6 +198,10 @@ const summaryGrid: React.CSSProperties = { display: "grid", gridTemplateColumns:
 const summary: React.CSSProperties = { display: "grid", gap: 3, padding: 16, background: "#fff", border: `1px solid ${colors.border}` };
 const tools: React.CSSProperties = { padding: 16, background: "#fff", border: `1px solid ${colors.border}`, marginBottom: 18 };
 const input: React.CSSProperties = { boxSizing: "border-box", width: "100%", padding: 12, border: `1px solid ${colors.border}`, font: "inherit", marginBottom: 12 };
+const dateFilters:React.CSSProperties={display:"flex",alignItems:"flex-end",gap:10,flexWrap:"wrap",marginBottom:12};
+const dateLabel:React.CSSProperties={display:"grid",gap:5,color:colors.navy,fontSize:12,fontWeight:800};
+const dateInput:React.CSSProperties={padding:"9px 10px",border:`1px solid ${colors.border}`,color:colors.navy,font:"inherit"};
+const clearDates:React.CSSProperties={padding:"10px 12px",border:`1px solid ${colors.border}`,background:"#fff",color:colors.navy,fontWeight:750,cursor:"pointer"};
 const filters: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
 const exportRow:React.CSSProperties={display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14,paddingTop:14,borderTop:`1px solid ${colors.border}`};
 const exportHelp:React.CSSProperties={color:colors.muted,fontSize:12};
