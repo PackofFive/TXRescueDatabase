@@ -453,7 +453,14 @@ export async function POST(request: NextRequest) {
       select name, org_type from organizations where id = ${orgId}::uuid limit 1
     `;
     const organizationName = String(organizations[0]?.name ?? "Your rescue organization");
-    const portalAccessLabel = isShelterExpressOrganization(organizations[0]?.org_type)
+    const shelterOrganization = isShelterExpressOrganization(organizations[0]?.org_type);
+    if (shelterExpressAccess && !shelterOrganization) {
+      return NextResponse.json(
+        { error: "Shelter Express access can only be included in invitations from a shelter organization." },
+        { status: 400 }
+      );
+    }
+    const portalAccessLabel = shelterOrganization
       ? (shelterExpressAccess ? "Shelter Express" : "organization team membership (Shelter Express not included)")
       : "Rescue Manager";
 
