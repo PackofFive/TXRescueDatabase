@@ -72,6 +72,7 @@ type Animal = {
   transfer:
     | {
         id: string;
+        offer_id: string | null;
         from_org_id: string;
         to_org_id: string;
         completed_at: string;
@@ -1007,7 +1008,10 @@ export default function AnimalRecordPage() {
                 Complete Intake Details
               </button>
             ) : null}
-            <a href="/portal/shelter-tags?view=history" style={transferHistoryLink}>View Shelter Tag History</a>
+            {animal.transfer.offer_id ? (
+              <a href={`/portal/shelter-tags/transfers/${encodeURIComponent(animal.transfer.offer_id)}`} style={transferHistoryLink}>Open Permanent Transfer Record</a>
+            ) : null}
+            <a href="/portal/shelter-tags?view=history" style={transferHistoryLink}>View All Shelter Tag History</a>
           </div>
         </section>
       ) : null}
