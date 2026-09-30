@@ -9,6 +9,7 @@ import { sql } from "@/lib/db";
 import { sendOrganizationTeamInviteEmail, sendClaimCaseEmail } from "@/lib/email";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { findOrganizationForEmail, OrganizationMembershipConflictError } from "@/lib/organization-membership";
+import { isShelterExpressOrganization } from "@/lib/organization-types";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -88,6 +89,9 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      const organizationTypeRows=await sql`select org_type from organizations where id=${orgId}::uuid limit 1`;
+      const shelterExpressOrganization=isShelterExpressOrganization(organizationTypeRows[0]?.org_type);
+
       const members = await sql`
         select
           membership.id,
@@ -160,7 +164,7 @@ export async function GET(request: NextRequest) {
       `;
 
       return NextResponse.json(
-        { access, members, audit, invites },
+        { access, members, audit, invites, shelterExpressOrganization },
         { headers: { "Cache-Control": "no-store" } }
       );
     }
@@ -494,6 +498,10 @@ export async function PATCH(request: NextRequest) {
     const inviteId = String(body?.inviteId ?? "").trim();
 
     if (action === "change_shelter_express") {
+      const organizationTypeRows=await sql`select org_type from organizations where id=${orgId}::uuid limit 1`;
+      if(!organizationTypeRows[0]||!isShelterExpressOrganization(organizationTypeRows[0].org_type)){
+        throw new AuthError("Shelter Express access can only be assigned within a shelter organization.",403);
+      }
       const membershipId = String(body?.membershipId ?? "").trim();
       const enabled = body?.enabled === true;
 
