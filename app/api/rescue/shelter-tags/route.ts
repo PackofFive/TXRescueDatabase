@@ -16,6 +16,12 @@ export async function GET() {
     const requests = await sql`
       select offer.id, offer.animal_id, offer.status, offer.created_at, offer.updated_at, offer.message,
         offer.transfer_completed_at,
+        transfer.id as transfer_id,
+        transfer.animal_snapshot as transfer_animal_snapshot,
+        transfer.snapshot_captured_at,
+        coalesce(transfer.from_organization_name, shelter.name) as source_organization_name,
+        coalesce(transfer.to_organization_name, receiving.name) as receiving_organization_name,
+        confirmed_by.email as transfer_confirmed_by_email,
         exists (
           select 1
           from shelter_offer_activity activity
@@ -31,6 +37,8 @@ export async function GET() {
       join animals animal on animal.id = offer.animal_id
       join organizations shelter on shelter.id = coalesce(offer.source_org_id, animal.current_org_id)
       left join animal_transfer_events transfer on transfer.offer_id = offer.id
+      left join organizations receiving on receiving.id = transfer.to_org_id
+      left join users confirmed_by on confirmed_by.id = transfer.completed_by
       where offer.requesting_org_id = ${orgId}::uuid and offer.offer_type = 'tag_request'
       order by offer.created_at desc
     `;
