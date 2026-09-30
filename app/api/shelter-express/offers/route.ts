@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { isShelterExpressOrganization } from "@/lib/organization-types";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
+async function requireShelterOrganization(orgId:string){
+  const rows=await sql`select org_type from organizations where id=${orgId}::uuid limit 1`;
+  if(!rows[0]||!isShelterExpressOrganization(rows[0].org_type)){
+    throw new AuthError("Shelter Express access is required.",403);
+  }
+}
+
 export async function GET() {
   try {
     const { orgId } = await requireEffectiveOrg();
+    await requireShelterOrganization(orgId);
     const offers = await sql`
       select offer.id, offer.animal_id, offer.offer_type, offer.contact_name,
         offer.contact_email, offer.contact_phone, offer.city, offer.postal_code,
@@ -62,6 +71,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const { orgId, session } = await requireEffectiveOrg();
+    await requireShelterOrganization(orgId);
     const body = await request.json().catch(() => null);
     const offerId = typeof body?.offerId === "string" ? body.offerId : "";
     const status = typeof body?.status === "string" ? body.status : "";
