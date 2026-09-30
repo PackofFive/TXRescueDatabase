@@ -12,6 +12,7 @@ type InvitePreview = {
   organizationName: string;
   expiresAt: string;
   accountExists: boolean;
+  portalAccessLabel: string;
 };
 
 export default function AcceptOrganizationInvitePage() {
@@ -148,9 +149,10 @@ export default function AcceptOrganizationInvitePage() {
   }
 
   if (success) {
-    const destination = shelterExpressAccess ? "/shelter-express" : "/portal";
-    const loginDestination = shelterExpressAccess ? "/login?portal=shelter" : "/login?portal=organization";
-    const portalName = shelterExpressAccess ? "Shelter Express" : "Rescue Manager";
+    const rescueManagerAccess = invite?.portalAccessLabel === "Rescue Manager";
+    const destination = shelterExpressAccess ? "/shelter-express" : rescueManagerAccess ? "/portal" : "/account";
+    const loginDestination = shelterExpressAccess ? "/login?portal=shelter" : rescueManagerAccess ? "/login?portal=organization" : "/login";
+    const portalName = shelterExpressAccess ? "Shelter Express" : rescueManagerAccess ? "Rescue Manager" : "your Pack of Five account";
     return <main style={pageStyle}><section style={cardStyle}><p style={eyebrowStyle}>TEAM INVITATION</p><h1 style={headingStyle}>Welcome to the team</h1><div style={successStyle}>{success}</div><p style={bodyStyle}>{accountCreated ? `Sign in with your new account to open ${portalName}.` : `You can now open ${portalName}.`}</p><a href={accountCreated ? loginDestination : destination} style={primaryLinkStyle}>{accountCreated ? "Sign In" : `Open ${portalName}`}</a></section></main>;
   }
 
@@ -160,7 +162,7 @@ export default function AcceptOrganizationInvitePage() {
         <p style={eyebrowStyle}>SECURE TEAM INVITATION</p>
         <h1 style={headingStyle}>Join an organization team</h1>
         <p style={bodyStyle}>Use the same email address that received this invitation. The link is one-time and expires after 72 hours.</p>
-        {invite ? <section style={inviteSummaryStyle}><strong style={inviteTitleStyle}>{invite.organizationName}</strong><div style={inviteDetailsStyle}><span><strong>Invited email:</strong> {invite.email}</span><span><strong>Organization role:</strong> {format(invite.accessLevel)}</span><span><strong>Portal access:</strong> {invite.shelterExpressAccess ? "Shelter Express" : "Rescue Manager"}</span><span><strong>Expires:</strong> {new Date(invite.expiresAt).toLocaleString()}</span></div></section> : null}
+        {invite ? <section style={inviteSummaryStyle}><strong style={inviteTitleStyle}>{invite.organizationName}</strong><div style={inviteDetailsStyle}><span><strong>Invited email:</strong> {invite.email}</span><span><strong>Organization role:</strong> {format(invite.accessLevel)}</span><span><strong>Workspace access:</strong> {format(invite.portalAccessLabel)}</span><span><strong>Expires:</strong> {new Date(invite.expiresAt).toLocaleString()}</span></div></section> : null}
         <p style={securityNoteStyle}><strong>One organization per login.</strong> You can still use this same login for your personal foster, volunteer, and pet-owner profiles.</p>
 
         {error ? <div style={errorStyle}>{error}</div> : null}
