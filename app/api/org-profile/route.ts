@@ -551,7 +551,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       const targetRows = await sql`
-        select membership.id, membership.user_id, membership.shelter_express_access
+        select membership.id, membership.user_id, membership.access_level, membership.shelter_express_access
         from organization_memberships membership
         where membership.id = ${membershipId}::uuid
           and membership.org_id = ${orgId}::uuid
@@ -562,6 +562,13 @@ export async function PATCH(request: NextRequest) {
 
       if (!target) {
         return NextResponse.json({ error: "Active team member not found." }, { status: 404 });
+      }
+
+      if (String(target.access_level) === "owner" && !enabled) {
+        return NextResponse.json(
+          { error: "The shelter owner must retain Shelter Express access. Transfer ownership before removing this access." },
+          { status: 409 }
+        );
       }
 
       await sql`
