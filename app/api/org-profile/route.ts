@@ -572,7 +572,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ result: { ok: true, shelterExpressAccess: enabled } });
     }
 
-    if (["cancel_invite", "resend_invite", "change_invite_shelter_express"].includes(action)) {
+    if (["cancel_invite", "resend_invite", "change_invite_shelter_express", "change_invite_level"].includes(action)) {
       if (!inviteId) {
         return NextResponse.json({ error: "Choose an invitation." }, { status: 400 });
       }
@@ -588,6 +588,26 @@ export async function PATCH(request: NextRequest) {
       const invite = inviteRows[0];
       if (!invite) return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
       if (invite.status === "accepted") return NextResponse.json({ error: "An accepted invitation cannot be changed." }, { status: 409 });
+
+      if (action === "change_invite_level") {
+        if (invite.status !== "sent") {
+          return NextResponse.json({ error: "Only a pending invitation can be changed." }, { status: 409 });
+        }
+        const requestedLevel = String(body?.newAccessLevel ?? "").trim();
+        if (!["administrator", "contributor", "viewer"].includes(requestedLevel)) {
+          return NextResponse.json({ error: "Choose Administrator, Contributor, or Viewer access." }, { status: 400 });
+        }
+        await sql`
+          update organization_access_invites
+          set access_level = ${requestedLevel}, updated_at = now()
+          where id = ${inviteId}::uuid and org_id = ${orgId}::uuid
+        `;
+        await sql`
+          insert into organization_access_audit (org_id, actor_user_id, action, previous_access_level, new_access_level, reason)
+          values (${orgId}::uuid, ${session.id}::uuid, 'invitation_access_changed', ${String(invite.access_level)}, ${requestedLevel}, ${`Invitation access changed for ${String(invite.email)}`})
+        `;
+        return NextResponse.json({ result: { ok: true, accessLevel: requestedLevel } });
+      }
 
       if (action === "change_invite_shelter_express") {
         if (invite.status !== "sent") {
