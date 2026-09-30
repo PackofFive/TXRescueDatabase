@@ -5,6 +5,14 @@ import { useSearchParams } from "next/navigation";
 
 const COLORS = { navy: "#1E3A5F", coral: "#E85C56", mint: "#DCF0E8", muted: "#4A5D75", border: "#DCE4EC", white: "#FFFFFF" };
 
+type InvitePreview = {
+  email: string;
+  accessLevel: string;
+  shelterExpressAccess: boolean;
+  organizationName: string;
+  expiresAt: string;
+};
+
 export default function AcceptOrganizationInvitePage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -19,13 +27,29 @@ export default function AcceptOrganizationInvitePage() {
   const [success, setSuccess] = useState("");
   const [accountCreated, setAccountCreated] = useState(false);
   const [shelterExpressAccess, setShelterExpressAccess] = useState(false);
+  const [invite, setInvite] = useState<InvitePreview | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => setSignedIn(Boolean(data.user)))
+    if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
+      setChecking(false);
+      return;
+    }
+    Promise.all([
+      fetch("/api/auth/me", { cache: "no-store" }).then((response) => response.json()),
+      fetch(`/api/org-profile?inviteToken=${encodeURIComponent(token)}`, { cache: "no-store" }).then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "Couldn't load this invitation.");
+        return data;
+      }),
+    ])
+      .then(([accountData, inviteData]) => {
+        setSignedIn(Boolean(accountData.user));
+        setInvite(inviteData.invite ?? null);
+        setEmail(String(inviteData.invite?.email ?? ""));
+      })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Couldn't load this invitation."))
       .finally(() => setChecking(false));
-  }, []);
+  }, [token]);
 
   async function acceptInvite(createPassword?: string) {
     const response = await fetch("/api/org-profile", {
@@ -114,6 +138,7 @@ export default function AcceptOrganizationInvitePage() {
         <p style={eyebrowStyle}>SECURE TEAM INVITATION</p>
         <h1 style={headingStyle}>Join an organization team</h1>
         <p style={bodyStyle}>Use the same email address that received this invitation. The link is one-time and expires after 72 hours.</p>
+        {invite ? <section style={inviteSummaryStyle}><strong style={inviteTitleStyle}>{invite.organizationName}</strong><div style={inviteDetailsStyle}><span><strong>Invited email:</strong> {invite.email}</span><span><strong>Organization role:</strong> {format(invite.accessLevel)}</span><span><strong>Portal access:</strong> {invite.shelterExpressAccess ? "Shelter Express" : "Rescue Manager"}</span><span><strong>Expires:</strong> {new Date(invite.expiresAt).toLocaleString()}</span></div></section> : null}
         <p style={securityNoteStyle}><strong>One organization per login.</strong> You can still use this same login for your personal foster, volunteer, and pet-owner profiles.</p>
 
         {error ? <div style={errorStyle}>{error}</div> : null}
@@ -124,7 +149,7 @@ export default function AcceptOrganizationInvitePage() {
           <>
             <div style={tabRowStyle}><button type="button" onClick={() => { setMode("signin"); setError(""); }} style={mode === "signin" ? activeTabStyle : tabStyle}>I Have an Account</button><button type="button" onClick={() => { setMode("create"); setError(""); }} style={mode === "create" ? activeTabStyle : tabStyle}>Create an Account</button></div>
             {mode === "signin" ? (
-              <form onSubmit={signInAndAccept} style={formStyle}><label style={labelStyle}>Email address<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={inputStyle} /></label><label style={labelStyle}>Password<input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} style={inputStyle} /></label><button type="submit" disabled={working} style={buttonStyle}>{working ? "Signing in…" : "Sign In & Accept"}</button></form>
+              <form onSubmit={signInAndAccept} style={formStyle}><label style={labelStyle}>Email address<input type="email" required readOnly={Boolean(invite?.email)} value={email} onChange={(event) => setEmail(event.target.value)} style={inputStyle} /></label><label style={labelStyle}>Password<input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} style={inputStyle} /></label><button type="submit" disabled={working} style={buttonStyle}>{working ? "Signing in…" : "Sign In & Accept"}</button></form>
             ) : (
               <form onSubmit={createAndAccept} style={formStyle}><p style={securityNoteStyle}>Your email is verified by this private invitation. Create a strong password with at least 12 characters, including uppercase, lowercase, and a number.</p><label style={labelStyle}>Create password<input type="password" required minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} style={inputStyle} /></label><label style={labelStyle}>Confirm password<input type="password" required minLength={12} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} style={inputStyle} /></label><button type="submit" disabled={working} style={buttonStyle}>{working ? "Creating account…" : "Create Account & Accept"}</button></form>
             )}
@@ -153,3 +178,8 @@ const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box"
 const buttonStyle: React.CSSProperties = { justifySelf: "start", padding: "11px 15px", border: 0, background: COLORS.navy, color: COLORS.white, fontWeight: 800, cursor: "pointer" };
 const primaryLinkStyle: React.CSSProperties = { display: "inline-block", padding: "11px 15px", background: COLORS.navy, color: COLORS.white, textDecoration: "none", fontWeight: 800 };
 const securityNoteStyle: React.CSSProperties = { margin: 0, padding: 13, background: COLORS.mint, color: COLORS.navy, fontSize: 12.5, lineHeight: 1.5 };
+const inviteSummaryStyle: React.CSSProperties = { display: "grid", gap: 10, margin: "18px 0", padding: 16, border: `1px solid ${COLORS.border}`, background: "#FFF7F6" };
+const inviteTitleStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 20 };
+const inviteDetailsStyle: React.CSSProperties = { display: "grid", gap: 6, color: COLORS.muted, fontSize: 13, lineHeight: 1.45 };
+
+function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
