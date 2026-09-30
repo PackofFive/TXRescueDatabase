@@ -112,13 +112,14 @@ export default function AcceptOrganizationInvitePage() {
     <main style={pageStyle}>
       <section style={cardStyle}>
         <p style={eyebrowStyle}>SECURE TEAM INVITATION</p>
-        <h1 style={headingStyle}>Join a rescue organization</h1>
+        <h1 style={headingStyle}>Join an organization team</h1>
         <p style={bodyStyle}>Use the same email address that received this invitation. The link is one-time and expires after 72 hours.</p>
+        <p style={securityNoteStyle}><strong>One organization per login.</strong> You can still use this same login for your personal foster, volunteer, and pet-owner profiles.</p>
 
         {error ? <div style={errorStyle}>{error}</div> : null}
 
         {signedIn ? (
-          <div style={panelStyle}><h2 style={sectionHeadingStyle}>You are signed in</h2><p style={bodyStyle}>Accepting will connect this organization and grant the portal access selected by its owner.</p><button type="button" disabled={working} onClick={acceptWhileSignedIn} style={buttonStyle}>{working ? "Accepting…" : "Accept Team Invitation"}</button></div>
+          <div style={panelStyle}><h2 style={sectionHeadingStyle}>You are signed in</h2><p style={bodyStyle}>Accepting will connect this organization and grant the portal access selected by its owner. If this login already manages a different organization, use another email address.</p><button type="button" disabled={working} onClick={acceptWhileSignedIn} style={buttonStyle}>{working ? "Accepting…" : "Accept Team Invitation"}</button></div>
         ) : (
           <>
             <div style={tabRowStyle}><button type="button" onClick={() => { setMode("signin"); setError(""); }} style={mode === "signin" ? activeTabStyle : tabStyle}>I Have an Account</button><button type="button" onClick={() => { setMode("create"); setError(""); }} style={mode === "create" ? activeTabStyle : tabStyle}>Create an Account</button></div>
