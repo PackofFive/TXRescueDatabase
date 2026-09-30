@@ -38,10 +38,10 @@ type Invite = {
 const COLORS = { navy: "#1E3A5F", coral: "#E85C56", mint: "#DCF0E8", muted: "#4A5D75", border: "#DCE4EC", white: "#FFFFFF" };
 
 const LEVELS = [
-  { level: "Owner", description: "Full organization control. Manages team access and transfers ownership." },
-  { level: "Administrator", description: "Edits organization settings and public profile information, but cannot manage team access." },
-  { level: "Contributor", description: "Works with operational rescue records, but cannot edit organization settings." },
-  { level: "Viewer", description: "Read-only Rescue Manager access." },
+  { level: "Owner", description: "Full organization control, including team access, public listing settings, and ownership transfer." },
+  { level: "Administrator", description: "Edits organization settings and public listing information, but cannot manage team access or transfer ownership." },
+  { level: "Contributor", description: "Works with operational records in an allowed workspace, but cannot edit organization settings." },
+  { level: "Viewer", description: "Read-only access inside an allowed organization workspace." },
 ];
 
 export default function TeamAccessPage() {
@@ -225,6 +225,7 @@ export default function TeamAccessPage() {
       <p style={eyebrowStyle}>ORGANIZATION SECURITY</p>
       <h1 style={headingStyle}>Team & Access</h1>
       <p style={introStyle}>Only the Organization Owner can change team access. Volunteer Portal permissions remain completely separate.</p>
+      {shelterExpressOrganization ? <p style={portalAccessNoteStyle}><strong>Two settings work together:</strong> the organization role controls what a person may do, while the Shelter Express checkbox controls whether that person may enter the shelter workspace at all.</p> : null}
 
       <details style={accessLevelsDetailsStyle}>
         <summary style={summaryStyle}>What each access level means</summary>
@@ -267,10 +268,10 @@ export default function TeamAccessPage() {
                     <input
                       type="checkbox"
                       checked={Boolean(member.shelter_express_access)}
-                      disabled={workingId === `shelter-${member.id}`}
+                      disabled={isOwner || workingId === `shelter-${member.id}`}
                       onChange={(event) => updateShelterExpress(member, event.target.checked)}
                     />
-                    Allow this person to use Shelter Express
+                    {isOwner ? "Shelter owner access (required)" : "Allow this person to use Shelter Express"}
                   </label>
                 ) : null}
 
@@ -320,6 +321,7 @@ function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
 const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.navy, fontSize: 30 };
 const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 };
+const portalAccessNoteStyle: React.CSSProperties = { margin: "14px 0 0", maxWidth: 760, padding: 13, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5 };
 const levelGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 20 };
 const levelCardStyle: React.CSSProperties = { display: "grid", gap: 7, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const descriptionStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
