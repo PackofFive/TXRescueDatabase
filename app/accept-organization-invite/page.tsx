@@ -11,6 +11,7 @@ type InvitePreview = {
   shelterExpressAccess: boolean;
   organizationName: string;
   expiresAt: string;
+  accountExists: boolean;
 };
 
 export default function AcceptOrganizationInvitePage() {
@@ -48,6 +49,7 @@ export default function AcceptOrganizationInvitePage() {
         setSignedInEmail(String(accountData.user?.email ?? "").trim().toLowerCase());
         setInvite(inviteData.invite ?? null);
         setEmail(String(inviteData.invite?.email ?? ""));
+        setMode(inviteData.invite?.accountExists ? "signin" : "create");
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Couldn't load this invitation."))
       .finally(() => setChecking(false));
@@ -171,7 +173,7 @@ export default function AcceptOrganizationInvitePage() {
           )
         ) : (
           <>
-            <div style={tabRowStyle}><button type="button" onClick={() => { setMode("signin"); setError(""); }} style={mode === "signin" ? activeTabStyle : tabStyle}>I Have an Account</button><button type="button" onClick={() => { setMode("create"); setError(""); }} style={mode === "create" ? activeTabStyle : tabStyle}>Create an Account</button></div>
+            {invite?.accountExists ? <p style={accountGuidanceStyle}><strong>An account already exists for this email.</strong> Sign in with its current password to accept the invitation. Your existing personal profiles and password stay the same.</p> : <><p style={accountGuidanceStyle}><strong>This email does not have a Pack of Five login yet.</strong> Create one password to accept the invitation. You may later use the same login for personal foster, volunteer, and pet-owner profiles.</p><div style={tabRowStyle}><button type="button" onClick={() => { setMode("create"); setError(""); }} style={mode === "create" ? activeTabStyle : tabStyle}>Create an Account</button><button type="button" onClick={() => { setMode("signin"); setError(""); }} style={mode === "signin" ? activeTabStyle : tabStyle}>I Already Have an Account</button></div></>}
             {mode === "signin" ? (
               <form onSubmit={signInAndAccept} style={formStyle}><label style={labelStyle}>Email address<input type="email" required readOnly={Boolean(invite?.email)} value={email} onChange={(event) => setEmail(event.target.value)} style={inputStyle} /></label><label style={labelStyle}>Password<input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} style={inputStyle} /></label><button type="submit" disabled={working} style={buttonStyle}>{working ? "Signing in…" : "Sign In & Accept"}</button></form>
             ) : (
@@ -206,5 +208,6 @@ const securityNoteStyle: React.CSSProperties = { margin: 0, padding: 13, backgro
 const inviteSummaryStyle: React.CSSProperties = { display: "grid", gap: 10, margin: "18px 0", padding: 16, border: `1px solid ${COLORS.border}`, background: "#FFF7F6" };
 const inviteTitleStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 20 };
 const inviteDetailsStyle: React.CSSProperties = { display: "grid", gap: 6, color: COLORS.muted, fontSize: 13, lineHeight: 1.45 };
+const accountGuidanceStyle: React.CSSProperties = { margin: "18px 0 0", padding: 13, border: `1px solid ${COLORS.border}`, color: COLORS.navy, background: "#F7FAFC", fontSize: 13, lineHeight: 1.5 };
 
 function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
