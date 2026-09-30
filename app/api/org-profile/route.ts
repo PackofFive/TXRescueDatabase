@@ -85,7 +85,8 @@ export async function GET(request: NextRequest) {
       const tokenHash = await hashToken(inviteToken);
       const inviteRows = await sql`
         select invite.email, invite.access_level, invite.shelter_express_access,
-               invite.status, invite.expires_at, organization.name as organization_name
+               invite.status, invite.expires_at, organization.name as organization_name,
+               exists(select 1 from users account where lower(account.email) = lower(invite.email)) as account_exists
         from organization_access_invites invite
         join organizations organization on organization.id = invite.org_id
         where invite.token_hash = ${tokenHash}
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
           shelterExpressAccess: invite.shelter_express_access === true,
           organizationName: invite.organization_name,
           expiresAt: invite.expires_at,
+          accountExists: invite.account_exists === true,
         },
       }, { headers: { "Cache-Control": "no-store" } });
     }
