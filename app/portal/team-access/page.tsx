@@ -49,6 +49,7 @@ export default function TeamAccessPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLevel, setInviteLevel] = useState("viewer");
+  const [inviteShelterExpressAccess,setInviteShelterExpressAccess]=useState(false);
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -135,13 +136,14 @@ export default function TeamAccessPage() {
       const response = await fetch("/api/org-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail, accessLevel: inviteLevel }),
+        body: JSON.stringify({ email: inviteEmail, accessLevel: inviteLevel, shelterExpressAccess: shelterExpressOrganization && inviteShelterExpressAccess }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Couldn't send the invitation.");
       setMessage(`Secure invitation sent to ${inviteEmail.trim().toLowerCase()}.`);
       setInviteEmail("");
       setInviteLevel("viewer");
+      setInviteShelterExpressAccess(false);
       loadTeam();
     } catch (reasonValue) {
       setError(reasonValue instanceof Error ? reasonValue.message : "Couldn't send the invitation.");
@@ -198,6 +200,7 @@ export default function TeamAccessPage() {
         <form onSubmit={sendInvite} style={inviteFormStyle}>
           <label style={labelStyle}>Email address<input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="person@example.org" style={inputStyle} /></label>
           <label style={labelStyle}>Starting access<select value={inviteLevel} onChange={(event) => setInviteLevel(event.target.value)} style={inputStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label>
+          {shelterExpressOrganization?<label style={invitePortalChoice}><input type="checkbox" checked={inviteShelterExpressAccess} onChange={event=>setInviteShelterExpressAccess(event.target.checked)}/><span><strong style={{display:"block",color:COLORS.navy}}>Allow Shelter Express at acceptance</strong><span style={descriptionStyle}>The invited person can use the shelter workspace as soon as the invitation is accepted. You can change this later.</span></span></label>:null}
           <button type="submit" disabled={workingId === "invite-new"} style={ownerButtonStyle}>{workingId === "invite-new" ? "Sending…" : "Send Secure Invitation"}</button>
         </form>
         </section>
@@ -301,6 +304,7 @@ const auditRowStyle: React.CSSProperties = { display: "grid", gap: 4, padding: "
 const reasonStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 12.5 };
 const inviteSectionStyle: React.CSSProperties = { marginTop: 24, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.mint };
 const inviteFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", alignItems: "end", gap: 12, marginTop: 15 };
+const invitePortalChoice:React.CSSProperties={display:"flex",alignItems:"flex-start",gap:9,padding:11,border:`1px solid ${COLORS.border}`,background:COLORS.white,fontSize:12,fontWeight:700};
 const inviteCardStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap", padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const detailsStyle: React.CSSProperties = { marginTop: 20, padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const accessLevelsDetailsStyle: React.CSSProperties = { marginTop: 20, padding: 16, border: "1px solid #E9B8C5", background: "#F7DDE5" };
