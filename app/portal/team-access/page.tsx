@@ -54,6 +54,7 @@ export default function TeamAccessPage() {
   const [workingId, setWorkingId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [shelterExpressOrganization,setShelterExpressOrganization]=useState(false);
 
   function loadTeam() {
     setLoading(true);
@@ -64,6 +65,7 @@ export default function TeamAccessPage() {
         setMembers(data.members ?? []);
         setAudit(data.audit ?? []);
         setInvites(data.invites ?? []);
+        setShelterExpressOrganization(data.shelterExpressOrganization === true);
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Couldn't load team access."))
       .finally(() => setLoading(false));
@@ -214,7 +216,7 @@ export default function TeamAccessPage() {
                   {isOwner ? <strong style={{ color: COLORS.coral, fontSize: 12 }}>CURRENT OWNER</strong> : null}
                 </div>
 
-                {member.status === "active" ? (
+                {shelterExpressOrganization && member.status === "active" ? (
                   <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 9, marginTop: 14 }}>
                     <input
                       type="checkbox"
