@@ -53,6 +53,7 @@ export async function sendOrganizationTeamInviteEmail(
   to: string,
   organizationName: string,
   accessLabel: string,
+  shelterExpressAccess: boolean,
   inviteUrl: string,
   expiresAt: Date
 ): Promise<void> {
@@ -72,7 +73,8 @@ export async function sendOrganizationTeamInviteEmail(
       to: [to],
       subject: `You're invited to help manage ${organizationName}`,
       text:
-        `${organizationName} invited you to its Pack of Five Rescue Manager workspace with ${accessLabel} access.\n\n` +
+        `${organizationName} invited you to its Pack of Five organization team with ${accessLabel} access.\n\n` +
+        `Portal access included: ${shelterExpressAccess ? "Shelter Express" : "Rescue Manager"}.\n\n` +
         `Accept the secure invitation:\n${inviteUrl}\n\n` +
         `This one-time invitation expires ${expiresAt.toLocaleString("en-US", { timeZone: "America/Chicago", timeZoneName: "short" })}.\n\n` +
         `Sign in or create your Pack of Five account using this same email address. ` +
