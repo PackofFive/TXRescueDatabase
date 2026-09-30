@@ -77,6 +77,35 @@ async function resolveAccess(
 
 export async function GET(request: NextRequest) {
   try {
+    const inviteToken = request.nextUrl.searchParams.get("inviteToken")?.trim() ?? "";
+    if (inviteToken) {
+      if (!/^[a-f0-9]{64}$/i.test(inviteToken)) {
+        return NextResponse.json({ error: "This invitation link is invalid." }, { status: 400 });
+      }
+      const tokenHash = await hashToken(inviteToken);
+      const inviteRows = await sql`
+        select invite.email, invite.access_level, invite.shelter_express_access,
+               invite.status, invite.expires_at, organization.name as organization_name
+        from organization_access_invites invite
+        join organizations organization on organization.id = invite.org_id
+        where invite.token_hash = ${tokenHash}
+        limit 1
+      `;
+      const invite = inviteRows[0];
+      if (!invite || invite.status !== "sent" || new Date(String(invite.expires_at)).getTime() <= Date.now()) {
+        return NextResponse.json({ error: "This invitation is invalid or has expired." }, { status: 404 });
+      }
+      return NextResponse.json({
+        invite: {
+          email: invite.email,
+          accessLevel: invite.access_level,
+          shelterExpressAccess: invite.shelter_express_access === true,
+          organizationName: invite.organization_name,
+          expiresAt: invite.expires_at,
+        },
+      }, { headers: { "Cache-Control": "no-store" } });
+    }
+
     const { session, orgId } = await requireEffectiveOrg();
 
     const access = await resolveAccess(session, orgId);
