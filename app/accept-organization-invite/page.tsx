@@ -17,6 +17,7 @@ export default function AcceptOrganizationInvitePage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [signedIn, setSignedIn] = useState(false);
+  const [signedInEmail, setSignedInEmail] = useState("");
   const [checking, setChecking] = useState(true);
   const [mode, setMode] = useState<"signin" | "create">("signin");
   const [email, setEmail] = useState("");
@@ -44,6 +45,7 @@ export default function AcceptOrganizationInvitePage() {
     ])
       .then(([accountData, inviteData]) => {
         setSignedIn(Boolean(accountData.user));
+        setSignedInEmail(String(accountData.user?.email ?? "").trim().toLowerCase());
         setInvite(inviteData.invite ?? null);
         setEmail(String(inviteData.invite?.email ?? ""));
       })
@@ -89,11 +91,29 @@ export default function AcceptOrganizationInvitePage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Couldn't sign in.");
       setSignedIn(true);
+      setSignedInEmail(email.trim().toLowerCase());
       const result = await acceptInvite();
       setShelterExpressAccess(Boolean(result.shelterExpressAccess));
       setSuccess("Invitation accepted. Your organization workspace is ready.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Couldn't accept the invitation.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function signOutToSwitchAccount() {
+    setWorking(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Couldn't sign out.");
+      setSignedIn(false);
+      setSignedInEmail("");
+      setPassword("");
+      setMode("signin");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Couldn't sign out.");
     } finally {
       setWorking(false);
     }
@@ -144,7 +164,11 @@ export default function AcceptOrganizationInvitePage() {
         {error ? <div style={errorStyle}>{error}</div> : null}
 
         {signedIn ? (
-          <div style={panelStyle}><h2 style={sectionHeadingStyle}>You are signed in</h2><p style={bodyStyle}>Accepting will connect this organization and grant the portal access selected by its owner. If this login already manages a different organization, use another email address.</p><button type="button" disabled={working} onClick={acceptWhileSignedIn} style={buttonStyle}>{working ? "Accepting…" : "Accept Team Invitation"}</button></div>
+          invite && signedInEmail !== invite.email.trim().toLowerCase() ? (
+            <div style={wrongAccountStyle}><h2 style={sectionHeadingStyle}>Switch accounts to continue</h2><p style={bodyStyle}>You are signed in as <strong>{signedInEmail}</strong>, but this invitation belongs to <strong>{invite.email}</strong>. Sign out, then use the invited email address. The invitation link will remain on this page.</p><button type="button" disabled={working} onClick={signOutToSwitchAccount} style={buttonStyle}>{working ? "Signing out…" : "Sign Out & Switch Account"}</button></div>
+          ) : (
+            <div style={panelStyle}><h2 style={sectionHeadingStyle}>Signed in as {signedInEmail}</h2><p style={bodyStyle}>Accepting will connect this organization and grant the portal access selected by its owner. If this login already manages a different organization, use another email address.</p><button type="button" disabled={working} onClick={acceptWhileSignedIn} style={buttonStyle}>{working ? "Accepting…" : "Accept Team Invitation"}</button></div>
+          )
         ) : (
           <>
             <div style={tabRowStyle}><button type="button" onClick={() => { setMode("signin"); setError(""); }} style={mode === "signin" ? activeTabStyle : tabStyle}>I Have an Account</button><button type="button" onClick={() => { setMode("create"); setError(""); }} style={mode === "create" ? activeTabStyle : tabStyle}>Create an Account</button></div>
@@ -169,6 +193,7 @@ const bodyStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 14, line
 const errorStyle: React.CSSProperties = { marginTop: 15, padding: 13, color: "#A9362B", border: "1px solid #E9B9B4", background: "#FCE9E7" };
 const successStyle: React.CSSProperties = { marginTop: 15, padding: 13, color: COLORS.navy, border: `1px solid ${COLORS.border}`, background: COLORS.mint, fontWeight: 700 };
 const panelStyle: React.CSSProperties = { marginTop: 20, padding: 18, background: COLORS.mint, border: `1px solid ${COLORS.border}` };
+const wrongAccountStyle: React.CSSProperties = { marginTop: 20, padding: 18, background: "#FCE9E7", border: "1px solid #E9B9B4" };
 const tabRowStyle: React.CSSProperties = { display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" };
 const tabStyle: React.CSSProperties = { padding: "10px 13px", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, fontWeight: 800, cursor: "pointer" };
 const activeTabStyle: React.CSSProperties = { ...tabStyle, background: COLORS.navy, color: COLORS.white };
