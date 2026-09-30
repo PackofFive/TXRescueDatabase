@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
       const inviteRows = await sql`
         select invite.email, invite.access_level, invite.shelter_express_access,
                invite.status, invite.expires_at, organization.name as organization_name,
+               organization.org_type,
                exists(select 1 from users account where lower(account.email) = lower(invite.email)) as account_exists
         from organization_access_invites invite
         join organizations organization on organization.id = invite.org_id
@@ -96,6 +97,10 @@ export async function GET(request: NextRequest) {
       if (!invite || invite.status !== "sent" || new Date(String(invite.expires_at)).getTime() <= Date.now()) {
         return NextResponse.json({ error: "This invitation is invalid or has expired." }, { status: 404 });
       }
+      const invitationIsShelter = isShelterExpressOrganization(invite.org_type);
+      const portalAccessLabel = invitationIsShelter
+        ? (invite.shelter_express_access === true ? "Shelter Express" : "organization team membership (Shelter Express not included)")
+        : "Rescue Manager";
       return NextResponse.json({
         invite: {
           email: invite.email,
@@ -104,6 +109,7 @@ export async function GET(request: NextRequest) {
           organizationName: invite.organization_name,
           expiresAt: invite.expires_at,
           accountExists: invite.account_exists === true,
+          portalAccessLabel,
         },
       }, { headers: { "Cache-Control": "no-store" } });
     }
@@ -444,9 +450,12 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
     const organizations = await sql`
-      select name from organizations where id = ${orgId}::uuid limit 1
+      select name, org_type from organizations where id = ${orgId}::uuid limit 1
     `;
     const organizationName = String(organizations[0]?.name ?? "Your rescue organization");
+    const portalAccessLabel = isShelterExpressOrganization(organizations[0]?.org_type)
+      ? (shelterExpressAccess ? "Shelter Express" : "organization team membership (Shelter Express not included)")
+      : "Rescue Manager";
 
     const rows = await sql`
       insert into organization_access_invites (
@@ -465,7 +474,7 @@ export async function POST(request: NextRequest) {
         email,
         organizationName,
         accessLevel.replaceAll("_", " "),
-        shelterExpressAccess,
+        portalAccessLabel,
         inviteUrl,
         expiresAt
       );
@@ -581,7 +590,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       const inviteRows = await sql`
-        select invite.*, organization.name as organization_name
+        select invite.*, organization.name as organization_name, organization.org_type
         from organization_access_invites invite
         join organizations organization on organization.id = invite.org_id
         where invite.id = ${inviteId}::uuid
@@ -650,7 +659,10 @@ export async function PATCH(request: NextRequest) {
       const tokenHash = await hashToken(token);
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
       const inviteUrl = `${request.nextUrl.origin}/accept-organization-invite?token=${token}`;
-      await sendOrganizationTeamInviteEmail(String(invite.email), String(invite.organization_name), String(invite.access_level).replaceAll("_", " "), invite.shelter_express_access === true, inviteUrl, expiresAt);
+      const portalAccessLabel = isShelterExpressOrganization(invite.org_type)
+        ? (invite.shelter_express_access === true ? "Shelter Express" : "organization team membership (Shelter Express not included)")
+        : "Rescue Manager";
+      await sendOrganizationTeamInviteEmail(String(invite.email), String(invite.organization_name), String(invite.access_level).replaceAll("_", " "), portalAccessLabel, inviteUrl, expiresAt);
       await sql`
         update organization_access_invites
         set token_hash = ${tokenHash}, status = 'sent', expires_at = ${expiresAt.toISOString()}::timestamptz,
