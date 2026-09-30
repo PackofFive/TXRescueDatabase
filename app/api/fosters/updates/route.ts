@@ -1,34 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-async function requireOrganization() {
-  const session = await getSession();
-
-  if (!session || session.status !== "approved" || !session.orgId) {
-    return null;
-  }
-
-  if (session.role !== "org" && session.role !== "admin") {
-    return null;
-  }
-
-  return session;
-}
-
 export async function GET() {
   try {
-    const session = await requireOrganization();
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Organization access required." },
-        { status: 401 }
-      );
-    }
+    const { orgId } = await requireEffectiveOrg();
 
     const rows = await sql`
       select
@@ -65,7 +44,7 @@ export async function GET() {
         on a.id = u.animal_id
 
       where
-        u.organization_id = ${session.orgId}::uuid
+        u.organization_id = ${orgId}::uuid
 
       order by
         case u.status
@@ -81,6 +60,7 @@ export async function GET() {
       updates: rows,
     });
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
     console.error(
       "GET /api/fosters/updates failed:",
       err
@@ -100,14 +80,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await requireOrganization();
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Organization access required." },
-        { status: 401 }
-      );
-    }
+    const { session, orgId } = await requireEffectiveOrg();
 
     const body = await req.json();
 
@@ -153,7 +126,7 @@ export async function PATCH(req: NextRequest) {
           updated_at = now()
         where
           id = ${id}::uuid
-          and organization_id = ${session.orgId}::uuid
+          and organization_id = ${orgId}::uuid
         returning *
       `;
     } else if (action === "incorporate") {
@@ -174,7 +147,7 @@ export async function PATCH(req: NextRequest) {
           updated_at = now()
         where
           id = ${id}::uuid
-          and organization_id = ${session.orgId}::uuid
+          and organization_id = ${orgId}::uuid
         returning *
       `;
     } else {
@@ -193,7 +166,7 @@ export async function PATCH(req: NextRequest) {
           updated_at = now()
         where
           id = ${id}::uuid
-          and organization_id = ${session.orgId}::uuid
+          and organization_id = ${orgId}::uuid
         returning *
       `;
     }
@@ -209,6 +182,7 @@ export async function PATCH(req: NextRequest) {
       update: rows[0],
     });
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
     console.error(
       "PATCH /api/fosters/updates failed:",
       err
