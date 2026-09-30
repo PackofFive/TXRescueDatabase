@@ -721,6 +721,34 @@ export async function PATCH(request: NextRequest) {
       ) as result
     `;
 
+    if (action === "transfer_ownership") {
+      const organizationTypeRows = await sql`
+        select org_type from organizations where id = ${orgId}::uuid limit 1
+      `;
+      if (organizationTypeRows[0] && isShelterExpressOrganization(organizationTypeRows[0].org_type)) {
+        const newOwnerRows = await sql`
+          update organization_memberships
+          set shelter_express_access = true, updated_at = now()
+          where id = ${membershipId}::uuid
+            and org_id = ${orgId}::uuid
+            and access_level = 'owner'
+            and status = 'active'
+          returning user_id
+        `;
+        if (newOwnerRows[0]) {
+          await sql`
+            insert into organization_access_audit (
+              org_id, membership_id, affected_user_id, actor_user_id, action, reason
+            ) values (
+              ${orgId}::uuid, ${membershipId}::uuid, ${String(newOwnerRows[0].user_id)}::uuid,
+              ${session.id}::uuid, 'shelter_express_access_changed',
+              'Shelter Express access granted automatically with ownership transfer'
+            )
+          `;
+        }
+      }
+    }
+
     return NextResponse.json({ result: rows[0]?.result ?? { ok: true } });
   } catch (error) {
     if (error instanceof AuthError) {
