@@ -197,6 +197,27 @@ export default function TeamAccessPage() {
     }
   }
 
+  async function updateInviteAccessLevel(invite: Invite, accessLevel: string) {
+    setWorkingId(`invite-level-${invite.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/org-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId: invite.id, action: "change_invite_level", newAccessLevel: accessLevel }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Couldn't update the invitation.");
+      setMessage(`Invitation access changed to ${format(accessLevel)} for ${invite.email}.`);
+      loadTeam();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : "Couldn't update the invitation.");
+    } finally {
+      setWorkingId("");
+    }
+  }
+
   if (loading && members.length === 0) return <p style={{ color: COLORS.muted }}>Loading Team & Access…</p>;
 
   return (
@@ -278,7 +299,7 @@ export default function TeamAccessPage() {
           <div style={memberListStyle}>
             {invites.map((invite) => (
               <article key={invite.id} style={inviteCardStyle}>
-                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span>{shelterExpressOrganization && invite.shelter_express_access ? <span style={portalBadgeStyle}>Shelter Express</span> : null}</div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}</p>{shelterExpressOrganization && invite.status === "sent" ? <label style={pendingPortalChoice}><input type="checkbox" checked={Boolean(invite.shelter_express_access)} disabled={workingId === `invite-shelter-${invite.id}`} onChange={(event) => updateInviteShelterExpress(invite, event.target.checked)} />Allow Shelter Express when accepted</label> : null}</div>
+                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span>{shelterExpressOrganization && invite.shelter_express_access ? <span style={portalBadgeStyle}>Shelter Express</span> : null}</div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}</p>{invite.status === "sent" ? <label style={pendingLevelChoice}>Access when accepted<select value={invite.access_level} disabled={workingId === `invite-level-${invite.id}`} onChange={(event) => updateInviteAccessLevel(invite, event.target.value)} style={compactSelectStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label> : null}{shelterExpressOrganization && invite.status === "sent" ? <label style={pendingPortalChoice}><input type="checkbox" checked={Boolean(invite.shelter_express_access)} disabled={workingId === `invite-shelter-${invite.id}`} onChange={(event) => updateInviteShelterExpress(invite, event.target.checked)} />Allow Shelter Express when accepted</label> : null}</div>
                 <div style={buttonRowStyle}>{invite.status === "sent" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "cancel_invite")} style={dangerButtonStyle}>Cancel Invitation</button> : null}{invite.status !== "accepted" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "resend_invite")} style={secondaryButtonStyle}>Resend Invitation</button> : null}</div>
               </article>
             ))}
@@ -328,6 +349,8 @@ const inviteSectionStyle: React.CSSProperties = { marginTop: 24, padding: 18, bo
 const inviteFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", alignItems: "end", gap: 12, marginTop: 15 };
 const invitePortalChoice:React.CSSProperties={display:"flex",alignItems:"flex-start",gap:9,padding:11,border:`1px solid ${COLORS.border}`,background:COLORS.white,fontSize:12,fontWeight:700};
 const pendingPortalChoice:React.CSSProperties={display:"flex",alignItems:"center",gap:8,marginTop:9,color:COLORS.navy,fontSize:12,fontWeight:700};
+const pendingLevelChoice:React.CSSProperties={display:"flex",alignItems:"center",flexWrap:"wrap",gap:8,marginTop:9,color:COLORS.navy,fontSize:12,fontWeight:700};
+const compactSelectStyle:React.CSSProperties={padding:"7px 9px",border:`1px solid ${COLORS.border}`,background:COLORS.white,color:COLORS.navy,font:"inherit"};
 const portalBadgeStyle:React.CSSProperties={padding:"4px 8px",background:COLORS.mint,color:COLORS.navy,fontSize:11,fontWeight:800};
 const inviteCardStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap", padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const detailsStyle: React.CSSProperties = { marginTop: 20, padding: 16, border: `1px solid ${COLORS.border}`, background: COLORS.white };
