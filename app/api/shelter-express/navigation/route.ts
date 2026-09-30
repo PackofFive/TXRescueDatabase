@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { isShelterExpressOrganization } from "@/lib/organization-types";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const { session, orgId } = await requireEffectiveOrg();
+
+    const organizationRows=await sql`select org_type from organizations where id=${orgId}::uuid limit 1`;
+    if(!organizationRows[0]||!isShelterExpressOrganization(organizationRows[0].org_type)){
+      throw new AuthError("Shelter Express access is required.",403);
+    }
 
     const accessRows = session.role === "admin" ? [{ access_level: "owner", shelter_express_access: true }] : await sql`
       select access_level, shelter_express_access
