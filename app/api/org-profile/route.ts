@@ -463,6 +463,7 @@ export async function POST(request: NextRequest) {
         email,
         organizationName,
         accessLevel.replaceAll("_", " "),
+        shelterExpressAccess,
         inviteUrl,
         expiresAt
       );
@@ -647,7 +648,7 @@ export async function PATCH(request: NextRequest) {
       const tokenHash = await hashToken(token);
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
       const inviteUrl = `${request.nextUrl.origin}/accept-organization-invite?token=${token}`;
-      await sendOrganizationTeamInviteEmail(String(invite.email), String(invite.organization_name), String(invite.access_level).replaceAll("_", " "), inviteUrl, expiresAt);
+      await sendOrganizationTeamInviteEmail(String(invite.email), String(invite.organization_name), String(invite.access_level).replaceAll("_", " "), invite.shelter_express_access === true, inviteUrl, expiresAt);
       await sql`
         update organization_access_invites
         set token_hash = ${tokenHash}, status = 'sent', expires_at = ${expiresAt.toISOString()}::timestamptz,
