@@ -705,6 +705,9 @@ export async function PUT(request: NextRequest) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    if (error instanceof OrganizationMembershipConflictError || (error instanceof Error && error.message.includes("Each login may manage only one organization"))) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     console.error("PUT /api/org-profile failed:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Couldn't accept the invitation." },
