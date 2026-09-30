@@ -114,6 +114,17 @@ export default function ShelterExpressArchivedPage() {
 
   const shownCount=(view==="all"||view==="animals"?visibleAnimals.length:0)+(view==="all"||view==="partners"?visiblePartners.length:0)+(view==="all"||view==="offers"?visibleOffers.length:0)+(view==="all"||view==="reports"?visibleReports.length:0);
 
+  function exportCurrentView() {
+    const rows: string[][] = [["Record type", "Record ID", "Name", "Status or relationship", "Date", "Details"]];
+    if (view === "all" || view === "animals") visibleAnimals.forEach((animal) => rows.push(["Resolved animal", animal.id, animal.name || animal.temporary_name || "Unnamed animal", label(animal.outcome_status), animal.outcome_date || "", [animal.species, animal.breed_or_type, animal.urgency].filter(Boolean).join(" · ")]));
+    if (view === "all" || view === "partners") visiblePartners.forEach((partner) => rows.push(["Archived partner", partner.id, partner.name, label(partner.relationship_status), partner.archived_at || "", [partner.org_type, partner.city, partner.county, partner.state, partner.private_notes].filter(Boolean).join(" · ")]));
+    if (view === "all" || view === "offers") visibleOffers.forEach((offer) => rows.push([offer.transfer_completed_at ? "Completed transfer" : "Closed offer", offer.id, offer.animal_name, offer.transfer_completed_at ? "Transferred" : offer.placed_with_another_rescue ? "Placed with another rescue" : label(offer.status), offer.transfer_completed_at || offer.created_at, [label(offer.offer_type), offer.contact_name, offer.receiving_organization_name].filter(Boolean).join(" · ")]));
+    if (view === "all" || view === "reports") visibleReports.forEach((report) => rows.push(["Archived volunteer report", report.id, report.animal_name, label(report.status), report.submitted_at, [report.foster_name, report.title, report.update_text].filter(Boolean).join(" · ")]));
+    const csv=rows.map(row=>row.map(csvCell).join(",")).join("\r\n");
+    const url=URL.createObjectURL(new Blob(["\uFEFF",csv],{type:"text/csv;charset=utf-8"}));
+    const link=document.createElement("a");link.href=url;link.download=`pack-of-five-archived-records-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }
+
   return <div>
     <p style={eyebrow}>Retained history</p>
     <h1 style={title}>Archived Records</h1>
@@ -131,6 +142,7 @@ export default function ShelterExpressArchivedPage() {
       <div style={filters}>
         {(["all","animals","partners","offers","reports"] as const).map(key=><button key={key} type="button" onClick={()=>setView(key)} style={{...filterButton,...(view===key?activeFilter:{})}}>{key==="all"?"All records":key==="animals"?"Resolved animals":key==="partners"?"Archived partners":key==="offers"?"Closed & transferred offers":"Archived reports"}</button>)}
       </div>
+      <div style={exportRow}><span style={exportHelp}>Exports only the {shownCount} records currently matching this search and filter.</span><button type="button" disabled={shownCount===0} onClick={exportCurrentView} style={{...primary,opacity:shownCount===0?.55:1}}>Export Current View (CSV)</button></div>
     </section>
 
     {error ? <div role="alert" style={{ ...notice, background: colors.peach, color: "#A9362B" }}>{error}</div> : null}
@@ -172,6 +184,8 @@ function label(value: string | null) {
   return value ? value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : "";
 }
 
+function csvCell(value:string){const safe=/^[=+\-@]/.test(value)?`'${value}`:value;return `"${safe.replaceAll('"','""')}"`}
+
 const eyebrow: React.CSSProperties = { margin: "0 0 8px", color: colors.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase" };
 const title: React.CSSProperties = { margin: 0, color: colors.navy, fontSize: 40 };
 const intro: React.CSSProperties = { maxWidth: 760, color: colors.muted, lineHeight: 1.6 };
@@ -180,6 +194,8 @@ const summary: React.CSSProperties = { display: "grid", gap: 3, padding: 16, bac
 const tools: React.CSSProperties = { padding: 16, background: "#fff", border: `1px solid ${colors.border}`, marginBottom: 18 };
 const input: React.CSSProperties = { boxSizing: "border-box", width: "100%", padding: 12, border: `1px solid ${colors.border}`, font: "inherit", marginBottom: 12 };
 const filters: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
+const exportRow:React.CSSProperties={display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:14,paddingTop:14,borderTop:`1px solid ${colors.border}`};
+const exportHelp:React.CSSProperties={color:colors.muted,fontSize:12};
 const filterButton: React.CSSProperties = { padding: "8px 11px", border: `1px solid ${colors.border}`, background: "#fff", color: colors.navy, fontWeight: 700, cursor: "pointer" };
 const activeFilter: React.CSSProperties = { background: colors.navy, color: "#fff" };
 const notice: React.CSSProperties = { padding: 18, border: `1px solid ${colors.border}`, color: colors.navy, marginBottom: 16 };
