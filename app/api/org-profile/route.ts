@@ -543,7 +543,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ result: { ok: true, shelterExpressAccess: enabled } });
     }
 
-    if (["cancel_invite", "resend_invite"].includes(action)) {
+    if (["cancel_invite", "resend_invite", "change_invite_shelter_express"].includes(action)) {
       if (!inviteId) {
         return NextResponse.json({ error: "Choose an invitation." }, { status: 400 });
       }
@@ -559,6 +559,27 @@ export async function PATCH(request: NextRequest) {
       const invite = inviteRows[0];
       if (!invite) return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
       if (invite.status === "accepted") return NextResponse.json({ error: "An accepted invitation cannot be changed." }, { status: 409 });
+
+      if (action === "change_invite_shelter_express") {
+        if (invite.status !== "sent") {
+          return NextResponse.json({ error: "Only a pending invitation can be changed." }, { status: 409 });
+        }
+        const organizationTypeRows = await sql`select org_type from organizations where id = ${orgId}::uuid limit 1`;
+        if (!organizationTypeRows[0] || !isShelterExpressOrganization(organizationTypeRows[0].org_type)) {
+          throw new AuthError("Shelter Express access can only be assigned within a shelter organization.", 403);
+        }
+        const enabled = body?.enabled === true;
+        await sql`
+          update organization_access_invites
+          set shelter_express_access = ${enabled}, updated_at = now()
+          where id = ${inviteId}::uuid and org_id = ${orgId}::uuid
+        `;
+        await sql`
+          insert into organization_access_audit (org_id, actor_user_id, action, new_access_level, reason)
+          values (${orgId}::uuid, ${session.id}::uuid, 'invitation_shelter_express_changed', ${String(invite.access_level)}, ${`Shelter Express access ${enabled ? "added to" : "removed from"} invitation for ${String(invite.email)}`})
+        `;
+        return NextResponse.json({ result: { ok: true, shelterExpressAccess: enabled } });
+      }
 
       if (action === "cancel_invite") {
         await sql`
