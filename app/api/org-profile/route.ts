@@ -751,6 +751,11 @@ export async function PATCH(request: NextRequest) {
           insert into organization_access_audit (org_id, actor_user_id, action, new_access_level, reason)
           values (${orgId}::uuid, ${session.id}::uuid, 'invitation_cancelled', ${String(invite.access_level)}, ${`Invitation cancelled for ${String(invite.email)}`})
         `;
+        await sendClaimCaseEmail(
+          String(invite.email),
+          `Invitation cancelled — ${String(invite.organization_name)}`,
+          `The pending invitation to join ${String(invite.organization_name)} on Pack of Five was cancelled by the Organization Owner. The invitation link can no longer be used, and no organization access was created from it.\n\nIf you believe this was a mistake, contact the organization and ask its owner to send a new invitation.`
+        );
         return NextResponse.json({ result: { ok: true } });
       }
 
