@@ -558,8 +558,10 @@ export async function PATCH(request: NextRequest) {
       }
 
       const targetRows = await sql`
-        select membership.id, membership.user_id, membership.access_level, membership.shelter_express_access
+        select membership.id, membership.user_id, membership.access_level, membership.shelter_express_access,
+               account.email
         from organization_memberships membership
+        join users account on account.id = membership.user_id
         where membership.id = ${membershipId}::uuid
           and membership.org_id = ${orgId}::uuid
           and membership.status = 'active'
@@ -594,6 +596,18 @@ export async function PATCH(request: NextRequest) {
           ${enabled ? "Shelter Express access granted" : "Shelter Express access removed"}
         )
       `;
+
+      const organizationRows = await sql`
+        select name from organizations where id = ${orgId}::uuid limit 1
+      `;
+      const organizationName = String(organizationRows[0]?.name ?? "your shelter");
+      await sendClaimCaseEmail(
+        String(target.email),
+        `Shelter Express access ${enabled ? "granted" : "removed"} — ${organizationName}`,
+        enabled
+          ? `You can now use Shelter Express for ${organizationName}. Your organization role remains ${String(target.access_level).replaceAll("_", " ")}.\n\nIf you were not expecting this change, contact the Organization Owner or Pack of Five.`
+          : `Your Shelter Express workspace access for ${organizationName} was removed. Your organization team membership and role remain unchanged.\n\nIf you were not expecting this change, contact the Organization Owner or Pack of Five.`
+      );
 
       return NextResponse.json({ result: { ok: true, shelterExpressAccess: enabled } });
     }
