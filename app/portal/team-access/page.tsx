@@ -323,6 +323,7 @@ export default function TeamAccessPage() {
 
       <details style={auditSectionStyle}>
         <summary style={summaryStyle}>Access history ({audit.length})</summary>
+        <a href="/api/org-profile?team=true&format=csv" download style={downloadLinkStyle}>Download Complete Access History (CSV)</a>
         {audit.length === 0 ? <p style={descriptionStyle}>No team access changes have been recorded yet.</p> : <div>{audit.map((entry) => <div key={entry.id} style={auditRowStyle}><strong style={{ color: COLORS.navy }}>{format(entry.action)}</strong><span style={descriptionStyle}>{entry.affected_email ?? "Unknown member"} · by {entry.actor_email ?? "System"} · {new Date(entry.created_at).toLocaleString()}</span>{entry.reason ? <span style={reasonStyle}>Reason: {entry.reason}</span> : null}</div>)}</div>}
       </details>
     </div>
@@ -359,6 +360,7 @@ const dangerButtonStyle: React.CSSProperties = { padding: "9px 12px", border: "1
 const ownerButtonStyle: React.CSSProperties = { padding: "9px 12px", border: 0, background: COLORS.navy, color: COLORS.white, fontWeight: 800, cursor: "pointer" };
 const ownerNoticeStyle: React.CSSProperties = { margin: "14px 0 0", padding: 12, background: COLORS.mint, color: COLORS.navy, fontSize: 12.5, lineHeight: 1.5 };
 const auditSectionStyle: React.CSSProperties = { marginTop: 26, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.white };
+const downloadLinkStyle: React.CSSProperties = { display: "inline-block", marginTop: 15, padding: "9px 12px", border: `1px solid ${COLORS.border}`, color: COLORS.navy, background: COLORS.white, textDecoration: "none", fontSize: 12.5, fontWeight: 800 };
 const auditRowStyle: React.CSSProperties = { display: "grid", gap: 4, padding: "11px 0", borderTop: `1px solid ${COLORS.border}` };
 const reasonStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 12.5 };
 const inviteSectionStyle: React.CSSProperties = { marginTop: 24, padding: 18, border: `1px solid ${COLORS.border}`, background: COLORS.mint };
