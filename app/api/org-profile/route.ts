@@ -754,6 +754,15 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ result: { ok: true } });
       }
 
+      const lastInvitationUpdate = new Date(String(invite.updated_at ?? invite.created_at)).getTime();
+      const resendWaitMs = 60_000 - (Date.now() - lastInvitationUpdate);
+      if (resendWaitMs > 0) {
+        return NextResponse.json(
+          { error: `Please wait ${Math.ceil(resendWaitMs / 1000)} seconds before resending this invitation.` },
+          { status: 429 }
+        );
+      }
+
       const token = createInviteToken();
       const tokenHash = await hashToken(token);
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
