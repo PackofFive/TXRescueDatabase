@@ -31,6 +31,7 @@ export default function AcceptOrganizationInvitePage() {
   const [accountCreated, setAccountCreated] = useState(false);
   const [shelterExpressAccess, setShelterExpressAccess] = useState(false);
   const [invite, setInvite] = useState<InvitePreview | null>(null);
+  const [inviteUnavailable, setInviteUnavailable] = useState(false);
 
   useEffect(() => {
     if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
@@ -52,7 +53,10 @@ export default function AcceptOrganizationInvitePage() {
         setEmail(String(inviteData.invite?.email ?? ""));
         setMode(inviteData.invite?.accountExists ? "signin" : "create");
       })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : "Couldn't load this invitation."))
+      .catch((reason) => {
+        setInviteUnavailable(true);
+        setError(reason instanceof Error ? reason.message : "Couldn't load this invitation.");
+      })
       .finally(() => setChecking(false));
   }, [token]);
 
@@ -146,6 +150,10 @@ export default function AcceptOrganizationInvitePage() {
 
   if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
     return <main style={pageStyle}><section style={cardStyle}><p style={eyebrowStyle}>TEAM INVITATION</p><h1 style={headingStyle}>Invalid invitation link</h1><p style={bodyStyle}>Ask the Organization Owner to send a new secure invitation.</p></section></main>;
+  }
+
+  if (inviteUnavailable && !invite) {
+    return <main style={pageStyle}><section style={cardStyle}><p style={eyebrowStyle}>TEAM INVITATION</p><h1 style={headingStyle}>Invitation unavailable</h1><div style={errorStyle}>{error}</div><p style={bodyStyle}>This link may have expired, been cancelled, or already been used. Ask the Organization Owner to review the invitation history and send a new invitation if access is still needed.</p><a href="/" style={primaryLinkStyle}>Return to Pack of Five</a></section></main>;
   }
 
   if (success) {
