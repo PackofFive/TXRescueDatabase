@@ -717,6 +717,28 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    if (action === "transfer_ownership") {
+      const confirmationEmail = normalizeEmail(body?.confirmationEmail);
+      const targetEmailRows = await sql`
+        select lower(account.email) as email
+        from organization_memberships membership
+        join users account on account.id = membership.user_id
+        where membership.id = ${membershipId}::uuid
+          and membership.org_id = ${orgId}::uuid
+          and membership.status = 'active'
+        limit 1
+      `;
+      if (!targetEmailRows[0]) {
+        return NextResponse.json({ error: "The selected new owner is not an active team member." }, { status: 404 });
+      }
+      if (!confirmationEmail || confirmationEmail !== String(targetEmailRows[0].email)) {
+        return NextResponse.json(
+          { error: "Type the new owner's email exactly to confirm the ownership transfer." },
+          { status: 400 }
+        );
+      }
+    }
+
     const rows = await sql`
       select pof_manage_organization_access(
         ${orgId}::uuid,
