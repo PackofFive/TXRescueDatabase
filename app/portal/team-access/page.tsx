@@ -83,7 +83,7 @@ export default function TeamAccessPage() {
       return;
     }
 
-    const actionLabel = action === "transfer_ownership" ? "transfer organization ownership" : action.replaceAll("_", " ");
+    const actionLabel = action === "transfer_ownership" ? "transfer organization ownership" : action === "remove" ? "remove team access" : action.replaceAll("_", " ");
     let confirmationEmail: string | null = null;
     if (action === "transfer_ownership") {
       const confirmation = window.prompt(
@@ -96,7 +96,7 @@ export default function TeamAccessPage() {
         return;
       }
       confirmationEmail = confirmation.trim().toLowerCase();
-    } else if (sensitive && !window.confirm(`Are you sure you want to ${actionLabel} for ${member.email}?`)) return;
+    } else if (sensitive && !window.confirm(action === "remove" ? `Remove team access for ${member.email}? Their account and access history will be preserved.` : `Are you sure you want to ${actionLabel} for ${member.email}?`)) return;
 
     setWorkingId(member.id);
     setError("");
@@ -237,6 +237,7 @@ export default function TeamAccessPage() {
       <p style={eyebrowStyle}>ORGANIZATION SECURITY</p>
       <h1 style={headingStyle}>Team & Access</h1>
       <p style={introStyle}>Only the Organization Owner can change team access. Volunteer Portal permissions remain completely separate.</p>
+      <p style={recordNoticeStyle}>Suspending or removing access never deletes the person’s account, invitation history, or access audit records.</p>
       {shelterExpressOrganization ? <p style={portalAccessNoteStyle}><strong>Two settings work together:</strong> the organization role controls what a person may do, while the Shelter Express checkbox controls whether that person may enter the shelter workspace at all.</p> : null}
 
       <details style={accessLevelsDetailsStyle}>
@@ -293,7 +294,7 @@ export default function TeamAccessPage() {
                       <>
                         <label style={labelStyle}>Access level<select value={member.access_level} disabled={busy} onChange={(event) => updateAccess(member, "change_level", event.target.value)} style={inputStyle}><option value="administrator">Administrator</option><option value="contributor">Contributor</option><option value="viewer">Viewer</option></select></label>
                         <label style={labelStyle}>Reason for sensitive action<input value={reasons[member.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [member.id]: event.target.value }))} placeholder="Required for suspend, remove, or transfer" style={inputStyle} /></label>
-                        <div style={buttonRowStyle}><button type="button" disabled={busy} onClick={() => updateAccess(member, "suspend")} style={secondaryButtonStyle}>Suspend</button><button type="button" disabled={busy} onClick={() => updateAccess(member, "remove")} style={dangerButtonStyle}>Remove</button><button type="button" disabled={busy} onClick={() => updateAccess(member, "transfer_ownership")} style={ownerButtonStyle}>Transfer Ownership</button></div>
+                        <div style={buttonRowStyle}><button type="button" disabled={busy} onClick={() => updateAccess(member, "suspend")} style={secondaryButtonStyle}>Suspend</button><button type="button" disabled={busy} onClick={() => updateAccess(member, "remove")} style={dangerButtonStyle}>Remove Team Access</button><button type="button" disabled={busy} onClick={() => updateAccess(member, "transfer_ownership")} style={ownerButtonStyle}>Transfer Ownership</button></div>
                       </>
                     ) : (
                       <><label style={labelStyle}>Reason or note<input value={reasons[member.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [member.id]: event.target.value }))} style={inputStyle} /></label><button type="button" disabled={busy} onClick={() => updateAccess(member, "restore")} style={secondaryButtonStyle}>Restore Access</button></>
@@ -333,6 +334,7 @@ function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
 const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.navy, fontSize: 30 };
 const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 };
+const recordNoticeStyle: React.CSSProperties = { margin: "8px 0 0", maxWidth: 760, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
 const portalAccessNoteStyle: React.CSSProperties = { margin: "14px 0 0", maxWidth: 760, padding: 13, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5 };
 const levelGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 20 };
 const levelCardStyle: React.CSSProperties = { display: "grid", gap: 7, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.white };
