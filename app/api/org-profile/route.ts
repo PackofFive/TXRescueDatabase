@@ -166,6 +166,40 @@ export async function GET(request: NextRequest) {
         });
       }
 
+      if (request.nextUrl.searchParams.get("format") === "invites-csv") {
+        const invitationRows = await sql`
+          select invite.created_at, invite.email, invite.access_level,
+                 invite.shelter_express_access, invite.status, invite.expires_at,
+                 invite.accepted_at, invite.cancelled_at, inviter.email as invited_by_email
+          from organization_access_invites invite
+          join users inviter on inviter.id = invite.invited_by
+          where invite.org_id = ${orgId}::uuid
+          order by invite.created_at desc
+        `;
+        const header = ["Created", "Invited email", "Access level", "Shelter Express", "Status", "Expires", "Accepted", "Cancelled", "Invited by"];
+        const csv = [
+          header.map(csvCell).join(","),
+          ...invitationRows.map((invite) => [
+            invite.created_at,
+            invite.email,
+            invite.access_level,
+            invite.shelter_express_access === true ? "Yes" : "No",
+            invite.status,
+            invite.expires_at,
+            invite.accepted_at,
+            invite.cancelled_at,
+            invite.invited_by_email,
+          ].map(csvCell).join(",")),
+        ].join("\n");
+        return new NextResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="pack-of-five-invitation-history-${new Date().toISOString().slice(0, 10)}.csv"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
       const members = await sql`
         select
           membership.id,
