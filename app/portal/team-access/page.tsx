@@ -265,6 +265,7 @@ export default function TeamAccessPage() {
 
       <details style={detailsStyle}>
         <summary style={summaryStyle}>Organization team ({members.length})</summary>
+        <a href="/api/org-profile?team=true&format=team-csv" download style={downloadLinkStyle}>Download Complete Team Roster (CSV)</a>
         <div style={memberListStyle}>
           {members.map((member) => {
             const isOwner = member.access_level === "owner" && member.status === "active";
