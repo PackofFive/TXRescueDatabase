@@ -695,6 +695,7 @@ export async function PATCH(request: NextRequest) {
       ? String(body.newAccessLevel).trim()
       : null;
     const reason = body?.reason ? String(body.reason).trim() : null;
+    let ownershipTargetEmail: string | null = null;
 
     if (!membershipId) {
       return NextResponse.json(
@@ -737,6 +738,7 @@ export async function PATCH(request: NextRequest) {
           { status: 400 }
         );
       }
+      ownershipTargetEmail = String(targetEmailRows[0].email);
     }
 
     const rows = await sql`
@@ -775,6 +777,25 @@ export async function PATCH(request: NextRequest) {
             )
           `;
         }
+      }
+
+      const organizationRows = await sql`
+        select name from organizations where id = ${orgId}::uuid limit 1
+      `;
+      const organizationName = String(organizationRows[0]?.name ?? "the organization");
+      if (ownershipTargetEmail) {
+        await Promise.all([
+          sendClaimCaseEmail(
+            ownershipTargetEmail,
+            `You are now the owner of ${organizationName}`,
+            `Organization ownership for ${organizationName} was transferred to your Pack of Five account. You now control organization settings, team access, and future ownership transfers.\n\nReason recorded: ${reason ?? "Not provided"}\n\nIf you were not expecting this change, contact Pack of Five immediately.`
+          ),
+          sendClaimCaseEmail(
+            session.email,
+            `Ownership transferred for ${organizationName}`,
+            `Your ownership of ${organizationName} was transferred to ${ownershipTargetEmail}. Your owner-level control has ended.\n\nReason recorded: ${reason ?? "Not provided"}\n\nIf you did not authorize this change, contact Pack of Five immediately.`
+          ),
+        ]);
       }
     }
 
