@@ -200,6 +200,39 @@ export async function GET(request: NextRequest) {
         });
       }
 
+      if (request.nextUrl.searchParams.get("format") === "team-csv") {
+        const rosterRows = await sql`
+          select account.email, membership.access_level, membership.status,
+                 membership.shelter_express_access, membership.granted_at,
+                 membership.suspended_at, membership.removed_at, membership.updated_at
+          from organization_memberships membership
+          join users account on account.id = membership.user_id
+          where membership.org_id = ${orgId}::uuid
+          order by lower(account.email), membership.updated_at desc
+        `;
+        const header = ["Email", "Access level", "Status", "Shelter Express", "Granted", "Suspended", "Removed", "Last updated"];
+        const csv = [
+          header.map(csvCell).join(","),
+          ...rosterRows.map((member) => [
+            member.email,
+            member.access_level,
+            member.status,
+            member.shelter_express_access === true ? "Yes" : "No",
+            member.granted_at,
+            member.suspended_at,
+            member.removed_at,
+            member.updated_at,
+          ].map(csvCell).join(",")),
+        ].join("\n");
+        return new NextResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="pack-of-five-team-roster-${new Date().toISOString().slice(0, 10)}.csv"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
       const members = await sql`
         select
           membership.id,
