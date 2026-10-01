@@ -42,6 +42,10 @@ function normalizeEmail(value: unknown) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function csvCell(value: unknown) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
 async function resolveAccess(
   session: Awaited<ReturnType<typeof requireEffectiveOrg>>["session"],
   orgId: string
@@ -128,6 +132,39 @@ export async function GET(request: NextRequest) {
 
       const organizationTypeRows=await sql`select org_type from organizations where id=${orgId}::uuid limit 1`;
       const shelterExpressOrganization=isShelterExpressOrganization(organizationTypeRows[0]?.org_type);
+
+      if (request.nextUrl.searchParams.get("format") === "csv") {
+        const historyRows = await sql`
+          select entry.created_at, entry.action, entry.previous_access_level,
+                 entry.new_access_level, affected.email as affected_email,
+                 actor.email as actor_email, entry.reason
+          from organization_access_audit entry
+          left join users affected on affected.id = entry.affected_user_id
+          left join users actor on actor.id = entry.actor_user_id
+          where entry.org_id = ${orgId}::uuid
+          order by entry.created_at desc
+        `;
+        const header = ["Date", "Action", "Affected account", "Changed by", "Previous access", "New access", "Reason"];
+        const csv = [
+          header.map(csvCell).join(","),
+          ...historyRows.map((entry) => [
+            entry.created_at,
+            entry.action,
+            entry.affected_email,
+            entry.actor_email,
+            entry.previous_access_level,
+            entry.new_access_level,
+            entry.reason,
+          ].map(csvCell).join(",")),
+        ].join("\n");
+        return new NextResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="pack-of-five-access-history-${new Date().toISOString().slice(0, 10)}.csv"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
 
       const members = await sql`
         select
