@@ -310,6 +310,7 @@ export default function TeamAccessPage() {
       {invites.length > 0 ? (
         <details style={detailsStyle}>
           <summary style={summaryStyle}>Team invitation history ({invites.length})</summary>
+          <a href="/api/org-profile?team=true&format=invites-csv" download style={downloadLinkStyle}>Download Complete Invitation History (CSV)</a>
           <div style={memberListStyle}>
             {invites.map((invite) => (
               <article key={invite.id} style={inviteCardStyle}>
