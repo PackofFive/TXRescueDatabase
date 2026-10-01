@@ -741,6 +741,16 @@ export async function PATCH(request: NextRequest) {
       ownershipTargetEmail = String(targetEmailRows[0].email);
     }
 
+    const affectedMemberRows = await sql`
+      select account.email, membership.access_level, membership.status
+      from organization_memberships membership
+      join users account on account.id = membership.user_id
+      where membership.id = ${membershipId}::uuid
+        and membership.org_id = ${orgId}::uuid
+      limit 1
+    `;
+    const affectedMember = affectedMemberRows[0] ?? null;
+
     const rows = await sql`
       select pof_manage_organization_access(
         ${orgId}::uuid,
@@ -797,6 +807,25 @@ export async function PATCH(request: NextRequest) {
           ),
         ]);
       }
+    }
+
+    if (action !== "transfer_ownership" && affectedMember?.email) {
+      const organizationRows = await sql`
+        select name from organizations where id = ${orgId}::uuid limit 1
+      `;
+      const organizationName = String(organizationRows[0]?.name ?? "your organization");
+      const changeDescription = action === "change_level"
+        ? `Your organization role changed from ${String(affectedMember.access_level).replaceAll("_", " ")} to ${String(newAccessLevel).replaceAll("_", " ")}.`
+        : action === "suspend"
+          ? "Your organization access was suspended."
+          : action === "remove"
+            ? "Your organization access was removed."
+            : "Your organization access was restored.";
+      await sendClaimCaseEmail(
+        String(affectedMember.email),
+        `Access changed for ${organizationName}`,
+        `${changeDescription}\n\nOrganization: ${organizationName}\nReason recorded: ${reason ?? "No reason was required for this change."}\n\nIf you were not expecting this change, contact the Organization Owner or Pack of Five.`
+      );
     }
 
     return NextResponse.json({ result: rows[0]?.result ?? { ok: true } });
