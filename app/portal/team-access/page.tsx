@@ -284,7 +284,7 @@ export default function TeamAccessPage() {
             return (
               <article key={member.id} style={memberCardStyle}>
                 <div style={memberHeaderStyle}>
-                  <div><strong style={emailStyle}>{member.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(member.access_level)}</span><span style={member.status === "active" ? activeBadgeStyle : inactiveBadgeStyle}>{format(member.status)}</span></div></div>
+                  <div><strong style={emailStyle}>{member.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(member.access_level)}</span><span style={member.status === "active" ? activeBadgeStyle : inactiveBadgeStyle}>{format(member.status)}</span></div><div style={memberDatesStyle}>{member.granted_at ? <span>Access granted {formatDate(member.granted_at)}</span> : null}{member.updated_at && member.updated_at !== member.granted_at ? <span>Last changed {formatDate(member.updated_at)}</span> : null}</div></div>
                   {isOwner ? <strong style={{ color: COLORS.coral, fontSize: 12 }}>CURRENT OWNER</strong> : null}
                 </div>
 
@@ -321,7 +321,7 @@ export default function TeamAccessPage() {
 
       {invites.length > 0 && (recordType === "all" || recordType === "invites") ? (
         <details style={detailsStyle} open={recordType === "invites"}>
-          <summary style={summaryStyle}>Team invitation history ({invites.length})</summary>
+          <summary style={summaryStyle}>Team invitation history ({searchValue ? `${filteredInvites.length} of ` : ""}{invites.length})</summary>
           <a href="/api/org-profile?team=true&format=invites-csv" download style={downloadLinkStyle}>Download Complete Invitation History (CSV)</a>
           <div style={memberListStyle}>
             {filteredInvites.length === 0 ? <p style={descriptionStyle}>No invitations match this search.</p> : filteredInvites.map((invite) => (
@@ -344,6 +344,7 @@ export default function TeamAccessPage() {
 }
 
 function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function formatDate(value: string) { return new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); }
 
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
 const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.navy, fontSize: 30 };
@@ -363,6 +364,7 @@ const memberCardStyle: React.CSSProperties = { padding: 18, border: `1px solid $
 const memberHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", flexWrap: "wrap" };
 const emailStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 15, overflowWrap: "anywhere" };
 const badgeRowStyle: React.CSSProperties = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 };
+const memberDatesStyle: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, color: COLORS.muted, fontSize: 11.5 };
 const levelBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: COLORS.navy, color: COLORS.white, fontSize: 10, fontWeight: 800 };
 const activeBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: COLORS.mint, color: COLORS.navy, fontSize: 10, fontWeight: 800 };
 const inactiveBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: "#F5E4E1", color: "#A9362B", fontSize: 10, fontWeight: 800 };
