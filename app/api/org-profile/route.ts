@@ -960,6 +960,19 @@ export async function PUT(request: NextRequest) {
     }
 
     const tokenHash = await hashToken(token);
+    const inviteNoticeRows = await sql`
+      select invite.email, invite.access_level, invite.shelter_express_access,
+             organization.name as organization_name, organization.org_type,
+             inviter.email as inviter_email
+      from organization_access_invites invite
+      join organizations organization on organization.id = invite.org_id
+      join users inviter on inviter.id = invite.invited_by
+      where invite.token_hash = ${tokenHash}
+        and invite.status = 'sent'
+        and invite.expires_at > now()
+      limit 1
+    `;
+    const inviteNotice = inviteNoticeRows[0] ?? null;
     const session = await getSession();
     let rows;
 
@@ -996,6 +1009,24 @@ export async function PUT(request: NextRequest) {
           ${passwordHash}
         ) as result
       `;
+    }
+
+    if (inviteNotice) {
+      const portalAccessLabel = isShelterExpressOrganization(inviteNotice.org_type)
+        ? (inviteNotice.shelter_express_access === true ? "Shelter Express" : "organization team membership (Shelter Express not included)")
+        : "Rescue Manager";
+      await Promise.all([
+        sendClaimCaseEmail(
+          String(inviteNotice.email),
+          `Team invitation accepted — ${String(inviteNotice.organization_name)}`,
+          `Your Pack of Five team invitation for ${String(inviteNotice.organization_name)} was accepted successfully.\n\nOrganization role: ${String(inviteNotice.access_level).replaceAll("_", " ")}\nWorkspace access: ${portalAccessLabel}\n\nUse your existing Pack of Five password for every portal connected to this login. If you did not accept this invitation, contact Pack of Five immediately.`
+        ),
+        sendClaimCaseEmail(
+          String(inviteNotice.inviter_email),
+          `Invitation accepted by ${String(inviteNotice.email)}`,
+          `${String(inviteNotice.email)} accepted the invitation to join ${String(inviteNotice.organization_name)}.\n\nOrganization role: ${String(inviteNotice.access_level).replaceAll("_", " ")}\nWorkspace access: ${portalAccessLabel}\n\nYou can review or change this person's permissions from Team & Access.`
+        ),
+      ]);
     }
 
     return NextResponse.json({ result: rows[0]?.result ?? { ok: true } });
