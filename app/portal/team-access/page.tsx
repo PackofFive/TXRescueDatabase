@@ -84,7 +84,19 @@ export default function TeamAccessPage() {
     }
 
     const actionLabel = action === "transfer_ownership" ? "transfer organization ownership" : action.replaceAll("_", " ");
-    if (sensitive && !window.confirm(`Are you sure you want to ${actionLabel} for ${member.email}?`)) return;
+    let confirmationEmail: string | null = null;
+    if (action === "transfer_ownership") {
+      const confirmation = window.prompt(
+        `This will make ${member.email} the Organization Owner and remove your owner-level control. Type the new owner's email exactly to continue.`,
+        ""
+      );
+      if (confirmation === null) return;
+      if (confirmation.trim().toLowerCase() !== member.email.trim().toLowerCase()) {
+        setError("Ownership was not transferred because the confirmation email did not match.");
+        return;
+      }
+      confirmationEmail = confirmation.trim().toLowerCase();
+    } else if (sensitive && !window.confirm(`Are you sure you want to ${actionLabel} for ${member.email}?`)) return;
 
     setWorkingId(member.id);
     setError("");
@@ -93,7 +105,7 @@ export default function TeamAccessPage() {
       const response = await fetch("/api/org-profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ membershipId: member.id, action, newAccessLevel, reason }),
+        body: JSON.stringify({ membershipId: member.id, action, newAccessLevel, reason, confirmationEmail }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Couldn't update team access.");
