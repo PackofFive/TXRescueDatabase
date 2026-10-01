@@ -57,6 +57,7 @@ export default function TeamAccessPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [shelterExpressOrganization,setShelterExpressOrganization]=useState(false);
+  const [teamSearch, setTeamSearch] = useState("");
 
   function loadTeam() {
     setLoading(true);
@@ -232,6 +233,11 @@ export default function TeamAccessPage() {
 
   if (loading && members.length === 0) return <p style={{ color: COLORS.muted }}>Loading Team & Access…</p>;
 
+  const searchValue = teamSearch.trim().toLowerCase();
+  const filteredMembers = searchValue ? members.filter((member) => [member.email, member.access_level, member.status].some((value) => String(value).toLowerCase().includes(searchValue))) : members;
+  const filteredInvites = searchValue ? invites.filter((invite) => [invite.email, invite.access_level, invite.status, invite.shelter_express_access ? "shelter express" : ""].some((value) => String(value).toLowerCase().includes(searchValue))) : invites;
+  const filteredAudit = searchValue ? audit.filter((entry) => [entry.action, entry.affected_email, entry.actor_email, entry.previous_access_level, entry.new_access_level, entry.reason].some((value) => String(value ?? "").toLowerCase().includes(searchValue))) : audit;
+
   return (
     <div>
       <p style={eyebrowStyle}>ORGANIZATION SECURITY</p>
@@ -239,6 +245,7 @@ export default function TeamAccessPage() {
       <p style={introStyle}>Only the Organization Owner can change team access. Volunteer Portal permissions remain completely separate.</p>
       <p style={recordNoticeStyle}>Suspending or removing access never deletes the person’s account, invitation history, or access audit records.</p>
       {shelterExpressOrganization ? <p style={portalAccessNoteStyle}><strong>Two settings work together:</strong> the organization role controls what a person may do, while the Shelter Express checkbox controls whether that person may enter the shelter workspace at all.</p> : null}
+      <label style={searchLabelStyle}>Search team records<input type="search" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} placeholder="Email, role, status, action, or reason" style={inputStyle} /></label>
 
       <details style={accessLevelsDetailsStyle}>
         <summary style={summaryStyle}>What each access level means</summary>
@@ -264,10 +271,10 @@ export default function TeamAccessPage() {
       </details>
 
       <details style={detailsStyle}>
-        <summary style={summaryStyle}>Organization team ({members.length})</summary>
+        <summary style={summaryStyle}>Organization team ({searchValue ? `${filteredMembers.length} of ` : ""}{members.length})</summary>
         <a href="/api/org-profile?team=true&format=team-csv" download style={downloadLinkStyle}>Download Complete Team Roster (CSV)</a>
         <div style={memberListStyle}>
-          {members.map((member) => {
+          {filteredMembers.length === 0 ? <p style={descriptionStyle}>No team members match this search.</p> : filteredMembers.map((member) => {
             const isOwner = member.access_level === "owner" && member.status === "active";
             const busy = workingId === member.id;
             return (
@@ -313,7 +320,7 @@ export default function TeamAccessPage() {
           <summary style={summaryStyle}>Team invitation history ({invites.length})</summary>
           <a href="/api/org-profile?team=true&format=invites-csv" download style={downloadLinkStyle}>Download Complete Invitation History (CSV)</a>
           <div style={memberListStyle}>
-            {invites.map((invite) => (
+            {filteredInvites.length === 0 ? <p style={descriptionStyle}>No invitations match this search.</p> : filteredInvites.map((invite) => (
               <article key={invite.id} style={inviteCardStyle}>
                 <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span>{shelterExpressOrganization && invite.shelter_express_access ? <span style={portalBadgeStyle}>Shelter Express</span> : null}</div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}</p>{invite.status === "sent" ? <label style={pendingLevelChoice}>Access when accepted<select value={invite.access_level} disabled={workingId === `invite-level-${invite.id}`} onChange={(event) => updateInviteAccessLevel(invite, event.target.value)} style={compactSelectStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label> : null}{shelterExpressOrganization && invite.status === "sent" ? <label style={pendingPortalChoice}><input type="checkbox" checked={Boolean(invite.shelter_express_access)} disabled={workingId === `invite-shelter-${invite.id}`} onChange={(event) => updateInviteShelterExpress(invite, event.target.checked)} />Allow Shelter Express when accepted</label> : null}</div>
                 <div style={buttonRowStyle}>{invite.status === "sent" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "cancel_invite")} style={dangerButtonStyle}>Cancel Invitation</button> : null}{invite.status !== "accepted" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "resend_invite")} style={secondaryButtonStyle}>Resend Invitation</button> : null}</div>
@@ -324,9 +331,9 @@ export default function TeamAccessPage() {
       ) : null}
 
       <details style={auditSectionStyle}>
-        <summary style={summaryStyle}>Access history ({audit.length})</summary>
+        <summary style={summaryStyle}>Access history ({searchValue ? `${filteredAudit.length} of ` : ""}{audit.length} recent)</summary>
         <a href="/api/org-profile?team=true&format=csv" download style={downloadLinkStyle}>Download Complete Access History (CSV)</a>
-        {audit.length === 0 ? <p style={descriptionStyle}>No team access changes have been recorded yet.</p> : <div>{audit.map((entry) => <div key={entry.id} style={auditRowStyle}><strong style={{ color: COLORS.navy }}>{format(entry.action)}</strong><span style={descriptionStyle}>{entry.affected_email ?? "Unknown member"} · by {entry.actor_email ?? "System"} · {new Date(entry.created_at).toLocaleString()}</span>{entry.reason ? <span style={reasonStyle}>Reason: {entry.reason}</span> : null}</div>)}</div>}
+        {audit.length === 0 ? <p style={descriptionStyle}>No team access changes have been recorded yet.</p> : filteredAudit.length === 0 ? <p style={descriptionStyle}>No recent access-history entries match this search.</p> : <div>{filteredAudit.map((entry) => <div key={entry.id} style={auditRowStyle}><strong style={{ color: COLORS.navy }}>{format(entry.action)}</strong><span style={descriptionStyle}>{entry.affected_email ?? "Unknown member"} · by {entry.actor_email ?? "System"} · {new Date(entry.created_at).toLocaleString()}</span>{entry.reason ? <span style={reasonStyle}>Reason: {entry.reason}</span> : null}</div>)}</div>}
       </details>
     </div>
   );
@@ -339,6 +346,7 @@ const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.nav
 const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 };
 const recordNoticeStyle: React.CSSProperties = { margin: "8px 0 0", maxWidth: 760, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
 const portalAccessNoteStyle: React.CSSProperties = { margin: "14px 0 0", maxWidth: 760, padding: 13, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5 };
+const searchLabelStyle: React.CSSProperties = { display: "grid", gap: 7, maxWidth: 760, marginTop: 18, color: COLORS.navy, fontSize: 13, fontWeight: 800 };
 const levelGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 20 };
 const levelCardStyle: React.CSSProperties = { display: "grid", gap: 7, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const descriptionStyle: React.CSSProperties = { color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
