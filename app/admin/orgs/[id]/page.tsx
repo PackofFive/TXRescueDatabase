@@ -103,6 +103,10 @@ export default function AdminOrgEditPage() {
     useState("");
   const [archiveConfirmation, setArchiveConfirmation] =
     useState("");
+  const [carePartnerStatus, setCarePartnerStatus] =
+    useState("pending");
+  const [carePartnerReviewNotes, setCarePartnerReviewNotes] =
+    useState("");
 
   /* =====================================================
      LOAD ORGANIZATION
@@ -547,6 +551,24 @@ export default function AdminOrgEditPage() {
     }
   }
 
+  async function handleCarePartnerReview() {
+    setAdminActionLoading(true);
+    setAdminActionError(null);
+    try {
+      const res = await fetch(`/api/admin/orgs/${encodeURIComponent(orgId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "care_partner_review", status: carePartnerStatus, notes: carePartnerReviewNotes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "The Care Partner review could not be saved.");
+      window.location.reload();
+    } catch (err) {
+      setAdminActionError(err instanceof Error ? err.message : "The Care Partner review could not be saved.");
+      setAdminActionLoading(false);
+    }
+  }
+
   /* =====================================================
      PAGE STATES
   ===================================================== */
@@ -660,6 +682,21 @@ export default function AdminOrgEditPage() {
       ) : (
         <p style={{color:"#6B6862",fontSize:13.5,marginBottom:20}}>This organization has no active owner. Administrator changes are still recorded in the update history.</p>
       )}
+
+      {original.org_type === "Veterinary / Care Partner" ? (
+        <section style={{ background: "#E6EEF7", padding: 16, marginBottom: 20, border: "1px solid #C8D8E9" }}>
+          <h2 style={{ margin: "0 0 7px", color: "#1E3A5F", fontSize: 17 }}>Care Partner verification</h2>
+          <p style={{ margin: "0 0 12px", color: "#4A5D75", fontSize: 13, lineHeight: 1.5 }}><strong>Current status:</strong> {String(original.care_partner_review_status ?? "not_reviewed").replaceAll("_", " ")}<br/><strong>Provider category:</strong> {String(original.care_partner_category ?? "Not supplied")}<br/><strong>Services:</strong> {String(original.care_partner_services ?? "Not supplied")}</p>
+          {original.care_partner_credentials ? <p style={{ margin: "0 0 12px", color: "#4A5D75", fontSize: 13, lineHeight: 1.5 }}><strong>Private credentials supplied:</strong> {String(original.care_partner_credentials)}</p> : null}
+          <label style={labelStyle}>Verification decision</label>
+          <select value={carePartnerStatus} onChange={(event) => setCarePartnerStatus(event.target.value)} style={{ ...inputStyle, marginBottom: 10 }}><option value="pending">Pending further review</option><option value="verified">Verified Care Partner</option><option value="declined">Declined</option><option value="suspended">Suspended</option></select>
+          <label style={labelStyle}>Private review notes</label>
+          <textarea rows={4} value={carePartnerReviewNotes} onChange={(event) => setCarePartnerReviewNotes(event.target.value)} placeholder="Document the verification source, reviewer findings, limitations, or reason for the decision." style={inputStyle}/>
+          <button type="button" disabled={adminActionLoading || carePartnerReviewNotes.trim().length < 20} onClick={handleCarePartnerReview} style={{ marginTop: 10 }}>Save Care Partner Decision</button>
+          {Array.isArray(original.care_partner_reviews) && original.care_partner_reviews.length > 0 ? <details style={{ marginTop: 14 }}><summary style={{ cursor: "pointer", color: "#1E3A5F", fontWeight: 800, fontSize: 13 }}>Previous verification decisions ({original.care_partner_reviews.length})</summary><div style={{ marginTop: 8 }}>{(original.care_partner_reviews as Array<Record<string, unknown>>).map((review, index) => <div key={`${String(review.created_at)}-${index}`} style={{ padding: "8px 0", borderTop: "1px solid #C8D8E9", color: "#4A5D75", fontSize: 12.5, lineHeight: 1.5 }}><strong>{String(review.status).replaceAll("_", " ")}</strong> · {new Date(String(review.created_at)).toLocaleDateString()} · {String(review.reviewed_by_email)}<br/>{String(review.notes)}</div>)}</div></details> : null}
+          <p style={{ margin: "11px 0 0", color: "#4A5D75", fontSize: 12 }}>Verification does not grant portal access or permission to view animal records. Those permissions will be handled separately.</p>
+        </section>
+      ) : null}
 
       {/* ================================================
           EDIT FORM
