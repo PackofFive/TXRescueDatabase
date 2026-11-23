@@ -165,6 +165,8 @@ export default function LoginPage() {
   ] =
     useState(false);
 
+  const [signedIn, setSignedIn] = useState(false);
+
   useEffect(() => {
     fetch(
       "/api/auth/me",
@@ -187,6 +189,8 @@ export default function LoginPage() {
           if (!user) {
             return;
           }
+
+          setSignedIn(true);
 
           routeSignedInUser(
             user,
@@ -272,6 +276,8 @@ export default function LoginPage() {
         return;
       }
 
+      setSignedIn(true);
+
       routeSignedInUser(
         user,
         requestedPortal,
@@ -286,6 +292,11 @@ export default function LoginPage() {
         false
       );
     }
+  }
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    window.location.href = `/login?portal=${requestedPortal}`;
   }
 
   if (checking) {
@@ -568,7 +579,7 @@ export default function LoginPage() {
           </button>
 
           {status && (
-            <p
+            <div
               role="alert"
               style={{
                 color:
@@ -581,8 +592,9 @@ export default function LoginPage() {
                   1.5,
               }}
             >
-              {status}
-            </p>
+              <p style={{ margin: 0 }}>{status}</p>
+              {signedIn ? <div style={signedInActionsStyle}><a href="/account" style={accountLinkStyle}>Open My Account</a><button type="button" onClick={signOut} style={signOutButtonStyle}>Sign Out</button></div> : null}
+            </div>
           )}
         </form>
 
@@ -817,4 +829,29 @@ const inputStyle:
     "#1C1B19",
   fontFamily:
     "inherit",
+};
+
+const signedInActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 11,
+};
+
+const accountLinkStyle: React.CSSProperties = {
+  padding: "8px 11px",
+  background: COLORS.navy,
+  color: COLORS.white,
+  textDecoration: "none",
+  fontWeight: 800,
+};
+
+const signOutButtonStyle: React.CSSProperties = {
+  padding: "8px 11px",
+  border: `1px solid ${COLORS.navy}`,
+  background: COLORS.white,
+  color: COLORS.navy,
+  font: "inherit",
+  fontWeight: 800,
+  cursor: "pointer",
 };
