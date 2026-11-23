@@ -21,6 +21,9 @@ type OrgRequest = {
   status: string;
   created_at: string;
   created_org_id: string | null;
+  care_partner_category: string | null;
+  care_partner_credentials: string | null;
+  care_partner_services: string | null;
 };
 
 export default function AdminOrganizationRequestsPage() {
@@ -105,6 +108,9 @@ export default function AdminOrganizationRequestsPage() {
               <div><strong>Relationship:</strong> {r.relationship === "representative" ? "Represents organization" : "Suggestion"}</div>
               {r.website && <div><strong>Website:</strong> <a href={r.website}>{r.website}</a></div>}
               {r.social_url && <div><strong>Social:</strong> <a href={r.social_url}>{r.social_url}</a></div>}
+              {r.care_partner_category && <div><strong>Care Partner category:</strong> {r.care_partner_category}</div>}
+              {r.care_partner_credentials && <div><strong>Credentials supplied:</strong> {r.care_partner_credentials}</div>}
+              {r.care_partner_services && <div><strong>Professional services:</strong> {r.care_partner_services}</div>}
               {r.description && <div style={{ marginTop: 8 }}>{r.description}</div>}
             </div>
 
