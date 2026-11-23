@@ -340,7 +340,7 @@ export default function TeamAccessPage() {
           <div style={memberListStyle}>
             {filteredInvites.length === 0 ? <p style={descriptionStyle}>No invitations match this search.</p> : filteredInvites.map((invite) => (
               <article key={invite.id} style={inviteCardStyle}>
-                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span>{shelterExpressOrganization && invite.shelter_express_access ? <span style={portalBadgeStyle}>Shelter Express</span> : null}</div><p style={descriptionStyle}>{invite.status === "sent" ? `Expires ${new Date(invite.expires_at).toLocaleString()}` : `Created ${new Date(invite.created_at).toLocaleString()}`}{invite.invited_by_email ? ` · Sent by ${invite.invited_by_email}` : ""}</p>{invite.status === "sent" ? <label style={pendingLevelChoice}>Access when accepted<select value={invite.access_level} disabled={workingId === `invite-level-${invite.id}`} onChange={(event) => updateInviteAccessLevel(invite, event.target.value)} style={compactSelectStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label> : null}{shelterExpressOrganization && invite.status === "sent" ? <label style={pendingPortalChoice}><input type="checkbox" checked={Boolean(invite.shelter_express_access)} disabled={workingId === `invite-shelter-${invite.id}`} onChange={(event) => updateInviteShelterExpress(invite, event.target.checked)} />Allow Shelter Express when accepted</label> : null}</div>
+                <div><strong style={emailStyle}>{invite.email}</strong><div style={badgeRowStyle}><span style={levelBadgeStyle}>{format(invite.access_level)}</span><span style={invite.status === "sent" ? activeBadgeStyle : inactiveBadgeStyle}>{format(invite.status)}</span>{invite.status === "sent" && invitationExpiresSoon(invite.expires_at) ? <span style={expiringBadgeStyle}>Expires soon</span> : null}{shelterExpressOrganization && invite.shelter_express_access ? <span style={portalBadgeStyle}>Shelter Express</span> : null}</div><p style={descriptionStyle}>{invite.status === "sent" ? invitationExpiryLabel(invite.expires_at) : `Created ${new Date(invite.created_at).toLocaleString()}`}{invite.invited_by_email ? ` · Sent by ${invite.invited_by_email}` : ""}</p>{invite.status === "sent" ? <label style={pendingLevelChoice}>Access when accepted<select value={invite.access_level} disabled={workingId === `invite-level-${invite.id}`} onChange={(event) => updateInviteAccessLevel(invite, event.target.value)} style={compactSelectStyle}><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="administrator">Administrator</option></select></label> : null}{shelterExpressOrganization && invite.status === "sent" ? <label style={pendingPortalChoice}><input type="checkbox" checked={Boolean(invite.shelter_express_access)} disabled={workingId === `invite-shelter-${invite.id}`} onChange={(event) => updateInviteShelterExpress(invite, event.target.checked)} />Allow Shelter Express when accepted</label> : null}</div>
                 <div style={buttonRowStyle}>{invite.status === "sent" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "cancel_invite")} style={dangerButtonStyle}>Cancel Invitation</button> : null}{invite.status !== "accepted" ? <button type="button" disabled={workingId === invite.id} onClick={() => manageInvite(invite, "resend_invite")} style={secondaryButtonStyle}>Resend Invitation</button> : null}</div>
               </article>
             ))}
@@ -359,6 +359,15 @@ export default function TeamAccessPage() {
 
 function format(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function formatDate(value: string) { return new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); }
+function invitationExpiresSoon(value: string) { const remaining = new Date(value).getTime() - Date.now(); return remaining > 0 && remaining <= 24 * 60 * 60 * 1000; }
+function invitationExpiryLabel(value: string) {
+  const remaining = new Date(value).getTime() - Date.now();
+  if (remaining <= 0) return "Expired";
+  const hours = Math.ceil(remaining / (60 * 60 * 1000));
+  if (hours <= 24) return `Expires in ${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const days = Math.ceil(hours / 24);
+  return `Expires in ${days} days · ${new Date(value).toLocaleString()}`;
+}
 
 const eyebrowStyle: React.CSSProperties = { margin: "0 0 8px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" };
 const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.navy, fontSize: 30 };
@@ -387,6 +396,7 @@ const memberDatesStyle: React.CSSProperties = { display: "flex", gap: 10, flexWr
 const levelBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: COLORS.navy, color: COLORS.white, fontSize: 10, fontWeight: 800 };
 const activeBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: COLORS.mint, color: COLORS.navy, fontSize: 10, fontWeight: 800 };
 const inactiveBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: "#F5E4E1", color: "#A9362B", fontSize: 10, fontWeight: 800 };
+const expiringBadgeStyle: React.CSSProperties = { padding: "4px 8px", borderRadius: 999, background: "#FCE9E7", color: "#A9362B", fontSize: 10, fontWeight: 800 };
 const controlsStyle: React.CSSProperties = { display: "grid", gap: 12, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${COLORS.border}` };
 const labelStyle: React.CSSProperties = { display: "grid", gap: 6, color: COLORS.navy, fontSize: 12, fontWeight: 800 };
 const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "9px 10px", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, font: "inherit" };
