@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { isShelterExpressOrganization } from "@/lib/organization-types";
+import { isCarePartnerOrganization, isRescueManagerOrganization } from "@/lib/organization-types";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -82,6 +82,7 @@ export async function GET() {
     const pendingProfileLinks: Array<{ type: string; id: string; label: string }> = [];
     const organizationWorkspaces = await sql`
       select organization.id, organization.name, organization.org_type,
+        organization.care_partner_review_status,
         membership.access_level, membership.shelter_express_access
       from organization_memberships membership
       join organizations organization on organization.id = membership.org_id
@@ -110,8 +111,12 @@ export async function GET() {
       }
     }
 
-    if (organizationWorkspaces.some((workspace) => !isShelterExpressOrganization(workspace.org_type))) {
+    if (organizationWorkspaces.some((workspace) => isRescueManagerOrganization(workspace.org_type))) {
       availablePortals.push("organization");
+    }
+
+    if (organizationWorkspaces.some((workspace) => isCarePartnerOrganization(workspace.org_type) && workspace.care_partner_review_status === "verified")) {
+      availablePortals.push("care-partner");
     }
 
     if (organizationWorkspaces.some((workspace) => Boolean(workspace.shelter_express_access))) {
