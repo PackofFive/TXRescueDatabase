@@ -262,7 +262,7 @@ export default function HomePage() {
         }}
       >
         <p style={eyebrowStyle}>
-          The Pack of Five
+          For organizations and animal-welfare teams
         </p>
 
         <div
@@ -271,7 +271,7 @@ export default function HomePage() {
             gridTemplateColumns:
               isMobile
                 ? "1fr"
-                : "repeat(auto-fit, minmax(190px, 1fr))",
+                : "repeat(4, minmax(0, 1fr))",
             gap: isMobile
               ? 8
               : 10,
@@ -300,12 +300,11 @@ export default function HomePage() {
 
           <PortalCard
             compact={isMobile}
-            background={COLORS.owner}
+            background={COLORS.care}
             symbol="03"
-            title="Pet Owner"
-            text="Private pet records, care reminders, documents, and trusted information for responsible ownership."
-            href="/login?portal=pet-owner"
-            action="Open Pet Owner"
+            title="Care Partner Portal"
+            text="Permission-based collaboration for veterinary clinics, trainers, boarding, rehabilitation, and other care providers."
+            action="Coming Soon"
           />
 
           <PortalCard
@@ -317,15 +316,54 @@ export default function HomePage() {
             href="/login?portal=shelter"
             action="Open Shelter Express"
           />
+        </div>
 
-          <PortalCard
-            compact={isMobile}
-            background={COLORS.care}
-            symbol="05"
-            title="Care Partner Portal"
-            text="Permission-based collaboration for veterinary clinics, trainers, boarding, rehabilitation, and other care providers."
-            action="Coming Soon"
-          />
+        <div style={{ marginTop: isMobile ? 14 : 18 }}>
+          <p style={eyebrowStyle}>
+            For pet owners
+          </p>
+
+          <a
+            href="/login?portal=pet-owner"
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
+              alignItems: "center",
+              gap: isMobile ? 14 : 24,
+              marginTop: 8,
+              padding: isMobile ? 18 : "20px 24px",
+              background: COLORS.owner,
+              border: `1px solid ${COLORS.border}`,
+              color: "inherit",
+              textDecoration: "none",
+            }}
+          >
+            <div>
+              <h2 style={{ margin: "0 0 6px", color: COLORS.navy, fontSize: isMobile ? 22 : 25 }}>
+                Pet Owner
+              </h2>
+              <p style={{ margin: 0, maxWidth: 720, color: COLORS.muted, fontSize: isMobile ? 13 : 14, lineHeight: 1.5 }}>
+                Keep private pet records, care reminders, documents, and trusted information together under your personal Pack of Five login.
+              </p>
+            </div>
+
+            <span
+              style={{
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: 48,
+                padding: "0 22px",
+                background: COLORS.navy,
+                color: COLORS.white,
+                fontSize: 14,
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Open Pet Owner →
+            </span>
+          </a>
         </div>
       </section>
 
