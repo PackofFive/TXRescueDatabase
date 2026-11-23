@@ -135,6 +135,37 @@ export async function sendPasswordResetEmail(
   }
 }
 
+export async function sendPetOwnerSignupVerificationEmail(
+  to: string,
+  verificationUrl: string,
+  expiresAt: Date
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("RESEND_API_KEY is not set. See README.md for setup steps.");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject: "Verify your Pack of Five Pet Owner account",
+      text:
+        `Confirm this email address to create your personal Pack of Five Pet Owner account:\n\n` +
+        `${verificationUrl}\n\n` +
+        `This single-use link expires ${expiresAt.toLocaleString("en-US", { timeZone: "America/Chicago", timeZoneName: "short" })}.\n\n` +
+        `This creates personal Pet Owner access only. It does not grant access to any rescue, shelter, volunteer relationship, or administrative workspace.\n\n` +
+        `If you did not request this account, ignore this email. No account will be created without verification.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Pet Owner verification email failed (${response.status}):`, errorText);
+    throw new Error("The verification email could not be delivered.");
+  }
+}
+
 export async function sendClaimCaseEmail(
   to: string,
   subject: string,
