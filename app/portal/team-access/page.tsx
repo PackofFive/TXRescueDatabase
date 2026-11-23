@@ -238,6 +238,10 @@ export default function TeamAccessPage() {
   const filteredMembers = searchValue ? members.filter((member) => [member.email, member.access_level, member.status].some((value) => String(value).toLowerCase().includes(searchValue))) : members;
   const filteredInvites = searchValue ? invites.filter((invite) => [invite.email, invite.access_level, invite.status, invite.shelter_express_access ? "shelter express" : ""].some((value) => String(value).toLowerCase().includes(searchValue))) : invites;
   const filteredAudit = searchValue ? audit.filter((entry) => [entry.action, entry.affected_email, entry.actor_email, entry.previous_access_level, entry.new_access_level, entry.reason].some((value) => String(value ?? "").toLowerCase().includes(searchValue))) : audit;
+  const activeMemberCount = members.filter((member) => member.status === "active").length;
+  const pendingInviteCount = invites.filter((invite) => invite.status === "sent").length;
+  const restrictedMemberCount = members.filter((member) => member.status === "suspended" || member.status === "removed").length;
+  const shelterExpressMemberCount = members.filter((member) => member.status === "active" && member.shelter_express_access).length;
 
   return (
     <div>
@@ -246,6 +250,12 @@ export default function TeamAccessPage() {
       <p style={introStyle}>Only the Organization Owner can change team access. Volunteer Portal permissions remain completely separate.</p>
       <p style={recordNoticeStyle}>Suspending or removing access never deletes the person’s account, invitation history, or access audit records.</p>
       {shelterExpressOrganization ? <p style={portalAccessNoteStyle}><strong>Two settings work together:</strong> the organization role controls what a person may do, while the Shelter Express checkbox controls whether that person may enter the shelter workspace at all.</p> : null}
+      <div style={overviewGridStyle} aria-label="Team access overview">
+        <button type="button" onClick={() => setRecordType("team")} style={overviewCardStyle}><strong style={overviewNumberStyle}>{activeMemberCount}</strong><span>Active team</span></button>
+        <button type="button" onClick={() => setRecordType("invites")} style={overviewCardStyle}><strong style={overviewNumberStyle}>{pendingInviteCount}</strong><span>Pending invitations</span></button>
+        <button type="button" onClick={() => setRecordType("team")} style={restrictedMemberCount > 0 ? attentionCardStyle : overviewCardStyle}><strong style={overviewNumberStyle}>{restrictedMemberCount}</strong><span>Suspended or removed</span></button>
+        {shelterExpressOrganization ? <button type="button" onClick={() => setRecordType("team")} style={overviewCardStyle}><strong style={overviewNumberStyle}>{shelterExpressMemberCount}</strong><span>Shelter Express users</span></button> : null}
+      </div>
       <div style={searchControlsStyle}>
         <label style={searchLabelStyle}>Search team records<input type="search" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} placeholder="Email, role, status, action, or reason" style={inputStyle} /></label>
         <label style={searchLabelStyle}>Show<select value={recordType} onChange={(event) => setRecordType(event.target.value as "all" | "team" | "invites" | "history")} style={inputStyle}><option value="all">All records</option><option value="team">Current team</option><option value="invites">Invitations</option><option value="history">Access history</option></select></label>
@@ -351,6 +361,10 @@ const headingStyle: React.CSSProperties = { margin: "0 0 6px", color: COLORS.nav
 const introStyle: React.CSSProperties = { margin: 0, maxWidth: 760, color: COLORS.muted, fontSize: 13.5, lineHeight: 1.5 };
 const recordNoticeStyle: React.CSSProperties = { margin: "8px 0 0", maxWidth: 760, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
 const portalAccessNoteStyle: React.CSSProperties = { margin: "14px 0 0", maxWidth: 760, padding: 13, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5 };
+const overviewGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: 10, maxWidth: 760, marginTop: 18 };
+const overviewCardStyle: React.CSSProperties = { display: "grid", gap: 4, minHeight: 86, padding: 14, border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 700 };
+const attentionCardStyle: React.CSSProperties = { ...overviewCardStyle, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B" };
+const overviewNumberStyle: React.CSSProperties = { fontSize: 26, lineHeight: 1 };
 const searchControlsStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, maxWidth: 760, marginTop: 18 };
 const searchLabelStyle: React.CSSProperties = { display: "grid", gap: 7, color: COLORS.navy, fontSize: 13, fontWeight: 800 };
 const levelGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 20 };
