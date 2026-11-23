@@ -166,6 +166,7 @@ export default function LoginPage() {
     useState(false);
 
   const [signedIn, setSignedIn] = useState(false);
+  const canSubmit = email.trim().length > 0 && password.length > 0;
 
   useEffect(() => {
     fetch(
@@ -544,7 +545,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={
-              submitting
+              submitting || !canSubmit
             }
             style={{
               width:
@@ -564,11 +565,11 @@ export default function LoginPage() {
               fontSize:
                 14,
               cursor:
-                submitting
-                  ? "default"
+                submitting || !canSubmit
+                  ? "not-allowed"
                   : "pointer",
               opacity:
-                submitting
+                submitting || !canSubmit
                   ? 0.65
                   : 1,
             }}
