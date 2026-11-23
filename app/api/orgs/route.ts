@@ -157,7 +157,12 @@ export async function GET(req: NextRequest) {
     `;
 
     const publicRows = rows.map((row) => {
-      const { logo_storage_key: _privateLogoKey, logo_content_type: _privateLogoType, ...publicOrganization } = row;
+      const {
+        logo_storage_key: _privateLogoKey,
+        logo_content_type: _privateLogoType,
+        care_partner_credentials: _privateCarePartnerCredentials,
+        ...publicOrganization
+      } = row;
       return publicOrganization;
     });
 
