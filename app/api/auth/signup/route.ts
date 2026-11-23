@@ -46,7 +46,10 @@ export async function POST(req: NextRequest) {
       const user = rows[0];
       if (!user) return NextResponse.json({ error: "This verification link is invalid, expired, or already used." }, { status: 400 });
       await createSession({ id: String(user.id), email: String(user.email), role: "org", orgId: null, status: "approved", sessionVersion: Number(user.session_version) });
-      return NextResponse.json({ message: "Your email is verified and your Pet Owner login is ready." });
+      return NextResponse.json({
+        message: "Your email is verified and your Pet Owner login is ready.",
+        email: String(user.email),
+      });
     }
 
     if (!email || !password) return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
