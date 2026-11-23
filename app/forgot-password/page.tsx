@@ -18,6 +18,7 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -35,12 +36,14 @@ export default function ForgotPasswordPage() {
       if (!response.ok) throw new Error(data.error ?? "The request could not be completed.");
       setMessage(data.message);
       setEmail("");
+      setSent(true);
     } catch (reason) {
       console.error("Password reset request response was interrupted:", reason);
       setMessage(
         "If that email belongs to a Pack of Five account, a secure reset link has been sent."
       );
       setEmail("");
+      setSent(true);
     } finally {
       setSubmitting(false);
     }
@@ -58,7 +61,7 @@ export default function ForgotPasswordPage() {
           account, we’ll send a secure one-time link that expires after one hour.
         </p>
 
-        <form onSubmit={submit} style={formStyle}>
+        {!sent ? <form onSubmit={submit} style={formStyle}>
           <label htmlFor="email" style={labelStyle}>Email address</label>
           <input
             id="email"
@@ -72,9 +75,9 @@ export default function ForgotPasswordPage() {
           <button type="submit" disabled={submitting} style={buttonStyle}>
             {submitting ? "Sending…" : "Send Secure Reset Link"}
           </button>
-        </form>
+        </form> : null}
 
-        {message ? <div role="status" style={successStyle}>{message}</div> : null}
+        {message ? <div role="status" style={successStyle}><strong>Check your email</strong><span>{message}</span><span>The link expires after one hour. Check your spam or junk folder if it does not arrive.</span><div style={confirmationActionsStyle}><a href="/login" style={signInLinkStyle}>Back to Sign In</a><button type="button" onClick={() => { setSent(false); setMessage(""); setError(""); }} style={differentEmailButtonStyle}>Use a different email</button></div></div> : null}
         {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
 
         <p style={securityNoteStyle}>
@@ -97,6 +100,9 @@ const formStyle: React.CSSProperties = { display: "grid", gap: 10, marginTop: 22
 const labelStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 13, fontWeight: 800 };
 const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "11px 12px", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, font: "inherit" };
 const buttonStyle: React.CSSProperties = { marginTop: 5, padding: "11px 15px", border: 0, background: COLORS.navy, color: COLORS.white, fontWeight: 800, cursor: "pointer" };
-const successStyle: React.CSSProperties = { marginTop: 16, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5, fontWeight: 700 };
+const successStyle: React.CSSProperties = { display: "grid", gap: 10, marginTop: 16, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5, fontWeight: 700 };
 const errorStyle: React.CSSProperties = { marginTop: 16, padding: 15, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B", fontSize: 13, lineHeight: 1.5 };
 const securityNoteStyle: React.CSSProperties = { margin: "16px 0 0", padding: 14, background: COLORS.pink, color: COLORS.navy, fontSize: 12.5, lineHeight: 1.5 };
+const confirmationActionsStyle: React.CSSProperties = { display: "flex", gap: 9, flexWrap: "wrap", marginTop: 3 };
+const signInLinkStyle: React.CSSProperties = { padding: "9px 12px", background: COLORS.navy, color: COLORS.white, textDecoration: "none", fontWeight: 800 };
+const differentEmailButtonStyle: React.CSSProperties = { padding: "9px 12px", border: `1px solid ${COLORS.navy}`, background: COLORS.white, color: COLORS.navy, font: "inherit", fontWeight: 800, cursor: "pointer" };
