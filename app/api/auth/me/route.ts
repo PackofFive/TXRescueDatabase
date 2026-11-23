@@ -22,6 +22,39 @@ export async function GET() {
     }
 
     let orgName: string | null = null;
+    let passwordChangedAt: string | null = null;
+    let securityActivity: Array<{ eventType: string; createdAt: string }> = [];
+
+    try {
+      const accountRows = await sql`
+        select password_changed_at
+        from users
+        where id = ${session.id}::uuid
+        limit 1
+      `;
+      passwordChangedAt = accountRows[0]?.password_changed_at
+        ? String(accountRows[0].password_changed_at)
+        : null;
+
+      const activityRows = await sql`
+        select event_type, created_at
+        from account_security_events
+        where user_id = ${session.id}::uuid
+          and event_type in (
+            'password_changed',
+            'password_reset_requested',
+            'password_reset_completed'
+          )
+        order by created_at desc
+        limit 5
+      `;
+      securityActivity = activityRows.map((entry) => ({
+        eventType: String(entry.event_type),
+        createdAt: String(entry.created_at),
+      }));
+    } catch (securityError) {
+      console.error("Account security activity lookup failed:", securityError);
+    }
 
     if (session.orgId) {
       const rows = await sql`
@@ -288,6 +321,8 @@ export async function GET() {
 
           status: session.status,
           platformAccessLevel,
+          passwordChangedAt,
+          securityActivity,
 
           availablePortals: Array.from(
             new Set(availablePortals)
