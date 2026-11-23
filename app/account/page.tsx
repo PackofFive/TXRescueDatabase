@@ -111,7 +111,9 @@ export default function AccountPage() {
     }
   }
 
-  async function connectProfile(profileType: string, profileId: string) {
+  async function connectProfile(profileType: string, profileId: string, profileLabel: string) {
+    const confirmed = window.confirm(`Connect this ${profileLabel.toLowerCase()} to ${user?.email ?? "your Pack of Five login"}? Only continue if this profile belongs to you.`);
+    if (!confirmed) return;
     setLinkingProfile(profileId);
     setProfileLinkMessage("");
     setProfileLinkError("");
@@ -288,7 +290,7 @@ export default function AccountPage() {
               {user.pendingProfileLinks?.map((profile) => (
                 <div key={`${profile.type}-${profile.id}`} style={{ border: `1px solid ${COLORS.border}`, background: COLORS.white, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
                   <div><strong style={{ color: COLORS.navy }}>{profile.label}</strong><div style={{ color: COLORS.muted, fontSize: 13, marginTop: 3 }}>Matches {user.email}</div></div>
-                  <button type="button" disabled={linkingProfile === profile.id} onClick={() => connectProfile(profile.type, profile.id)} style={passwordButtonStyle}>{linkingProfile === profile.id ? "Connecting…" : "Connect to My Account"}</button>
+                  <button type="button" disabled={linkingProfile === profile.id} onClick={() => connectProfile(profile.type, profile.id, profile.label)} style={passwordButtonStyle}>{linkingProfile === profile.id ? "Connecting…" : "Connect to My Account"}</button>
                 </div>
               ))}
             </div>
