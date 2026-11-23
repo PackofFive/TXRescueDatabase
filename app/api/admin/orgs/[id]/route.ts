@@ -86,6 +86,17 @@ export async function GET(
             limit 1
           ) review_row
         ) as lifecycle_review
+        ,(
+          select coalesce(json_agg(review_row order by review_row.created_at desc), '[]'::json)
+          from (
+            select review.status, review.notes, review.created_at, account.email as reviewed_by_email
+            from care_partner_verification_reviews review
+            join users account on account.id = review.reviewed_by
+            where review.org_id = o.id
+            order by review.created_at desc
+            limit 10
+          ) review_row
+        ) as care_partner_reviews
       from organizations o
       left join capabilities c
         on c.org_id = o.id
@@ -171,6 +182,56 @@ export async function PATCH(
     `;
     const claimed = Boolean(ownershipRows[0]?.claimed);
 
+    if (body?.action === "care_partner_review") {
+      const reviewer = await requireAdminFresh(["platform_owner", "directory_moderator"]);
+      const status = typeof body?.status === "string" ? body.status : "";
+      const notes = typeof body?.notes === "string" ? body.notes.trim().slice(0, 4000) : "";
+      const validStatuses = ["pending", "verified", "declined", "suspended"];
+
+      if (!validStatuses.includes(status) || notes.length < 20) {
+        return NextResponse.json({ error: "Choose a valid decision and provide private review notes of at least 20 characters." }, { status: 400 });
+      }
+
+      const organizations = await sql`
+        select org_type, care_partner_category, care_partner_services
+        from organizations
+        where id = ${orgId}
+        limit 1
+      `;
+      const organization = organizations[0];
+      if (!organization) return NextResponse.json({ error: "Organization not found." }, { status: 404 });
+      if (organization.org_type !== "Veterinary / Care Partner") {
+        return NextResponse.json({ error: "Only Care Partner organizations can receive a Care Partner verification decision." }, { status: 409 });
+      }
+      if (status === "verified" && (!organization.care_partner_category || !organization.care_partner_services)) {
+        return NextResponse.json({ error: "Add the provider category and professional services before verifying this Care Partner." }, { status: 409 });
+      }
+
+      const rows = await sql`
+        with updated as (
+          update organizations
+          set care_partner_review_status = ${status},
+              care_partner_review_notes = ${notes},
+              care_partner_reviewed_by = ${reviewer.id},
+              care_partner_reviewed_at = now(),
+              updated_at = now()
+          where id = ${orgId}
+          returning id
+        )
+        insert into care_partner_verification_reviews (org_id, status, notes, reviewed_by)
+        select id, ${status}, ${notes}, ${reviewer.id}
+        from updated
+        returning id, status, created_at
+      `;
+
+      await sql`
+        insert into update_log (org_id, changed_by, field_name, old_value, new_value, source)
+        values (${orgId}, ${reviewer.id}, 'care_partner_review_status', null, ${status}, 'care_partner_verification')
+      `;
+
+      return NextResponse.json({ ok: true, review: rows[0] });
+    }
+
     if (body?.action === "start_lifecycle_review") {
       const reviewType = body?.reviewType === "owner_requested_closure" || body?.reviewType === "possible_dormancy" ? body.reviewType : "";
       const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 3000) : "";
@@ -221,7 +282,7 @@ export async function PATCH(
       const reviews=await sql`select * from organization_lifecycle_reviews where id=${reviewId} and org_id=${orgId} and status in ('waiting_owner','ready_decision') limit 1`;
       const review=reviews[0];
       if(!review)return NextResponse.json({error:"Open lifecycle review not found."},{status:404});
-      if(review.review_type==='possible_dormancy' && !review.owner_response_received_at && new Date(String(review.response_due_at)).getTime()>Date.now()) return NextResponse.json({error:"The dormancy outreach period has not ended, and no owner response has been recorded."},{status:409});
+      if(new Date(String(review.response_due_at)).getTime()>Date.now()) return NextResponse.json({error:"The required owner notice and review period has not ended."},{status:409});
       if(review.review_type==='owner_requested_closure' && !review.owner_response_received_at) return NextResponse.json({error:"Owner confirmation must be recorded before archiving."},{status:409});
       await sql`update organizations set archived_at=now(),updated_at=now() where id=${orgId}`;
       await sql`update organization_lifecycle_reviews set status='archived',decision_reason=${decisionReason},decided_by=${admin.id},decided_at=now(),updated_at=now() where id=${reviewId}`;
