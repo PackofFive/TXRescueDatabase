@@ -29,6 +29,7 @@ type RequestedPortal =
   | "admin"
   | "organization"
   | "shelter"
+  | "care-partner"
   | "pet-owner"
   | "foster";
 
@@ -82,6 +83,13 @@ const PORTALS:
       description: "Sign in to quickly publish and manage animals needing urgent rescue help.",
       accent: COLORS.peach,
       accountNote: "Available to approved shelter organization accounts.",
+    },
+
+    "care-partner": {
+      title: "Care Partner Portal",
+      description: "Sign in to your verified professional provider workspace.",
+      accent: "#E6EEF7",
+      accountNote: "Available to approved members of verified Care Partner organizations.",
     },
 
     "pet-owner": {
@@ -676,6 +684,8 @@ function normalizePortal(
     value ===
       "shelter" ||
     value ===
+      "care-partner" ||
+    value ===
       "organization"
   ) {
     return value;
@@ -760,6 +770,16 @@ function routeSignedInUser(
     }
 
     setStatus("This account does not currently have access to Shelter Express.");
+    return;
+  }
+
+  if (requestedPortal === "care-partner") {
+    if (portals.includes("care-partner")) {
+      window.location.href = "/care-partner";
+      return;
+    }
+
+    setStatus("This account does not currently have access to the Care Partner Portal. The organization and your membership must both be approved.");
     return;
   }
 
