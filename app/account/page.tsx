@@ -160,6 +160,7 @@ export default function AccountPage() {
     { label: "One number", met: /\d/.test(newPassword) },
     { label: "Passwords match", met: newPassword.length > 0 && newPassword === confirmation },
   ];
+  const canChangePassword = currentPassword.length > 0 && passwordChecks.every((check) => check.met);
 
   return (
     <div>
@@ -225,7 +226,7 @@ export default function AccountPage() {
               <strong style={passwordChecklistHeadingStyle}>Password requirements</strong>
               {passwordChecks.map((check) => <span key={check.label} style={check.met ? passwordRequirementMetStyle : passwordRequirementStyle}><span aria-hidden="true">{check.met ? "✓" : "○"}</span>{check.label}</span>)}
             </div>
-            <button type="submit" disabled={changingPassword} style={passwordButtonStyle}>{changingPassword ? "Securing Account…" : "Change Password"}</button>
+            <button type="submit" disabled={changingPassword || !canChangePassword} style={changingPassword || !canChangePassword ? disabledPasswordButtonStyle : passwordButtonStyle}>{changingPassword ? "Securing Account…" : "Change Password"}</button>
           </form>
         ) : null}
 
@@ -525,6 +526,7 @@ const passwordLabelStyle: React.CSSProperties = { display: "grid", gap: 6, color
 const passwordInputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 11px", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, font: "inherit" };
 const passwordRequirementsStyle: React.CSSProperties = { margin: 0, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
 const passwordButtonStyle: React.CSSProperties = { justifySelf: "start", padding: "10px 14px", border: 0, background: COLORS.navy, color: COLORS.white, fontWeight: 800, cursor: "pointer" };
+const disabledPasswordButtonStyle: React.CSSProperties = { ...passwordButtonStyle, opacity: 0.5, cursor: "not-allowed" };
 const passwordSuccessStyle: React.CSSProperties = { display: "grid", gap: 12, marginTop: 16, padding: 14, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5, fontWeight: 700 };
 const passwordSignInStyle: React.CSSProperties = { justifySelf: "start", padding: "9px 12px", background: COLORS.navy, color: COLORS.white, textDecoration: "none", fontWeight: 800 };
 const passwordErrorStyle: React.CSSProperties = { marginTop: 16, padding: 14, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B", fontSize: 13 };
