@@ -250,6 +250,7 @@ function SignedInHeader({
     );
 
   const showShelterExpress = portals.includes("shelter");
+  const showCarePartner = portals.includes("care-partner");
 
   return (
     <header
@@ -442,6 +443,15 @@ function SignedInHeader({
                 active={pathname === "/shelter-express" || pathname.startsWith("/shelter-express/")}
               >
                 Shelter Express
+              </TopPortalLink>
+            )}
+
+            {showCarePartner && (
+              <TopPortalLink
+                href="/care-partner"
+                active={pathname === "/care-partner" || pathname.startsWith("/care-partner/")}
+              >
+                Care Partner
               </TopPortalLink>
             )}
 
