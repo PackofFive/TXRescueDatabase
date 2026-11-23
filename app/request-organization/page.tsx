@@ -5,6 +5,7 @@ import {
 } from "react";
 import {
   ORGANIZATION_TYPES,
+  CARE_PARTNER_CATEGORIES,
   organizationTypeDetails,
 } from "@/lib/organization-types";
 
@@ -51,6 +52,12 @@ export default function RequestOrganizationPage() {
         "",
       relationship:
         "representative",
+      carePartnerCategory:
+        "",
+      carePartnerCredentials:
+        "",
+      carePartnerServices:
+        "",
     });
 
   const [
@@ -365,6 +372,22 @@ export default function RequestOrganizationPage() {
             </span>
           )}
         </label>
+
+        {form.organizationType === "Veterinary / Care Partner" ? (
+          <fieldset style={carePartnerFieldsetStyle}>
+            <legend style={carePartnerLegendStyle}>Care Partner review information</legend>
+            <p style={carePartnerHelpStyle}>This information helps Pack of Five verify the provider and determine appropriate future permissions. Requesting a listing does not grant access to animal or organization records.</p>
+            <label style={labelStyle}>
+              Provider category *
+              <select required value={form.carePartnerCategory} onChange={(e) => update("carePartnerCategory", e.target.value)} style={inputStyle}>
+                <option value="">Choose a provider category</option>
+                {CARE_PARTNER_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </label>
+            <Field label="License, credential, or registration information" value={form.carePartnerCredentials} onChange={(value) => update("carePartnerCredentials", value)} placeholder="Optional. Include the issuing authority or public verification source." />
+            <label style={labelStyle}>Services offered *<textarea required rows={4} value={form.carePartnerServices} onChange={(e) => update("carePartnerServices", e.target.value)} placeholder="Describe the professional services offered to animals, pet owners, shelters, or rescues." style={inputStyle} /></label>
+          </fieldset>
+        ) : null}
 
         <div
           style={
@@ -713,6 +736,10 @@ const twoCol:
   gap:
     14,
 };
+
+const carePartnerFieldsetStyle: React.CSSProperties = { display: "grid", gap: 13, margin: 0, padding: 15, border: `1px solid ${COLORS.border}`, background: "#E6EEF7" };
+const carePartnerLegendStyle: React.CSSProperties = { padding: "0 6px", color: COLORS.navy, fontSize: 13, fontWeight: 800 };
+const carePartnerHelpStyle: React.CSSProperties = { margin: 0, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.5 };
 
 const primaryButton:
   React.CSSProperties =
