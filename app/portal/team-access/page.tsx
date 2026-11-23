@@ -59,6 +59,7 @@ export default function TeamAccessPage() {
   const [shelterExpressOrganization,setShelterExpressOrganization]=useState(false);
   const [teamSearch, setTeamSearch] = useState("");
   const [recordType, setRecordType] = useState<"all" | "team" | "invites" | "history">("all");
+  const [accessFocus, setAccessFocus] = useState<"all" | "active" | "pending" | "restricted" | "shelter_express">("all");
 
   function loadTeam() {
     setLoading(true);
@@ -235,8 +236,10 @@ export default function TeamAccessPage() {
   if (loading && members.length === 0) return <p style={{ color: COLORS.muted }}>Loading Team & Access…</p>;
 
   const searchValue = teamSearch.trim().toLowerCase();
-  const filteredMembers = searchValue ? members.filter((member) => [member.email, member.access_level, member.status].some((value) => String(value).toLowerCase().includes(searchValue))) : members;
-  const filteredInvites = searchValue ? invites.filter((invite) => [invite.email, invite.access_level, invite.status, invite.shelter_express_access ? "shelter express" : ""].some((value) => String(value).toLowerCase().includes(searchValue))) : invites;
+  const focusedMembers = members.filter((member) => accessFocus === "all" || (accessFocus === "active" && member.status === "active") || (accessFocus === "restricted" && ["suspended", "removed"].includes(member.status)) || (accessFocus === "shelter_express" && member.status === "active" && member.shelter_express_access));
+  const focusedInvites = invites.filter((invite) => accessFocus === "all" || (accessFocus === "pending" && invite.status === "sent"));
+  const filteredMembers = searchValue ? focusedMembers.filter((member) => [member.email, member.access_level, member.status].some((value) => String(value).toLowerCase().includes(searchValue))) : focusedMembers;
+  const filteredInvites = searchValue ? focusedInvites.filter((invite) => [invite.email, invite.access_level, invite.status, invite.shelter_express_access ? "shelter express" : ""].some((value) => String(value).toLowerCase().includes(searchValue))) : focusedInvites;
   const filteredAudit = searchValue ? audit.filter((entry) => [entry.action, entry.affected_email, entry.actor_email, entry.previous_access_level, entry.new_access_level, entry.reason].some((value) => String(value ?? "").toLowerCase().includes(searchValue))) : audit;
   const activeMemberCount = members.filter((member) => member.status === "active").length;
   const pendingInviteCount = invites.filter((invite) => invite.status === "sent").length;
@@ -251,15 +254,16 @@ export default function TeamAccessPage() {
       <p style={recordNoticeStyle}>Suspending or removing access never deletes the person’s account, invitation history, or access audit records.</p>
       {shelterExpressOrganization ? <p style={portalAccessNoteStyle}><strong>Two settings work together:</strong> the organization role controls what a person may do, while the Shelter Express checkbox controls whether that person may enter the shelter workspace at all.</p> : null}
       <div style={overviewGridStyle} aria-label="Team access overview">
-        <button type="button" onClick={() => setRecordType("team")} style={overviewCardStyle}><strong style={overviewNumberStyle}>{activeMemberCount}</strong><span>Active team</span></button>
-        <button type="button" onClick={() => setRecordType("invites")} style={overviewCardStyle}><strong style={overviewNumberStyle}>{pendingInviteCount}</strong><span>Pending invitations</span></button>
-        <button type="button" onClick={() => setRecordType("team")} style={restrictedMemberCount > 0 ? attentionCardStyle : overviewCardStyle}><strong style={overviewNumberStyle}>{restrictedMemberCount}</strong><span>Suspended or removed</span></button>
-        {shelterExpressOrganization ? <button type="button" onClick={() => setRecordType("team")} style={overviewCardStyle}><strong style={overviewNumberStyle}>{shelterExpressMemberCount}</strong><span>Shelter Express users</span></button> : null}
+        <button type="button" onClick={() => { setRecordType("team"); setAccessFocus("active"); }} style={overviewCardStyle}><strong style={overviewNumberStyle}>{activeMemberCount}</strong><span>Active team</span></button>
+        <button type="button" onClick={() => { setRecordType("invites"); setAccessFocus("pending"); }} style={overviewCardStyle}><strong style={overviewNumberStyle}>{pendingInviteCount}</strong><span>Pending invitations</span></button>
+        <button type="button" onClick={() => { setRecordType("team"); setAccessFocus("restricted"); }} style={restrictedMemberCount > 0 ? attentionCardStyle : overviewCardStyle}><strong style={overviewNumberStyle}>{restrictedMemberCount}</strong><span>Suspended or removed</span></button>
+        {shelterExpressOrganization ? <button type="button" onClick={() => { setRecordType("team"); setAccessFocus("shelter_express"); }} style={overviewCardStyle}><strong style={overviewNumberStyle}>{shelterExpressMemberCount}</strong><span>Shelter Express users</span></button> : null}
       </div>
       <div style={searchControlsStyle}>
         <label style={searchLabelStyle}>Search team records<input type="search" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} placeholder="Email, role, status, action, or reason" style={inputStyle} /></label>
-        <label style={searchLabelStyle}>Show<select value={recordType} onChange={(event) => setRecordType(event.target.value as "all" | "team" | "invites" | "history")} style={inputStyle}><option value="all">All records</option><option value="team">Current team</option><option value="invites">Invitations</option><option value="history">Access history</option></select></label>
+        <label style={searchLabelStyle}>Show<select value={recordType} onChange={(event) => { setRecordType(event.target.value as "all" | "team" | "invites" | "history"); setAccessFocus("all"); }} style={inputStyle}><option value="all">All records</option><option value="team">Current team</option><option value="invites">Invitations</option><option value="history">Access history</option></select></label>
       </div>
+      {accessFocus !== "all" ? <button type="button" onClick={() => setAccessFocus("all")} style={clearFocusButtonStyle}>Clear overview filter</button> : null}
 
       <details style={accessLevelsDetailsStyle}>
         <summary style={summaryStyle}>What each access level means</summary>
@@ -285,7 +289,7 @@ export default function TeamAccessPage() {
       </details>
 
       {recordType === "all" || recordType === "team" ? <details style={detailsStyle} open={recordType === "team"}>
-        <summary style={summaryStyle}>Organization team ({searchValue ? `${filteredMembers.length} of ` : ""}{members.length})</summary>
+        <summary style={summaryStyle}>Organization team ({searchValue || accessFocus !== "all" ? `${filteredMembers.length} of ` : ""}{members.length})</summary>
         <a href="/api/org-profile?team=true&format=team-csv" download style={downloadLinkStyle}>Download Complete Team Roster (CSV)</a>
         <div style={memberListStyle}>
           {filteredMembers.length === 0 ? <p style={descriptionStyle}>No team members match this search.</p> : filteredMembers.map((member) => {
@@ -331,7 +335,7 @@ export default function TeamAccessPage() {
 
       {invites.length > 0 && (recordType === "all" || recordType === "invites") ? (
         <details style={detailsStyle} open={recordType === "invites"}>
-          <summary style={summaryStyle}>Team invitation history ({searchValue ? `${filteredInvites.length} of ` : ""}{invites.length})</summary>
+          <summary style={summaryStyle}>Team invitation history ({searchValue || accessFocus !== "all" ? `${filteredInvites.length} of ` : ""}{invites.length})</summary>
           <a href="/api/org-profile?team=true&format=invites-csv" download style={downloadLinkStyle}>Download Complete Invitation History (CSV)</a>
           <div style={memberListStyle}>
             {filteredInvites.length === 0 ? <p style={descriptionStyle}>No invitations match this search.</p> : filteredInvites.map((invite) => (
@@ -366,6 +370,7 @@ const overviewCardStyle: React.CSSProperties = { display: "grid", gap: 4, minHei
 const attentionCardStyle: React.CSSProperties = { ...overviewCardStyle, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B" };
 const overviewNumberStyle: React.CSSProperties = { fontSize: 26, lineHeight: 1 };
 const searchControlsStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, maxWidth: 760, marginTop: 18 };
+const clearFocusButtonStyle: React.CSSProperties = { marginTop: 10, padding: 0, border: 0, background: "transparent", color: COLORS.navy, textDecoration: "underline", font: "inherit", fontSize: 12.5, fontWeight: 800, cursor: "pointer" };
 const searchLabelStyle: React.CSSProperties = { display: "grid", gap: 7, color: COLORS.navy, fontSize: 13, fontWeight: 800 };
 const levelGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 20 };
 const levelCardStyle: React.CSSProperties = { display: "grid", gap: 7, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.white };
