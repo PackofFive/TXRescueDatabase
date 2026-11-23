@@ -17,6 +17,8 @@ type AccountUser = {
     shelter_express_access: boolean;
   }>;
   pendingProfileLinks?: Array<{ type: string; id: string; label: string }>;
+  passwordChangedAt?: string | null;
+  securityActivity?: Array<{ eventType: string; createdAt: string }>;
 };
 
 const COLORS = {
@@ -232,12 +234,50 @@ export default function AccountPage() {
         {!passwordChanged ? <a href="/forgot-password" style={forgotLinkStyle}>Forgot your current password?</a> : null}
       </section>
 
+      <section style={panelStyle}>
+        <h2 style={sectionHeadingStyle}>Recent security activity</h2>
+        <p style={bodyStyle}>Only password-related activity for your own Pack of Five login appears here.</p>
+        {(user.securityActivity?.length ?? 0) > 0 ? (
+          <div style={securityActivityListStyle}>
+            {user.securityActivity?.map((entry, index) => (
+              <div key={`${entry.eventType}-${entry.createdAt}-${index}`} style={securityActivityRowStyle}>
+                <strong style={valueStyle}>{securityEventLabel(entry.eventType)}</strong>
+                <span style={securityActivityDateStyle}>{new Date(entry.createdAt).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p style={bodyStyle}>No recent password-security activity is recorded.</p>}
+        {user.passwordChangedAt ? <p style={lastPasswordChangeStyle}>Password last changed {new Date(user.passwordChangedAt).toLocaleString()}.</p> : null}
+        <p style={securityHelpStyle}>If you do not recognize an entry, change your password immediately.</p>
+      </section>
+
       <section style={{ marginTop: 24 }}>
         <h2 style={sectionHeadingStyle}>Portals connected to my login</h2>
         <p style={bodyStyle}>
           One email and password can be used across Pack of Five. Only portals
           shown as connected will appear in your signed-in header.
         </p>
+
+        {(user.organizationWorkspaces?.length ?? 0) > 0 ? (
+          <section style={organizationConnectionsStyle}>
+            <h3 style={organizationConnectionsHeadingStyle}>Connected organization</h3>
+            <p style={{ ...bodyStyle, marginTop: 0 }}>Organization access is separate from your personal volunteer and pet-owner profiles.</p>
+            <div style={organizationConnectionListStyle}>
+              {user.organizationWorkspaces?.map((workspace) => {
+                const shelterOrganization = workspace.shelter_express_access || /shelter/i.test(workspace.org_type ?? "");
+                return (
+                  <article key={workspace.id} style={organizationConnectionCardStyle}>
+                    <div>
+                      <strong style={organizationNameStyle}>{workspace.name}</strong>
+                      <div style={organizationMetaStyle}>{workspace.org_type || "Organization type pending review"} · {formatAccountLabel(workspace.access_level)}</div>
+                    </div>
+                    <span style={approvedBadgeStyle}>{shelterOrganization && workspace.shelter_express_access ? "Shelter Express" : shelterOrganization ? "Organization listing only" : "Rescue Manager"}</span>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         {(user.pendingProfileLinks?.length ?? 0) > 0 && (
           <section style={{ ...panelStyle, background: "#F2D6DC" }}>
@@ -293,6 +333,17 @@ function PortalAccessCard({
   );
 }
 
+function securityEventLabel(eventType: string) {
+  if (eventType === "password_changed") return "Password changed";
+  if (eventType === "password_reset_requested") return "Password reset requested";
+  if (eventType === "password_reset_completed") return "Password reset completed";
+  return eventType.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatAccountLabel(value: string) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 const eyebrowStyle: React.CSSProperties = {
   margin: "0 0 8px",
   color: COLORS.coral,
@@ -328,6 +379,79 @@ const showPasswordsStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   cursor: "pointer",
+};
+
+const securityActivityListStyle: React.CSSProperties = {
+  display: "grid",
+  marginTop: 14,
+  border: `1px solid ${COLORS.border}`,
+};
+
+const securityActivityRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  padding: 12,
+  borderBottom: `1px solid ${COLORS.border}`,
+};
+
+const securityActivityDateStyle: React.CSSProperties = {
+  color: COLORS.muted,
+  fontSize: 12.5,
+};
+
+const lastPasswordChangeStyle: React.CSSProperties = {
+  color: COLORS.navy,
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const securityHelpStyle: React.CSSProperties = {
+  marginBottom: 0,
+  color: COLORS.coral,
+  fontSize: 12.5,
+  fontWeight: 700,
+};
+
+const organizationConnectionsStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 18,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.mint,
+};
+
+const organizationConnectionsHeadingStyle: React.CSSProperties = {
+  margin: "0 0 8px",
+  color: COLORS.navy,
+  fontSize: 18,
+};
+
+const organizationConnectionListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+};
+
+const organizationConnectionCardStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+  padding: 14,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.white,
+};
+
+const organizationNameStyle: React.CSSProperties = {
+  color: COLORS.navy,
+  fontSize: 15,
+};
+
+const organizationMetaStyle: React.CSSProperties = {
+  marginTop: 4,
+  color: COLORS.muted,
+  fontSize: 12.5,
 };
 
 const passwordChecklistStyle: React.CSSProperties = {
