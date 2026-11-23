@@ -161,6 +161,8 @@ export async function GET(req: NextRequest) {
         logo_storage_key: _privateLogoKey,
         logo_content_type: _privateLogoType,
         care_partner_credentials: _privateCarePartnerCredentials,
+        care_partner_review_notes: _privateCarePartnerReviewNotes,
+        care_partner_reviewed_by: _privateCarePartnerReviewer,
         ...publicOrganization
       } = row;
       return publicOrganization;
