@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           insert into users (email, password_hash, role, org_id, status)
           select email, password_hash, 'org', null, 'approved'
           from verified
-          on conflict (email) do nothing
+          on conflict do nothing
           returning id, email, role, org_id, status, session_version
         )
         select * from created
