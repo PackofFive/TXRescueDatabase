@@ -61,6 +61,22 @@ export const ORGANIZATION_TYPES = [
   },
 ] as const;
 
+export const CARE_PARTNER_CATEGORIES = [
+  "Veterinary Clinic or Hospital",
+  "Mobile Veterinary Provider",
+  "Trainer or Behavior Professional",
+  "Boarding or Day Care Provider",
+  "Rehabilitation or Therapy Provider",
+  "Grooming Provider",
+  "Other Professional Care Provider",
+] as const;
+
+export type CarePartnerCategory = (typeof CARE_PARTNER_CATEGORIES)[number];
+
+export function isCarePartnerCategory(value: unknown): value is CarePartnerCategory {
+  return typeof value === "string" && CARE_PARTNER_CATEGORIES.includes(value as CarePartnerCategory);
+}
+
 export type OrganizationType = (typeof ORGANIZATION_TYPES)[number]["value"];
 
 export function isOrganizationType(value: unknown): value is OrganizationType {
