@@ -90,3 +90,11 @@ export function organizationTypeDetails(value: string) {
 export function isShelterExpressOrganization(value: unknown) {
   return value === "Shelter" || value === "Municipal Shelter" || value === "Private Shelter" || value === "Animal Control";
 }
+
+export function isCarePartnerOrganization(value: unknown) {
+  return value === "Veterinary / Care Partner";
+}
+
+export function isRescueManagerOrganization(value: unknown) {
+  return value === "Rescue" || value === "Animal Rescue" || value === "Wildlife Rescue" || value === "Sanctuary" || value === "Farm / Equine";
+}
