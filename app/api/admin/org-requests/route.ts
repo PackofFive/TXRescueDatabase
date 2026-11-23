@@ -60,13 +60,16 @@ export async function POST(req: NextRequest) {
 
     const orgRows = await sql`
       insert into organizations
-        (name, org_type, city, county, state, website, social_media, public_email, public_phone, resource_status)
+        (name, org_type, city, county, state, website, social_media, public_email, public_phone, resource_status,
+         care_partner_category, care_partner_credentials, care_partner_services)
       values
         (${request.organization_name}, ${request.organization_type || null}, ${request.city || null},
          ${request.county || null}, ${request.state || null}, ${request.website || null},
          ${request.social_url || null}, ${request.contact_email || null}, ${request.contact_phone || null},
-         'Verification Needed')
-      returning id, name, org_type, city, county, state, website, social_media, public_email, public_phone, resource_status
+         'Verification Needed', ${request.care_partner_category || null},
+         ${request.care_partner_credentials || null}, ${request.care_partner_services || null})
+      returning id, name, org_type, city, county, state, website, social_media, public_email, public_phone, resource_status,
+        care_partner_category, care_partner_credentials, care_partner_services
     `;
     const org = orgRows[0];
 
