@@ -151,6 +151,13 @@ export default function AccountPage() {
   const hasRescueManager = portals.includes("organization");
   const hasShelterExpress = portals.includes("shelter");
   const hasAdministration = portals.includes("admin");
+  const passwordChecks = [
+    { label: "12–128 characters", met: newPassword.length >= 12 && newPassword.length <= 128 },
+    { label: "One uppercase letter", met: /[A-Z]/.test(newPassword) },
+    { label: "One lowercase letter", met: /[a-z]/.test(newPassword) },
+    { label: "One number", met: /\d/.test(newPassword) },
+    { label: "Passwords match", met: newPassword.length > 0 && newPassword === confirmation },
+  ];
 
   return (
     <div>
@@ -212,7 +219,10 @@ export default function AccountPage() {
               <input type={showPasswords ? "text" : "password"} autoComplete="new-password" required minLength={12} maxLength={128} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} style={passwordInputStyle} />
             </label>
             <label style={showPasswordsStyle}><input type="checkbox" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)} />Show passwords</label>
-            <p style={passwordRequirementsStyle}>Use 12–128 characters with an uppercase letter, lowercase letter, and number.</p>
+            <div style={passwordChecklistStyle} aria-live="polite">
+              <strong style={passwordChecklistHeadingStyle}>Password requirements</strong>
+              {passwordChecks.map((check) => <span key={check.label} style={check.met ? passwordRequirementMetStyle : passwordRequirementStyle}><span aria-hidden="true">{check.met ? "✓" : "○"}</span>{check.label}</span>)}
+            </div>
             <button type="submit" disabled={changingPassword} style={passwordButtonStyle}>{changingPassword ? "Securing Account…" : "Change Password"}</button>
           </form>
         ) : null}
@@ -318,6 +328,32 @@ const showPasswordsStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   cursor: "pointer",
+};
+
+const passwordChecklistStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 6,
+  padding: 12,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.white,
+};
+
+const passwordChecklistHeadingStyle: React.CSSProperties = {
+  color: COLORS.navy,
+  fontSize: 13,
+};
+
+const passwordRequirementStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 7,
+  color: COLORS.muted,
+  fontSize: 12.5,
+};
+
+const passwordRequirementMetStyle: React.CSSProperties = {
+  ...passwordRequirementStyle,
+  color: COLORS.navy,
+  fontWeight: 700,
 };
 
 const panelStyle: React.CSSProperties = {
