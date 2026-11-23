@@ -131,7 +131,12 @@ export default function LoginPage() {
     email,
     setEmail,
   ] =
-    useState("");
+    useState(() => searchParams.get("email")?.trim() ?? "");
+
+  const verifiedNotice =
+    searchParams.get("verified") === "1"
+      ? "Your email is verified. Sign in with the password you chose."
+      : null;
 
   const [
     password,
@@ -455,6 +460,12 @@ export default function LoginPage() {
               20,
           }}
         >
+          {verifiedNotice && !status ? (
+            <div role="status" style={verifiedNoticeStyle}>
+              {verifiedNotice}
+            </div>
+          ) : null}
+
           <label
             htmlFor="email"
             style={
@@ -832,6 +843,16 @@ const inputStyle:
     "#1C1B19",
   fontFamily:
     "inherit",
+};
+
+const verifiedNoticeStyle: React.CSSProperties = {
+  marginBottom: 16,
+  padding: 12,
+  background: COLORS.mint,
+  color: COLORS.navy,
+  fontSize: 13,
+  fontWeight: 700,
+  lineHeight: 1.45,
 };
 
 const signedInActionsStyle: React.CSSProperties = {
