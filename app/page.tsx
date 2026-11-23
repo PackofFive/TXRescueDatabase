@@ -304,7 +304,8 @@ export default function HomePage() {
             symbol="03"
             title="Care Partner Portal"
             text="Permission-based collaboration for veterinary clinics, trainers, boarding, rehabilitation, and other care providers."
-            action="Coming Soon"
+            href="/login?portal=care-partner"
+            action="Open Care Partner Portal"
           />
 
           <PortalCard
