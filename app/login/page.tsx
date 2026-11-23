@@ -641,6 +641,8 @@ export default function LoginPage() {
             >
               Claim an organization
             </a>
+          ) : requestedPortal === "pet-owner" ? (
+            <a href="/register?portal=pet-owner" style={{ color: COLORS.coral, textDecoration: "none", fontSize: 11.5, fontWeight: 700 }}>Create a Pet Owner account</a>
           ) : null}
         </div>
       </section>
