@@ -39,6 +39,7 @@ export default function AccountPage() {
   const [passwordError, setPasswordError] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
   const [inviteMessage, setInviteMessage] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [acceptingInvite, setAcceptingInvite] = useState(false);
@@ -200,16 +201,17 @@ export default function AccountPage() {
           <form onSubmit={changePassword} style={passwordFormStyle}>
             <label style={passwordLabelStyle}>
               Current password
-              <input type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} style={passwordInputStyle} />
+              <input type={showPasswords ? "text" : "password"} autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} style={passwordInputStyle} />
             </label>
             <label style={passwordLabelStyle}>
               New password
-              <input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} style={passwordInputStyle} />
+              <input type={showPasswords ? "text" : "password"} autoComplete="new-password" required minLength={12} maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} style={passwordInputStyle} />
             </label>
             <label style={passwordLabelStyle}>
               Confirm new password
-              <input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} style={passwordInputStyle} />
+              <input type={showPasswords ? "text" : "password"} autoComplete="new-password" required minLength={12} maxLength={128} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} style={passwordInputStyle} />
             </label>
+            <label style={showPasswordsStyle}><input type="checkbox" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)} />Show passwords</label>
             <p style={passwordRequirementsStyle}>Use 12–128 characters with an uppercase letter, lowercase letter, and number.</p>
             <button type="submit" disabled={changingPassword} style={passwordButtonStyle}>{changingPassword ? "Securing Account…" : "Change Password"}</button>
           </form>
@@ -306,6 +308,16 @@ const bodyStyle: React.CSSProperties = {
   color: COLORS.muted,
   fontSize: 14,
   lineHeight: 1.6,
+};
+
+const showPasswordsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  color: COLORS.navy,
+  fontSize: 13,
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const panelStyle: React.CSSProperties = {
