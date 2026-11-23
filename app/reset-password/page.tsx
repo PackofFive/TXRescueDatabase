@@ -24,6 +24,14 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [complete, setComplete] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
+  const passwordChecks = [
+    { label: "12–128 characters", met: newPassword.length >= 12 && newPassword.length <= 128 },
+    { label: "One uppercase letter", met: /[A-Z]/.test(newPassword) },
+    { label: "One lowercase letter", met: /[a-z]/.test(newPassword) },
+    { label: "One number", met: /\d/.test(newPassword) },
+    { label: "Passwords match", met: newPassword.length > 0 && newPassword === confirmation },
+  ];
+  const canResetPassword = token.length > 0 && passwordChecks.every((check) => check.met);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -101,11 +109,11 @@ export default function ResetPasswordPage() {
               <input type="checkbox" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)} />
               Show both passwords
             </label>
-            <div style={requirementsStyle}>
-              Use 12–128 characters with an uppercase letter, lowercase letter,
-              and number. A unique password or password manager is recommended.
+            <div style={requirementsStyle} aria-live="polite">
+              <strong style={requirementsHeadingStyle}>Password requirements</strong>
+              {passwordChecks.map((check) => <span key={check.label} style={check.met ? requirementMetStyle : requirementStyle}><span aria-hidden="true">{check.met ? "✓" : "○"}</span>{check.label}</span>)}
             </div>
-            <button type="submit" disabled={submitting} style={buttonStyle}>
+            <button type="submit" disabled={submitting || !canResetPassword} style={submitting || !canResetPassword ? disabledButtonStyle : buttonStyle}>
               {submitting ? "Securing Account…" : "Reset Password"}
             </button>
           </form>
@@ -134,8 +142,12 @@ const bodyStyle: React.CSSProperties = { margin: 0, color: COLORS.muted, fontSiz
 const formStyle: React.CSSProperties = { display: "grid", gap: 10, marginTop: 22, padding: 20, border: `1px solid ${COLORS.border}`, background: COLORS.white };
 const labelStyle: React.CSSProperties = { color: COLORS.navy, fontSize: 13, fontWeight: 800 };
 const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "11px 12px", border: `1px solid ${COLORS.border}`, background: COLORS.white, color: COLORS.navy, font: "inherit" };
-const requirementsStyle: React.CSSProperties = { padding: 13, background: COLORS.pink, color: COLORS.navy, fontSize: 12.5, lineHeight: 1.5 };
+const requirementsStyle: React.CSSProperties = { display: "grid", gap: 6, padding: 13, background: COLORS.pink, color: COLORS.navy, fontSize: 12.5, lineHeight: 1.5 };
+const requirementsHeadingStyle: React.CSSProperties = { marginBottom: 2, color: COLORS.navy, fontSize: 13 };
+const requirementStyle: React.CSSProperties = { display: "flex", gap: 7, color: COLORS.muted };
+const requirementMetStyle: React.CSSProperties = { ...requirementStyle, color: COLORS.navy, fontWeight: 700 };
 const buttonStyle: React.CSSProperties = { marginTop: 5, padding: "11px 15px", border: 0, background: COLORS.navy, color: COLORS.white, fontWeight: 800, cursor: "pointer" };
+const disabledButtonStyle: React.CSSProperties = { ...buttonStyle, opacity: 0.5, cursor: "not-allowed" };
 const successStyle: React.CSSProperties = { display: "grid", gap: 12, marginTop: 16, padding: 15, border: `1px solid ${COLORS.border}`, background: COLORS.mint, color: COLORS.navy, fontSize: 13, lineHeight: 1.5, fontWeight: 700 };
 const errorStyle: React.CSSProperties = { marginTop: 16, padding: 15, border: "1px solid #E9B9B4", background: "#FCE9E7", color: "#A9362B", fontSize: 13, lineHeight: 1.5 };
 const signInLinkStyle: React.CSSProperties = { justifySelf: "start", padding: "9px 12px", background: COLORS.navy, color: COLORS.white, textDecoration: "none", fontWeight: 800 };
