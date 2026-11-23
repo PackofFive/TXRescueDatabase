@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
-import { createPasswordResetToken, normalizeEmail, sha256, validateNewPassword } from "@/lib/account-security";
+import { createPasswordResetToken, getClientIp, normalizeEmail, sha256, validateNewPassword } from "@/lib/account-security";
 import { sendPetOwnerSignupVerificationEmail } from "@/lib/email";
 
 export const runtime = "edge";
@@ -52,6 +52,16 @@ export async function POST(req: NextRequest) {
     if (!email || !password) return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     const passwordError = validateNewPassword(password);
     if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
+    const requestIpHash = await sha256(getClientIp(req));
+    const recentIpRequests = await sql`
+      select count(*)::int as requests
+      from personal_account_signup_tokens
+      where requested_ip_hash = ${requestIpHash}
+        and created_at > now() - interval '1 hour'
+    `;
+    if (Number(recentIpRequests[0]?.requests ?? 0) >= 10) {
+      return NextResponse.json({ error: "Too many registration emails were requested. Wait one hour and try again." }, { status: 429 });
+    }
     const existing = await sql`select id from users where lower(email) = ${email} limit 1`;
     if (existing[0]) return NextResponse.json({ error: "A Pack of Five account already uses this email. Sign in instead." }, { status: 409 });
     const recent = await sql`
@@ -69,8 +79,8 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await sql`update personal_account_signup_tokens set used_at = now() where lower(email) = ${email} and used_at is null`;
     await sql`
-      insert into personal_account_signup_tokens (email, password_hash, token_hash, expires_at)
-      values (${email}, ${passwordHash}, ${tokenHash}, ${expiresAt.toISOString()})
+      insert into personal_account_signup_tokens (email, password_hash, token_hash, expires_at, requested_ip_hash)
+      values (${email}, ${passwordHash}, ${tokenHash}, ${expiresAt.toISOString()}, ${requestIpHash})
     `;
     const verificationUrl = new URL("/register/verify", req.nextUrl.origin);
     verificationUrl.searchParams.set("token", rawToken);
