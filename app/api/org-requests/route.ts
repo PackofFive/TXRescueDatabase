@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { isOrganizationType } from "@/lib/organization-types";
+import { isCarePartnerCategory, isOrganizationType } from "@/lib/organization-types";
 
 export const runtime = "edge";
 
@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
       contactPhone,
       description,
       relationship,
+      carePartnerCategory,
+      carePartnerCredentials,
+      carePartnerServices,
     } = body ?? {};
 
     if (!organizationName || typeof organizationName !== "string") {
@@ -51,6 +54,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isCarePartner = organizationType === "Veterinary / Care Partner";
+    if (isCarePartner && !isCarePartnerCategory(carePartnerCategory)) {
+      return NextResponse.json({ error: "Please choose a valid Care Partner category." }, { status: 400 });
+    }
+    if (isCarePartner && (typeof carePartnerServices !== "string" || !carePartnerServices.trim())) {
+      return NextResponse.json({ error: "Please describe the professional services this Care Partner offers." }, { status: 400 });
+    }
+
     const rows = await sql`
       insert into organization_requests
         (
@@ -66,6 +77,9 @@ export async function POST(req: NextRequest) {
           contact_phone,
           description,
           relationship,
+          care_partner_category,
+          care_partner_credentials,
+          care_partner_services,
           status
         )
       values
@@ -82,6 +96,9 @@ export async function POST(req: NextRequest) {
           ${contactPhone || null},
           ${description || null},
           ${relationship},
+          ${isCarePartner ? carePartnerCategory : null},
+          ${isCarePartner && typeof carePartnerCredentials === "string" ? carePartnerCredentials.trim() || null : null},
+          ${isCarePartner ? carePartnerServices.trim() : null},
           'pending'
         )
       returning id, organization_name, status, created_at
