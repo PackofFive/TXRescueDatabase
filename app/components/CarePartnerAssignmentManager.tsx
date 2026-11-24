@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 type Relationship = { id: string; care_partner_name: string };
 type Animal = { id: string; name: string; species: string | null; breed_or_type: string | null };
 type Assignment = { id: string; status: string; purpose: string; animal_name: string; care_partner_name: string; expires_at: string; can_view_medical_summary: boolean; can_upload_documents: boolean; can_add_care_notes: boolean };
+type CareNote = { id: string; note_type: string; note_text: string; observed_at: string; created_by_email: string };
 type Data = { relationships: Relationship[]; animals: Animal[]; assignments: Assignment[] };
 
 const COLORS = { navy: "#1E3A5F", coral: "#E85C56", mint: "#E1F3EC", pink: "#F9E1E5", border: "#DCE4EC", muted: "#4A5D75", white: "#FFFFFF" };
@@ -22,6 +23,8 @@ export default function CarePartnerAssignmentManager() {
   const [documents, setDocuments] = useState(false);
   const [notes, setNotes] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [viewingNotesFor, setViewingNotesFor] = useState("");
+  const [careNotes, setCareNotes] = useState<CareNote[]>([]);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/care-partner/assignments", { cache: "no-store" });
@@ -58,6 +61,17 @@ export default function CarePartnerAssignmentManager() {
     finally { setBusy(false); }
   }
 
+  async function viewNotes(assignment: Assignment) {
+    setError("");
+    try {
+      const response = await fetch(`/api/care-partner/assignments/${encodeURIComponent(assignment.id)}/care-notes`, { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Care notes could not be loaded.");
+      setViewingNotesFor(`${assignment.animal_name} · ${assignment.care_partner_name}`);
+      setCareNotes(body.notes || []);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Care notes could not be loaded."); }
+  }
+
   if (!data && !error) return <p>Loading Care Partner assignments…</p>;
   return <section style={{ maxWidth: 920 }}>
     <p style={{ margin: "0 0 7px", color: COLORS.coral, fontSize: 12, fontWeight: 800, letterSpacing: ".1em" }}>CONTROLLED ANIMAL ACCESS</p>
@@ -78,7 +92,8 @@ export default function CarePartnerAssignmentManager() {
         <button disabled={busy || data.relationships.length === 0} style={buttonStyle}>{busy ? "Saving…" : "Create time-limited assignment"}</button>
       </form>
       <h2 style={{ margin: "28px 0 12px", color: COLORS.navy }}>Assignment history</h2>
-      <div style={{ display: "grid", gap: 10 }}>{data.assignments.length === 0 ? <p style={{ color: COLORS.muted }}>No Care Partner animal assignments yet.</p> : data.assignments.map((a) => <article key={a.id} style={{ padding: 16, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><strong style={{ color: COLORS.navy }}>{a.animal_name} · {a.care_partner_name}</strong><p style={{ color: COLORS.muted, margin: "6px 0" }}>{a.purpose}</p><p style={{ color: COLORS.muted, margin: "6px 0", fontSize: 12 }}>Status: {a.status} · Expires {new Date(a.expires_at).toLocaleString()}</p>{a.status === "active" ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button disabled={busy} onClick={() => end(a, "completed")} style={secondaryButton}>Mark complete</button><button disabled={busy} onClick={() => end(a, "revoked")} style={secondaryButton}>Revoke access</button></div> : null}</article>)}</div>
+      <div style={{ display: "grid", gap: 10 }}>{data.assignments.length === 0 ? <p style={{ color: COLORS.muted }}>No Care Partner animal assignments yet.</p> : data.assignments.map((a) => <article key={a.id} style={{ padding: 16, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><strong style={{ color: COLORS.navy }}>{a.animal_name} · {a.care_partner_name}</strong><p style={{ color: COLORS.muted, margin: "6px 0" }}>{a.purpose}</p><p style={{ color: COLORS.muted, margin: "6px 0", fontSize: 12 }}>Status: {a.status} · Expires {new Date(a.expires_at).toLocaleString()}</p><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{a.can_add_care_notes ? <button disabled={busy} onClick={() => viewNotes(a)} style={secondaryButton}>View Care Partner notes</button> : null}{a.status === "active" ? <><button disabled={busy} onClick={() => end(a, "completed")} style={secondaryButton}>Mark complete</button><button disabled={busy} onClick={() => end(a, "revoked")} style={secondaryButton}>Revoke access</button></> : null}</div></article>)}</div>
+      {viewingNotesFor ? <section style={{ marginTop: 20, padding: 18, background: COLORS.mint, border: `1px solid ${COLORS.border}` }}><h2 style={{ margin: "0 0 12px", color: COLORS.navy }}>Care notes: {viewingNotesFor}</h2>{careNotes.length === 0 ? <p style={{ color: COLORS.muted }}>No Care Partner notes have been added.</p> : careNotes.map((note) => <article key={note.id} style={{ marginTop: 9, padding: 14, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><strong style={{ color: COLORS.navy }}>{note.note_type.split("_").join(" ")}</strong><p style={{ color: COLORS.muted, whiteSpace: "pre-wrap" }}>{note.note_text}</p><small style={{ color: COLORS.muted }}>Observed {new Date(note.observed_at).toLocaleString()} · Added by {note.created_by_email}</small></article>)}</section> : null}
     </> : null}
   </section>;
 }
