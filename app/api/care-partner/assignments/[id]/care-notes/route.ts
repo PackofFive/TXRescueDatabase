@@ -83,23 +83,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     const { session, assignment } = await noteContext(id, true);
     const body = await request.json().catch(() => null);
+    const addendumToNoteId = typeof body?.addendumToNoteId === "string" ? body.addendumToNoteId.trim() : "";
+    const isAddendum = Boolean(addendumToNoteId);
     const noteType = NOTE_TYPES.has(body?.noteType) ? body.noteType : "observation";
     const noteText = typeof body?.noteText === "string" ? body.noteText.trim() : "";
     const observedAt = typeof body?.observedAt === "string" ? new Date(body.observedAt) : new Date(NaN);
     if (noteText.length < 10 || noteText.length > 5000 || Number.isNaN(observedAt.getTime()) || observedAt.getTime() > Date.now() + 5 * 60 * 1000) {
       return NextResponse.json({ error: "Enter a care note of 10–5,000 characters and a valid observation time that is not in the future." }, { status: 400 });
     }
+    if (isAddendum && !UUID.test(addendumToNoteId)) return NextResponse.json({ error: "The original care note could not be found." }, { status: 400 });
+    if (isAddendum) {
+      const original = await sql`
+        select id from care_partner_care_notes
+        where id = ${addendumToNoteId}::uuid
+          and assignment_id = ${id}::uuid
+        limit 1
+      `;
+      if (!original[0]) return NextResponse.json({ error: "The original care note could not be found in this assignment." }, { status: 404 });
+    }
     const rows = await sql`
       with created as (
         insert into care_partner_care_notes
-          (assignment_id, animal_id, note_type, note_text, observed_at, created_by)
+          (assignment_id, animal_id, note_type, note_text, observed_at, addendum_to_note_id, created_by)
         values
-          (${id}::uuid, ${assignment.animal_id}::uuid, ${noteType}, ${noteText}, ${observedAt.toISOString()}::timestamptz, ${session.id}::uuid)
+          (${id}::uuid, ${assignment.animal_id}::uuid, ${isAddendum ? "addendum" : noteType}, ${noteText}, ${observedAt.toISOString()}::timestamptz, ${isAddendum ? addendumToNoteId : null}::uuid, ${session.id}::uuid)
         returning id
       )
       insert into care_partner_animal_assignment_events
         (assignment_id, event_type, note, actor_user_id)
-      select ${id}::uuid, 'care_note_added', 'Care note ' || id::text || ' added under the assignment.', ${session.id}::uuid
+      select ${id}::uuid, ${isAddendum ? "care_note_addendum_added" : "care_note_added"},
+        ${isAddendum ? "Addendum added to care note " + addendumToNoteId + "." : "Care note added under the assignment."} || ' New entry: ' || id::text,
+        ${session.id}::uuid
       from created
       returning note
     `;
