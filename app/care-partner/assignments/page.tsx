@@ -33,6 +33,7 @@ export default function Page() {
           <p style={{ color: "#4A5D75", fontSize: 12 }}>Status: {assignment.status} · Expires {new Date(assignment.expires_at).toLocaleString()}</p>
           <ul style={{ color: "#1E3A5F", lineHeight: 1.6 }}>{assignment.can_view_medical_summary ? <li>Limited medical summary</li> : null}{assignment.can_upload_documents ? <li>Document uploads</li> : null}{assignment.can_add_care_notes ? <li>Care notes</li> : null}</ul>
           {open ? <a href={`/care-partner/assignments/${assignment.id}`} style={{ display: "inline-block", marginTop: 8, padding: "10px 13px", background: "#1E3A5F", color: "white", fontWeight: 800, textDecoration: "none" }}>Open assigned work</a> : null}
+          {assignment.can_add_care_notes ? <a href={`/care-partner/assignments/${assignment.id}/care-notes`} style={{ display: "inline-block", marginTop: 8, marginLeft: 8, padding: "10px 13px", border: "1px solid #1E3A5F", color: "#1E3A5F", fontWeight: 800, textDecoration: "none" }}>Care note history</a> : null}
           {active && assignment.can_upload_documents ? <a href={`/care-partner/assignments/${assignment.id}/documents`} style={{ display: "inline-block", marginTop: 8, marginLeft: 8, padding: "10px 13px", border: "1px solid #1E3A5F", color: "#1E3A5F", fontWeight: 800, textDecoration: "none" }}>Assignment documents</a> : null}
         </article>;
       })}
