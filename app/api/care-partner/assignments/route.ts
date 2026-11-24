@@ -125,13 +125,14 @@ export async function PATCH(req: NextRequest) {
         from care_partner_relationships relationship
         where assignment.id = ${assignmentId}::uuid and assignment.relationship_id = relationship.id
           and relationship.partner_org_id = ${orgId}::uuid and assignment.status = 'active'
+          and assignment.expires_at > clock_timestamp()
         returning assignment.id
       )
       insert into care_partner_animal_assignment_events (assignment_id, event_type, old_status, new_status, note, actor_user_id)
       select id, ${status === "completed" ? "assignment_completed" : "assignment_revoked"}, 'active', ${status}, ${reason}, ${session.id}::uuid from updated
       returning assignment_id
     `;
-    if (!rows[0]) return NextResponse.json({ error: "This assignment is no longer active." }, { status: 409 });
+    if (!rows[0]) return NextResponse.json({ error: "This assignment is no longer active. Refresh to see its current status." }, { status: 409 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
