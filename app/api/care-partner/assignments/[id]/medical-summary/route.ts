@@ -38,6 +38,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       where assignment.id = ${id}::uuid
         and relationship.care_partner_org_id = ${orgId}::uuid
         and relationship.status = 'active'
+        and animal.current_org_id = relationship.partner_org_id
         and assignment.status = 'active'
         and assignment.expires_at > now()
         and assignment.can_view_medical_summary = true
