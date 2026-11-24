@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { isCarePartnerOrganization, isRescueManagerOrganization, isShelterExpressOrganization } from "@/lib/organization-types";
+import { carePartnerAccessLevel } from "@/lib/care-partner-access";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const manager = isRescueManagerOrganization(organization.org_type) || isShelterExpressOrganization(organization.org_type);
     if (!carePartner && !manager) throw new AuthError("Assignment audit access is unavailable.", 403);
     if (carePartner && organization.care_partner_review_status !== "verified") throw new AuthError("Verified Care Partner access is required.", 403);
+    const carePartnerLevel = carePartner ? await carePartnerAccessLevel(session.id, orgId, session.role === "admin") : null;
+    if (carePartner && !carePartnerLevel) throw new AuthError("Active Care Partner membership is required.", 403);
     if (manager && session.role !== "admin") {
       const memberships = await sql`select 1 from organization_memberships where user_id = ${session.id}::uuid and org_id = ${orgId}::uuid and status = 'active' and access_level in ('owner', 'administrator') limit 1`;
       if (!memberships[0]) throw new AuthError("Owner or administrator access is required.", 403);
