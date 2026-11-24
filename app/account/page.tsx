@@ -258,7 +258,9 @@ export default function AccountPage() {
         <h2 style={sectionHeadingStyle}>Portals connected to my login</h2>
         <p style={bodyStyle}>
           One email and password can be used across Pack of Five. Only portals
-          shown as connected will appear in your signed-in header.
+          you have access to appear in your signed-in header. Use that header to
+          switch portals. If you use separate test logins, check the signed-in
+          email above before testing a portal.
         </p>
 
         {(user.organizationWorkspaces?.length ?? 0) > 0 ? (
@@ -274,7 +276,7 @@ export default function AccountPage() {
                       <strong style={organizationNameStyle}>{workspace.name}</strong>
                       <div style={organizationMetaStyle}>{workspace.org_type || "Organization type pending review"} · {formatAccountLabel(workspace.access_level)}</div>
                     </div>
-                    <span style={approvedBadgeStyle}>{shelterOrganization && workspace.shelter_express_access ? "Shelter Express" : shelterOrganization ? "Organization listing only" : "Rescue Manager"}</span>
+                    <span style={approvedBadgeStyle}>{workspace.org_type === "Veterinary / Care Partner" ? "Care Partner organization" : shelterOrganization && workspace.shelter_express_access ? "Shelter Express" : shelterOrganization ? "Organization listing only" : "Rescue Manager"}</span>
                   </article>
                 );
               })}
