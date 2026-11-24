@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { isCarePartnerOrganization, isRescueManagerOrganization, isShelterExpressOrganization } from "@/lib/organization-types";
+import { carePartnerAccessLevel, canPerformAssignedCare } from "@/lib/care-partner-access";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ async function noteContext(assignmentId: string, requireActiveWrite = false) {
   const manager = isRescueManagerOrganization(organization.org_type) || isShelterExpressOrganization(organization.org_type);
   if (!carePartner && !manager) throw new AuthError("Care-note access is unavailable.", 403);
   if (carePartner && organization.care_partner_review_status !== "verified") throw new AuthError("Verified Care Partner access is required.", 403);
+  const accessLevel = carePartner ? await carePartnerAccessLevel(session.id, orgId, session.role === "admin") : null;
+  if (carePartner && !accessLevel) throw new AuthError("Active Care Partner membership is required.", 403);
 
   const assignments = await sql`
     select assignment.id, assignment.animal_id, assignment.status, assignment.expires_at,
@@ -38,11 +41,11 @@ async function noteContext(assignmentId: string, requireActiveWrite = false) {
   const assignment = assignments[0];
   if (!assignment) throw new AuthError("Assignment not found.", 404);
   if (requireActiveWrite) {
-    if (!carePartner || assignment.care_partner_org_id !== orgId || assignment.status !== "active" || assignment.relationship_status !== "active" || new Date(assignment.expires_at).getTime() <= Date.now() || assignment.can_add_care_notes !== true) {
+    if (!carePartner || !canPerformAssignedCare(accessLevel) || assignment.care_partner_org_id !== orgId || assignment.status !== "active" || assignment.relationship_status !== "active" || new Date(assignment.expires_at).getTime() <= Date.now() || assignment.can_add_care_notes !== true) {
       throw new AuthError("This assignment does not include active permission to add care notes.", 403);
     }
   }
-  return { session, orgId, carePartner, manager, assignment };
+  return { session, orgId, carePartner, manager, assignment, accessLevel };
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
