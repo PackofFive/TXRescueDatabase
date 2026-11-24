@@ -40,6 +40,15 @@ async function documentContext(assignmentId: string, write = false) {
   `;
   const assignment = rows[0];
   if (!assignment) throw new AuthError("Assignment not found.", 404);
+  if (carePartner && (
+    assignment.care_partner_org_id !== orgId ||
+    assignment.relationship_status !== "active" ||
+    assignment.status !== "active" ||
+    !(new Date(assignment.expires_at).getTime() > Date.now()) ||
+    assignment.can_upload_documents !== true
+  )) {
+    throw new AuthError("This assignment no longer grants access to documents.", 403);
+  }
   if (write && (!carePartner || !canPerformAssignedCare(accessLevel) || assignment.care_partner_org_id !== orgId || assignment.status !== "active" || assignment.relationship_status !== "active" || assignment.can_upload_documents !== true || new Date(assignment.expires_at).getTime() <= Date.now())) {
     throw new AuthError("This assignment does not include active permission to upload documents.", 403);
   }
