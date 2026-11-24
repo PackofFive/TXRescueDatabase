@@ -37,6 +37,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       join organizations partner on partner.id = relationship.partner_org_id
       where assignment.id = ${id}::uuid
         and (${orgId}::uuid = relationship.care_partner_org_id or ${orgId}::uuid = relationship.partner_org_id)
+        and (not ${carePartner}::boolean or animal.current_org_id = relationship.partner_org_id)
       limit 1
     `;
     if (!assignments[0]) throw new AuthError("Assignment not found.", 404);
