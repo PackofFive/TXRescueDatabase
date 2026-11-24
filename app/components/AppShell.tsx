@@ -1311,6 +1311,7 @@ function ShelterExpressShell({ children, user }: { children: ReactNode; user: Ex
             <ManagerLink href="/shelter-express/animals"><span style={dashboardLinkContentStyle}><span>Urgent Animals</span><ShelterCount value={counts.urgentAnimals} /></span></ManagerLink>
             <ManagerLink href="/shelter-express/offers"><span style={dashboardLinkContentStyle}><span>Rescue &amp; Tag Offers</span><ShelterCount value={counts.offers} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/partners">Rescue Partners</ManagerLink>
+            <ManagerLink href="/shelter-express/care-partners">Care Partners</ManagerLink>
             <ManagerLink href="/shelter-express/reports"><span style={dashboardLinkContentStyle}><span>Volunteer Reports</span><ShelterCount value={counts.reports} attention /></span></ManagerLink>
             <ManagerLink href="/shelter-express/profile">Shelter Profile</ManagerLink>
             <ManagerLink href="/shelter-express/archived">Archived Records</ManagerLink>
@@ -1871,6 +1872,10 @@ function ManagerNavigation({
 
         <ManagerLink href="/portal/team-access">
           Team &amp; Access
+        </ManagerLink>
+
+        <ManagerLink href="/portal/care-partners">
+          Care Partners
         </ManagerLink>
 
         <ManagerLink href="/portal/data-imports" exact>
