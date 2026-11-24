@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { isCarePartnerOrganization } from "@/lib/organization-types";
+import { carePartnerAccessLevel } from "@/lib/care-partner-access";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!organizations[0] || !isCarePartnerOrganization(organizations[0].org_type) || organizations[0].care_partner_review_status !== "verified") {
       throw new AuthError("Verified Care Partner access is required.", 403);
     }
+    const accessLevel = await carePartnerAccessLevel(session.id, orgId, session.role === "admin");
+    if (!accessLevel) throw new AuthError("Active Care Partner membership is required.", 403);
 
     const assignments = await sql`
       select assignment.id, assignment.animal_id, assignment.purpose, assignment.expires_at,
