@@ -45,6 +45,7 @@ export async function GET() {
         join animals animal on animal.id = assignment.animal_id
         where relationship.care_partner_org_id = ${orgId}::uuid
           and relationship.status = 'active'
+          and animal.current_org_id = relationship.partner_org_id
         order by case assignment.status when 'active' then 0 else 1 end, assignment.updated_at desc
       `;
       return NextResponse.json({ role: "care_partner", assignments }, { headers: { "Cache-Control": "no-store" } });
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
           and relationship.status = 'active' and provider.care_partner_review_status = 'verified'
           and animal.current_org_id = ${orgId}::uuid
           and coalesce(animal.outcome_status, 'active') not in ('adopted', 'transferred', 'deceased', 'returned')
+        for share of animal
         returning id
       )
       insert into care_partner_animal_assignment_events (assignment_id, event_type, new_status, note, actor_user_id)
