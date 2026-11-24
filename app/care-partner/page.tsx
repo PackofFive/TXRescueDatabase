@@ -32,9 +32,9 @@ export default async function CarePartnerPage() {
 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginTop: 18 }}>
       <article style={{ padding: 18, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><h2 style={{ margin: "0 0 7px", color: COLORS.navy, fontSize: 18 }}>Organization relationships</h2><p style={{ margin: "0 0 12px", color: COLORS.muted, fontSize: 13, lineHeight: 1.55 }}>No rescue, shelter, or pet-owner records are shared automatically. Each organization must intentionally approve a relationship and its permissions.</p><a href="/care-partner/relationships" style={{ color: COLORS.coral, fontSize: 13, fontWeight: 800, textDecoration: "none" }}>Manage relationships →</a></article>
-      <article style={{ padding: 18, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><h2 style={{ margin: "0 0 7px", color: COLORS.navy, fontSize: 18 }}>Assigned work</h2><p style={{ margin: 0, color: COLORS.muted, fontSize: 13, lineHeight: 1.55 }}>Animal records will appear here only after an authorized organization assigns the provider and specifies what information may be viewed or updated.</p></article>
+      <article style={{ padding: 18, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><h2 style={{ margin: "0 0 7px", color: COLORS.navy, fontSize: 18 }}>Assigned work</h2><p style={{ margin: "0 0 12px", color: COLORS.muted, fontSize: 13, lineHeight: 1.55 }}>Animals appear only after an authorized organization creates a time-limited assignment and chooses exact permissions.</p><a href="/care-partner/assignments" style={{ color: COLORS.coral, fontSize: 13, fontWeight: 800, textDecoration: "none" }}>View assigned work →</a></article>
     </div>
 
-    <p style={{ marginTop: 18, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.55 }}>This foundation intentionally provides no animal access yet. Relationship permissions, consent, record scope, and audit controls will be added before collaboration tools are enabled.</p>
+    <p style={{ marginTop: 18, color: COLORS.muted, fontSize: 12.5, lineHeight: 1.55 }}>Organization relationships alone reveal no animals. Each animal assignment is separately authorized, scoped, time-limited, and recorded.</p>
   </section>;
 }
