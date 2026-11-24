@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireEffectiveOrg } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { isCarePartnerOrganization, isRescueManagerOrganization, isShelterExpressOrganization } from "@/lib/organization-types";
+import { carePartnerAccessLevel, canPerformAssignedCare } from "@/lib/care-partner-access";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,8 @@ async function documentContext(assignmentId: string, write = false) {
   const manager = isRescueManagerOrganization(organization.org_type) || isShelterExpressOrganization(organization.org_type);
   if (!carePartner && !manager) throw new AuthError("Assignment document access is unavailable.", 403);
   if (carePartner && organization.care_partner_review_status !== "verified") throw new AuthError("Verified Care Partner access is required.", 403);
+  const accessLevel = carePartner ? await carePartnerAccessLevel(session.id, orgId, session.role === "admin") : null;
+  if (carePartner && !accessLevel) throw new AuthError("Active Care Partner membership is required.", 403);
   const rows = await sql`
     select assignment.id, assignment.animal_id, assignment.status, assignment.expires_at,
       assignment.can_upload_documents, relationship.status as relationship_status,
@@ -37,10 +40,10 @@ async function documentContext(assignmentId: string, write = false) {
   `;
   const assignment = rows[0];
   if (!assignment) throw new AuthError("Assignment not found.", 404);
-  if (write && (!carePartner || assignment.care_partner_org_id !== orgId || assignment.status !== "active" || assignment.relationship_status !== "active" || assignment.can_upload_documents !== true || new Date(assignment.expires_at).getTime() <= Date.now())) {
+  if (write && (!carePartner || !canPerformAssignedCare(accessLevel) || assignment.care_partner_org_id !== orgId || assignment.status !== "active" || assignment.relationship_status !== "active" || assignment.can_upload_documents !== true || new Date(assignment.expires_at).getTime() <= Date.now())) {
     throw new AuthError("This assignment does not include active permission to upload documents.", 403);
   }
-  return { session, orgId, carePartner, manager, assignment };
+  return { session, orgId, carePartner, manager, assignment, accessLevel };
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
