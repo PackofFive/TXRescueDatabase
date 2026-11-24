@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import CarePartnerAssignmentAudit from "@/app/components/CarePartnerAssignmentAudit";
 
 type Relationship = { id: string; care_partner_name: string };
 type Animal = { id: string; name: string; species: string | null; breed_or_type: string | null };
@@ -25,6 +26,7 @@ export default function CarePartnerAssignmentManager() {
   const [confirmed, setConfirmed] = useState(false);
   const [viewingNotesFor, setViewingNotesFor] = useState("");
   const [careNotes, setCareNotes] = useState<CareNote[]>([]);
+  const [auditAssignmentId, setAuditAssignmentId] = useState("");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/care-partner/assignments", { cache: "no-store" });
@@ -93,6 +95,7 @@ export default function CarePartnerAssignmentManager() {
       </form>
       <h2 style={{ margin: "28px 0 12px", color: COLORS.navy }}>Assignment history</h2>
       <div style={{ display: "grid", gap: 10 }}>{data.assignments.length === 0 ? <p style={{ color: COLORS.muted }}>No Care Partner animal assignments yet.</p> : data.assignments.map((a) => <article key={a.id} style={{ padding: 16, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><strong style={{ color: COLORS.navy }}>{a.animal_name} · {a.care_partner_name}</strong><p style={{ color: COLORS.muted, margin: "6px 0" }}>{a.purpose}</p><p style={{ color: COLORS.muted, margin: "6px 0", fontSize: 12 }}>Status: {a.status} · Expires {new Date(a.expires_at).toLocaleString()}</p>{a.status === "expired" ? <p style={{ margin: "7px 0", color: COLORS.coral, fontSize: 12, fontWeight: 800 }}>Access ended automatically. Create a new assignment to renew access with fresh authorization and permissions.</p> : null}<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{a.can_add_care_notes ? <button disabled={busy} onClick={() => viewNotes(a)} style={secondaryButton}>View Care Partner notes</button> : null}{a.status === "active" ? <><button disabled={busy} onClick={() => end(a, "completed")} style={secondaryButton}>Mark complete</button><button disabled={busy} onClick={() => end(a, "revoked")} style={secondaryButton}>Revoke access</button></> : null}</div></article>)}</div>
+      <section style={{ marginTop: 20, padding: 18, background: "#F4F7FA", border: `1px solid ${COLORS.border}` }}><h2 style={{ margin: "0 0 10px", color: COLORS.navy }}>Assignment audit history</h2><label style={labelStyle}>Choose an assignment<select value={auditAssignmentId} onChange={(event) => setAuditAssignmentId(event.target.value)} style={inputStyle}><option value="">Select an assignment</option>{data.assignments.map((assignment) => <option key={assignment.id} value={assignment.id}>{assignment.animal_name} · {assignment.care_partner_name} · {assignment.status}</option>)}</select></label>{auditAssignmentId ? <div style={{ marginTop: 14 }}><CarePartnerAssignmentAudit assignmentId={auditAssignmentId} /></div> : null}</section>
       {viewingNotesFor ? <section style={{ marginTop: 20, padding: 18, background: COLORS.mint, border: `1px solid ${COLORS.border}` }}><h2 style={{ margin: "0 0 12px", color: COLORS.navy }}>Care notes: {viewingNotesFor}</h2>{careNotes.length === 0 ? <p style={{ color: COLORS.muted }}>No Care Partner notes have been added.</p> : careNotes.map((note) => <article key={note.id} style={{ marginTop: 9, padding: 14, background: COLORS.white, border: `1px solid ${COLORS.border}` }}><strong style={{ color: COLORS.navy }}>{note.note_type.split("_").join(" ")}</strong><p style={{ color: COLORS.muted, whiteSpace: "pre-wrap" }}>{note.note_text}</p><small style={{ color: COLORS.muted }}>Observed {new Date(note.observed_at).toLocaleString()} · Added by {note.created_by_email}</small></article>)}</section> : null}
     </> : null}
   </section>;
