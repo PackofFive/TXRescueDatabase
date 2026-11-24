@@ -23,4 +23,18 @@ export default function CarePartnerAssignmentAudit({ assignmentId }: { assignmen
   </div>;
 }
 
-function eventLabel(value: string) { const labels: Record<string, string> = { assignment_created: "Assignment created", medical_summary_viewed: "Limited medical summary viewed", care_note_added: "Care note added", care_note_addendum_added: "Care-note addendum added", document_uploaded: "Private document uploaded", assignment_completed: "Assignment completed", assignment_revoked: "Access revoked", assignment_expired: "Assignment automatically expired" }; return labels[value] || value.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "); }
+function eventLabel(value: string) {
+  const labels: Record<string, string> = {
+    assignment_created: "Assignment created",
+    medical_summary_viewed: "Limited medical summary viewed",
+    care_note_added: "Care note added",
+    care_note_addendum_added: "Care-note addendum added",
+    document_uploaded: "Private document uploaded",
+    assignment_completed: "Assignment completed",
+    assignment_revoked: "Access revoked",
+    assignment_revoked_custody_changed: "Access ended after custody changed",
+    assignment_revoked_relationship_closed: "Access ended after the relationship was suspended or ended",
+    assignment_expired: "Assignment automatically expired",
+  };
+  return labels[value] || value.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
