@@ -53,37 +53,64 @@ export async function POST(req: NextRequest) {
     const { session, orgId } = await requireRelationshipReviewer();
     const body = await req.json().catch(() => null);
     const relationshipId = typeof body?.relationshipId === "string" ? body.relationshipId.trim() : "";
-    const action = body?.action === "approve" || body?.action === "decline" ? body.action : "";
+    const allowedActions = new Set(["approve", "decline", "suspend", "reactivate", "end"]);
+    const action = typeof body?.action === "string" && allowedActions.has(body.action) ? body.action : "";
     const note = typeof body?.note === "string" ? body.note.trim().slice(0, 2000) : "";
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(relationshipId) || !action || note.length < 10) {
-      return NextResponse.json({ error: "Choose approve or decline and include a private decision note of at least 10 characters." }, { status: 400 });
+      return NextResponse.json({ error: "Choose a relationship action and include a private decision note of at least 10 characters." }, { status: 400 });
     }
-    const nextStatus = action === "approve" ? "active" : "declined";
+    const currentRows = await sql`select status from care_partner_relationships where id = ${relationshipId}::uuid and partner_org_id = ${orgId}::uuid limit 1`;
+    const currentStatus = currentRows[0]?.status ? String(currentRows[0].status) : "";
+    const transitions: Record<string, Record<string, string>> = {
+      requested: { approve: "active", decline: "declined" },
+      active: { suspend: "suspended", end: "ended" },
+      suspended: { reactivate: "active", end: "ended" },
+    };
+    const nextStatus = transitions[currentStatus]?.[action] || "";
+    if (!nextStatus) return NextResponse.json({ error: "That relationship action is no longer available for its current status." }, { status: 409 });
+    const eventType: Record<string, string> = { approve: "relationship_approved", decline: "relationship_declined", suspend: "relationship_suspended", reactivate: "relationship_reactivated", end: "relationship_ended" };
+    const closesAssignments = action === "suspend" || action === "end";
     const rows = await sql`
       with updated as (
         update care_partner_relationships relationship
         set status = ${nextStatus}, reviewed_by = ${session.id}::uuid, reviewed_at = now(),
-            started_at = case when ${nextStatus} = 'active' then now() else null end,
-            ended_at = case when ${nextStatus} = 'declined' then now() else null end,
+            started_at = case when ${nextStatus} = 'active' then coalesce(relationship.started_at, now()) else relationship.started_at end,
+            ended_at = case when ${nextStatus} in ('declined', 'ended') then now() else relationship.ended_at end,
             updated_at = now()
         from organizations provider
         where relationship.id = ${relationshipId}::uuid
           and relationship.partner_org_id = ${orgId}::uuid
-          and relationship.status = 'requested'
+          and relationship.status = ${currentStatus}
           and provider.id = relationship.care_partner_org_id
           and provider.archived_at is null
-          and provider.care_partner_review_status = 'verified'
+          and (${nextStatus} <> 'active' or provider.care_partner_review_status = 'verified')
         returning relationship.id
-      )
-      insert into care_partner_relationship_events (
+      ), relationship_event as (
+        insert into care_partner_relationship_events (
         relationship_id, event_type, old_status, new_status, note, actor_user_id
+        )
+        select id, ${eventType[action]}, ${currentStatus}, ${nextStatus}, ${note}, ${session.id}::uuid
+        from updated
+        returning relationship_id
+      ), closed_assignments as (
+        update care_partner_animal_assignments assignment
+        set status = 'revoked', ended_by = ${session.id}::uuid, ended_at = now(),
+            end_reason = ${"Relationship " + action + ": " + note}, updated_at = now()
+        where assignment.relationship_id in (select relationship_id from relationship_event)
+          and assignment.status = 'active'
+          and ${closesAssignments} = true
+        returning assignment.id
+      ), assignment_events as (
+        insert into care_partner_animal_assignment_events
+          (assignment_id, event_type, old_status, new_status, note, actor_user_id)
+        select id, 'assignment_revoked_relationship_closed', 'active', 'revoked',
+          ${"Care Partner relationship " + action + ". " + note}, ${session.id}::uuid
+        from closed_assignments
+        returning assignment_id
       )
-      select id, ${action === "approve" ? "relationship_approved" : "relationship_declined"},
-        'requested', ${nextStatus}, ${note}, ${session.id}::uuid
-      from updated
-      returning relationship_id
+      select relationship_id from relationship_event
     `;
-    if (!rows[0]) return NextResponse.json({ error: "This request is no longer pending, or the Care Partner is no longer verified." }, { status: 409 });
+    if (!rows[0]) return NextResponse.json({ error: "The relationship changed before this action could be completed, or the Care Partner is no longer verified." }, { status: 409 });
     return NextResponse.json({ ok: true, status: nextStatus });
   } catch (error) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
