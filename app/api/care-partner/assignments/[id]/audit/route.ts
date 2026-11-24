@@ -43,8 +43,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!assignments[0]) throw new AuthError("Assignment not found.", 404);
     const events = await sql`
       select event.id, event.event_type, event.old_status, event.new_status,
-        event.note, event.system_generated, event.created_at,
-        actor.email as actor_email
+        case when not ${carePartner}::boolean then event.note end as note,
+        event.system_generated, event.created_at,
+        case when not ${carePartner}::boolean then actor.email end as actor_email
       from care_partner_animal_assignment_events event
       left join users actor on actor.id = event.actor_user_id
       where event.assignment_id = ${id}::uuid
