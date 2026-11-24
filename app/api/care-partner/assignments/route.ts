@@ -27,6 +27,7 @@ async function assignmentContext() {
 export async function GET() {
   try {
     const { orgId, carePartner } = await assignmentContext();
+    await sql`select expire_care_partner_animal_assignments()`;
     if (carePartner) {
       const assignments = await sql`
         select assignment.id, assignment.status, assignment.purpose,
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
     if (origin && origin !== req.nextUrl.origin) return NextResponse.json({ error: "Request rejected." }, { status: 403 });
     const { session, orgId, manager } = await assignmentContext();
     if (!manager) throw new AuthError("Only the animal's organization can create an assignment.", 403);
+    await sql`select expire_care_partner_animal_assignments()`;
     const body = await req.json().catch(() => null);
     const relationshipId = typeof body?.relationshipId === "string" ? body.relationshipId.trim() : "";
     const animalId = typeof body?.animalId === "string" ? body.animalId.trim() : "";
