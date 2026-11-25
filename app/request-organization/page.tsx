@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
 } from "react";
 import {
@@ -59,6 +60,12 @@ export default function RequestOrganizationPage() {
       carePartnerServices:
         "",
     });
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("type") === "care-partner") {
+      setForm((current) => ({ ...current, organizationType: "Veterinary / Care Partner" }));
+    }
+  }, []);
 
   const [
     status,
