@@ -45,7 +45,30 @@ export default function AdminPage(){
     }catch(e){setClaimActionError(e instanceof Error?e.message:"The claim could not be updated.")}
     finally{setWorking(null)}
   }
-  async function updateCase(id:string,body:Record<string,string>){setWorking(id);setError(null);const r=await fetch("/api/admin/claim-issues",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:id,...body})});const d=await r.json();setWorking(null);if(!r.ok){setError(d.error??"The case could not be updated.");return}load()}
+  const [caseErrors, setCaseErrors] = useState<Record<string, string>>({});
+  async function updateCase(id: string, body: Record<string, string>) {
+    setCaseErrors((current) => ({ ...current, [id]: "" }));
+    if (body.status && (body.resolutionNotes ?? "").trim().length < 10) {
+      setCaseErrors((current) => ({ ...current, [id]: "Enter an outcome of at least 10 characters. It will be emailed to both parties." }));
+      document.getElementById(`case-outcome-${id}`)?.focus();
+      return;
+    }
+    setWorking(id);
+    try {
+      const response = await fetch("/api/admin/claim-issues", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: id, ...body }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "The case could not be updated.");
+      await load();
+    } catch (error) {
+      setCaseErrors((current) => ({ ...current, [id]: error instanceof Error ? error.message : "The case could not be updated." }));
+    } finally {
+      setWorking(null);
+    }
+  }
   async function inviteAdmin(e:React.FormEvent){e.preventDefault();setWorking("invite-admin");setAdminMessage("");const r=await fetch("/api/admin/users/platform",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:inviteEmail,accessLevel:inviteLevel})});const d=await r.json();setWorking(null);if(!r.ok){setAdminMessage(d.error??"The invitation could not be sent.");return}setInviteEmail("");setAdminMessage(d.message);load()}
   async function changeAdmin(member:AdminMember,action:string){const reason=window.prompt("Enter the reason for this access change. It will be permanently audited.");if(!reason)return;let accessLevel=member.access_level;if(action==="change_level"){const choice=window.prompt("Enter: platform_owner, case_administrator, or directory_moderator",member.access_level);if(!choice)return;accessLevel=choice}setWorking(member.user_id);const r=await fetch("/api/admin/users/platform",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:member.user_id,action,accessLevel,reason})});const d=await r.json();setWorking(null);if(!r.ok){setAdminMessage(d.error??"Access could not be updated.");return}setAdminMessage(d.message);load()}
   if(error)return <p style={{color:"#B23B2E"}}>{error}</p>;
@@ -61,7 +84,8 @@ export default function AdminPage(){
       <div style={{fontSize:13,lineHeight:1.55,marginTop:12}}><strong>Next:</strong> {report.next_action}<br/><strong>Due:</strong> {new Date(report.due_at).toLocaleDateString()}<br/><strong>Reporter:</strong> {report.reporter_name} · {report.reporter_email}{report.reporter_phone?` · ${report.reporter_phone}`:""}<br/><strong>Current owner:</strong> {report.current_owner_email??"No owner email found"}<br/><strong>Issue:</strong> {issueLabel(report.issue_type)} · {report.relationship_to_org.replaceAll("_"," ")}{report.previous_org_email?<><br/><strong>Previous email:</strong> {report.previous_org_email}</>:null}</div>
       <p style={{whiteSpace:"pre-wrap",fontSize:13}}>{report.details}</p>{report.evidence_url&&<a href={report.evidence_url} target="_blank" rel="noreferrer">Open supporting link</a>}
       <div style={{display:"grid",gap:7,margin:"14px 0"}}><Check done={!!report.reporter_evidence_received_at} label="Reporter documentation received" onClick={()=>updateCase(report.id,{checkpoint:"reporter_evidence"})}/><Check done={!!report.owner_response_received_at} label="Current owner response received" onClick={()=>updateCase(report.id,{checkpoint:"owner_response"})}/><Check done={!!report.official_record_checked_at} label="Independent official record checked" onClick={()=>updateCase(report.id,{checkpoint:"official_record"})}/></div>
-      <label style={{display:"block",fontSize:12,fontWeight:800}}>Outcome sent to both parties<textarea value={notes[report.id]??""} onChange={e=>setNotes(n=>({...n,[report.id]:e.target.value}))} rows={3} placeholder="Explain the decision and any next steps. Do not include private evidence or personal information." style={textareaStyle}/></label>
+      <label style={{display:"block",fontSize:12,fontWeight:800}}>Outcome sent to both parties (at least 10 characters)<textarea id={`case-outcome-${report.id}`} aria-describedby={caseErrors[report.id] ? `case-error-${report.id}` : undefined} value={notes[report.id]??""} onChange={e=>setNotes(n=>({...n,[report.id]:e.target.value}))} rows={3} placeholder="Explain the decision and any next steps. Do not include private evidence or personal information." style={textareaStyle}/></label>
+      {caseErrors[report.id] && <p id={`case-error-${report.id}`} role="alert" style={{color:"#B23B2E"}}>{caseErrors[report.id]}</p>}
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:9}}><button disabled={working===report.id} onClick={()=>updateCase(report.id,{status:"resolved",resolutionNotes:notes[report.id]??""})}>Resolve and email outcome</button><button disabled={working===report.id} onClick={()=>updateCase(report.id,{status:"rejected",resolutionNotes:notes[report.id]??""})}>Close without access change</button></div>
     </details>})}
     {(submissions?.length??0)>0&&<><h2 id="submissions" style={headingStyle}>Pending public updates</h2>{submissions?.map(s=><div key={s.id} style={itemStyle}><strong>{s.org_name}</strong> — {s.field_label}<div style={{fontSize:13,margin:"6px 0"}}>{s.old_value} → <strong>{s.new_value}</strong></div><button onClick={()=>act(s.id,"approve")} style={{marginRight:8}}>Approve</button><button onClick={()=>act(s.id,"reject")}>Reject</button></div>)}</>}
