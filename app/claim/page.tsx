@@ -154,7 +154,7 @@ function ClaimPageInner() {
     <div style={{ maxWidth: 480 }}>
       <h1 style={{ fontSize: 20 }}>Claim your organization&apos;s listing</h1>
       <p style={{ color: "#6B6862", fontSize: 13.5, marginBottom: 16 }}>
-        Find your organization to request Rescue Manager access. If it already has an owner or you cannot use its listed email, report the issue for private review.
+        Find your organization or business to request access to its listing. Portal access depends on the organization type and any required approvals. If the listing already has an owner or you cannot use its listed email, report the issue for private review.
       </p>
 
       {step === "search" && (
